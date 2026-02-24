@@ -1,35 +1,27 @@
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 bl_info = {
-    "name": "ADDON_NAME",
-    "author": "AUTHOR_NAME",
-    "description": "",
+    "name": "BlenderRail",
+    "author": "Gilad Harnik",
+    "description": "A plugin for architectural visualizations",
     "blender": (2, 80, 0),
     "version": (0, 0, 1),
-    "location": "",
-    "warning": "",
-    "category": "Generic",
+    "location": "View3D > Tool Shelf",
+    "category": "3D View",
 }
 
-from . import auto_load
+import bpy
 
-auto_load.init()
+from . import controlpanel
+
 
 
 def register():
-    auto_load.register()
+    controlpanel.register()
 
 
 def unregister():
-    auto_load.unregister()
+    controlpanel.unregister()
+
+
+
+if __name__ == "__main__":
+    register()
