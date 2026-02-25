@@ -2,6 +2,11 @@ import bpy
 
 
 
+# Todo: attempt to fix this method:
+# https://blender.stackexchange.com/questions/213435/how-to-create-a-dynamic-ui-list-similar-to-the-outliner
+
+
+
 # -----------------------------------------------------------------------------
 # Fake tree panel (viewport sidebar, tab "blenderrail")
 # -----------------------------------------------------------------------------
@@ -16,56 +21,65 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        floors = scene.floors
 
-        floors = context.scene.floors
+        faketreeBox = layout.box()
 
-        column = layout.column(align = True)
-        row = column.row(align=True)
-        row.operator("blenderrail.add_floor", text="Add Floor", icon="ADD")
-        row.operator("blenderrail.remove_floor", text="Remove Floor", icon="REMOVE")
+        controlsColumn = faketreeBox.column(align = True)
+        floorRow = controlsColumn.row(align = True)
+        floorRow.operator("blenderrail.add_floor", text="Add Floor", icon="ADD")
+        floorRow.operator("blenderrail.remove_floor", text="Remove Floor", icon="REMOVE")
 
-        row = column.row(align=True)
-        row.operator("blenderrail.add_curve", text="Add Room", icon="ADD")
-        row.operator("blenderrail.remove_curve", text="Remove Room", icon="REMOVE")
+        #curveRow = controlsColumn.row(align=True)
+        #curveRow.operator("blenderrail.add_curve", text="Add Room", icon="ADD")
+        #curveRow.operator("blenderrail.remove_curve", text="Remove Room", icon="REMOVE")
 
-        layout.separator()
+        faketreeBox.separator()
 
         if not floors or len(floors) == 0:
-            layout.label(text = "No floors added")
+            faketreeBox.label(text = "No floors added")
 
-        active_floor_index = context.scene.active_floor_index
-        active_curve_index = context.scene.active_curve_index
+        active_floor_index = scene.active_floor_index
+        active_curve_index = scene.active_curve_index
 
         for i, floor in enumerate(floors):
-            row = layout.row(align = True)
 
-            row.separator(factor = 0.5)
+            flooritemRow = faketreeBox.row(align = True)
+            flooritemRow.separator(factor = 0.5)
 
-            sel_icon = "RADIOBUT_ON" if i == active_floor_index else "RADIOBUT_OFF"
-            op = row.operator("blenderrail.set_active_indecies", text = "", icon = sel_icon, emboss=False)
-            op.floor_index = i
-            icon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
-            row.prop(floor, "is_open", icon = icon, icon_only = True, emboss = False)
-            row.prop(floor, "name", text = "Floor")
+            flooractivateIcon = "RADIOBUT_ON" if i == active_floor_index else "RADIOBUT_OFF"
 
+            activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
+            activateFloor.floor_index = i
+
+            floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
+            flooritemRow.prop(floor, "is_open", text = "#" + str(i) + " Floor", icon = floorExpandIcon, emboss = False)
+            #flooritemRow.prop(floor, "name", text = "#" + str(i) + " Floor")
+
+            '''
             if not floor.is_open:
                 continue
                 
             for j, curve in enumerate(floor.input_curve):
-                sub = layout.row(align = True)
 
-                sub.separator(factor = 2.0)
+                curveitemRow = layout.row(align = True)
+                curveitemRow.separator(factor = 2.0)
 
-                r_icon = "RADIOBUT_ON" if (i == active_floor_index and j == active_curve_index) else "RADIOBUT_OFF"
-                rop = sub.operator("blenderrail.set_active_indecies", text = "", icon = r_icon, emboss = False)
-                rop.floor_index = i
-                rop.curve_index = j
-                sub.prop(curve, "name", text = "Room")
-                sub.prop(curve, "element_ID", text = "ID")
+                curveactivateIcon = "RADIOBUT_ON" if (i == active_floor_index and j == active_curve_index) else "RADIOBUT_OFF"
+
+                activateCurve = curveitemRow.operator("blenderrail.set_active_indecies", text = "", icon = curveactivateIcon, emboss = False)
+                activateCurve.floor_index = i
+                activateCurve.curve_index = j
+
+                curveitemRow.prop(curve, "name", text = "Room")
+                curveitemRow.prop(curve, "element_ID", text = "ID")
+            '''
+
 
         if floors and 0 <= active_floor_index < len(floors):
             floor_entry = floors[active_floor_index]
 
             box = layout.box()
-            box.label(text = "works!")
-            box.prop(floor_entry, "element_collection", text = "Elements", icon = 'COLLECTION')
+
+            box.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
+            box.prop(floor_entry, "element_collection", text = "Elements", icon = 'OUTLINER_COLLECTION')

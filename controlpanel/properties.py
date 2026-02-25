@@ -11,12 +11,6 @@ class BLENDERRAIL_PG_RoomItem(bpy.types.PropertyGroup):
         name = "Room",
         default = "Room")
     
-    curve : bpy.props.PointerProperty(
-        name = "Input curve object",
-        description = "Input curve geometry",
-        type = bpy.types.Object
-    )
-    
     element_ID : bpy.props.IntProperty(
         name = "Element ID",
         default = 0,
@@ -35,11 +29,11 @@ class BLENDERRAIL_PG_FloorItem(bpy.types.PropertyGroup):
         default = False,
         description = "Show/hide rooms")
     
-    input_curve : bpy.props.CollectionProperty(
-        name = "Rooms",
-        description = "Floor input properties",
-        type = BLENDERRAIL_PG_RoomItem
-        )
+    curve : bpy.props.PointerProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = bpy.types.Object
+    )
     
     element_collection : bpy.props.PointerProperty(
         name = "Elements Collection",
@@ -47,6 +41,13 @@ class BLENDERRAIL_PG_FloorItem(bpy.types.PropertyGroup):
         type = bpy.types.Collection
     )
 
+    '''
+    input_curve : bpy.props.CollectionProperty(
+    name = "Rooms",
+    description = "Floor input properties",
+    type = BLENDERRAIL_PG_RoomItem
+    )
+    '''
 
 
 # -----------------------------------------------------------------------------
@@ -58,8 +59,8 @@ class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
     bl_label = "Set Active Room"
     bl_options = {"REGISTER", "UNDO"}
 
-    floor_index: bpy.props.IntProperty(options = {"HIDDEN"})
-    curve_index: bpy.props.IntProperty(options = {"HIDDEN"})
+    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    curve_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         context.scene.active_floor_index = self.floor_index
@@ -79,7 +80,16 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         floors = scene.floors
-        floors.add()
+        floor_index = scene.active_floor_index
+
+        if len(floors) == 0:
+            floors.add()
+
+        else:
+            floors.add()
+            floors.move(len(floors) - 1, floor_index + 1)
+            scene.active_floor_index = floor_index + 1
+
         return {"FINISHED"}
 
 
@@ -91,20 +101,20 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         floors = scene.floors
-        active = scene.active_floor_index
+        floor_index = scene.active_floor_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors to remove")
+            scene.active_floor_index = 0
             return {"CANCELLED"}
         
-        if active < 0 or active >= len(floors):
+        if floor_index < 0 or floor_index >= len(floors):
             scene.active_floor_index = max(0, len(floors) - 1)
             self.report({"WARNING"}, "Active index out of range, adjusted")
 
-        active = scene.active_floor_index
-        floors.remove(active)
+        floors.remove(floor_index)
         # Clamp active so it stays valid
-        scene.active_floor_index = min(active, max(0, len(floors) - 1))
+        scene.active_floor_index = min(floor_index, max(0, len(floors) - 1))
         return {"FINISHED"}
 
 
