@@ -2,24 +2,64 @@ import bpy
 
 
 
-# -----------------------------------------------------------------------------
-# Property groups: Room (child), Floor (parent with rooms)
-# -----------------------------------------------------------------------------
+# ---------------------
+# Property groups: Segment
+# ---------------------
 
-class BLENDERRAIL_PG_RoomItem(bpy.types.PropertyGroup):
-    name : bpy.props.StringProperty(
-        name = "Room",
-        default = "Room")
+def _segment_element_id_update(self, context):
+    """Push each floor's segment.element_ID to the BLENDERRAIL_ElementID_GN modifier
+    whose Socket_2 equals the segment index j."""
+    scene = context.scene
+
+    for floor in scene.floors:
+        curve_obj = floor.curve
+
+        segments = floor.segments
+
+        for modifier in curve_obj.modifiers:
+            if modifier.name != "BLENDERRAIL_ElementID_GN" or modifier.type != "NODES":
+                continue
+
+            j = modifier["Socket_2"]
+
+            if j == self.ID:
+                modifier["Socket_3"] = self.element_ID
+
+class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):   
+    ID : bpy.props.IntProperty(
+        name = "Segment ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
     
     element_ID : bpy.props.IntProperty(
         name = "Element ID",
         default = 0,
         min = 0,
-        max = 100
+        max = 10000,
+        update = _segment_element_id_update
     )
 
 
-class BLENDERRAIL_PG_FloorItem(bpy.types.PropertyGroup):
+
+# ----------------------
+# Property groups: Objects
+# ----------------------
+
+class BLENDERRAIL_PG_Elements_Objects(bpy.types.PropertyGroup):   
+    object : bpy.props.PointerProperty(
+        name = "Element Object",
+        type = bpy.types.Object
+    )
+
+
+
+# ----------------------
+# Property groups: Floor
+# ----------------------
+
+class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(
         name = "Floor",
         default = "Floor")
@@ -34,20 +74,43 @@ class BLENDERRAIL_PG_FloorItem(bpy.types.PropertyGroup):
         description = "Input curve geometry",
         type = bpy.types.Object
     )
-    
+
+    segments : bpy.props.CollectionProperty(
+        name = "Segments",
+        description = "Segments of the curve object",
+        type = BLENDERRAIL_PG_Segments
+    )
+
+
+    height : bpy.props.FloatProperty(
+        name = "Height",
+        default = 3.4,
+        min = 0.0,
+        max = 100.0
+    )
+
+    element_method : bpy.props.EnumProperty(
+        name = "Element Method",
+        description = "Method of assigning elements to the floor",
+        items = [
+        ('COLLECTION', "Collection", "Input collection", 0),
+        ('OBJECTS', "Objects", "Select objects", 1),
+        ],
+        default = 'COLLECTION'
+    )
+
     element_collection : bpy.props.PointerProperty(
         name = "Elements Collection",
         description = "Collection of elements to instance along the floor spline.",
         type = bpy.types.Collection
     )
 
-    '''
-    input_curve : bpy.props.CollectionProperty(
-    name = "Rooms",
-    description = "Floor input properties",
-    type = BLENDERRAIL_PG_RoomItem
+    element_object : bpy.props.CollectionProperty(
+        name = "Segments",
+        description = "Element to assign to the floor",
+        type = BLENDERRAIL_PG_Elements_Objects
     )
-    '''
+
 
 
 # -----------------------------------------------------------------------------
@@ -56,21 +119,22 @@ class BLENDERRAIL_PG_FloorItem(bpy.types.PropertyGroup):
 
 class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
     bl_idname = "blenderrail.set_active_indecies"
-    bl_label = "Set Active Room"
+    bl_label = "Set Active Segment"
     bl_options = {"REGISTER", "UNDO"}
 
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
-    curve_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    segment_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         context.scene.active_floor_index = self.floor_index
-        context.scene.active_curve_index = self.curve_index
+        context.scene.active_segment_index = self.segment_index
         return {"FINISHED"}
 
 
-# -----------------------------------------------------------------------------
+
+# ------------------------------------------
 # Operators: add floor / remove active floor
-# -----------------------------------------------------------------------------
+# ------------------------------------------
 
 class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
     bl_idname = "blenderrail.add_floor"
@@ -118,19 +182,21 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
         return {"FINISHED"}
 
 
+
 # ------------------------------
-# Operators: add / remove curves
+# Operators: add / remove segments
 # ------------------------------
 
-class BLENDERRAIL_OT_add_curve(bpy.types.Operator):
-    bl_idname = "blenderrail.add_curve"
-    bl_label = "Add Room to Last Floor"
+class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
+    bl_idname = "blenderrail.add_segment"
+    bl_label = "Add Segment to Floor"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         scene = context.scene
         floors = scene.floors
         floor_index = scene.active_floor_index
+        segment_index = scene.active_segment_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors added")
@@ -139,25 +205,27 @@ class BLENDERRAIL_OT_add_curve(bpy.types.Operator):
         floor = floors[floor_index]
         floor.is_open = True
 
-        curve = floor.input_curve.add()
-        curve.name = "Room"
+        if len(floor.segments) == 0:
+            floor.segments.add()
 
-        #TODO: Make the last added the active index
-        #TODO: Add new not as last, but right after active
+        else:
+            floor.segments.add()
+            floor.segments.move(len(floor.segments) - 1, segment_index + 1)
+            scene.active_segment_index = segment_index + 1
+
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_remove_curve(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_curve"
-    bl_label = "Remove Active Room"
+class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_segment"
+    bl_label = "Remove Active Segment"
     bl_options = {"REGISTER", "UNDO"}
-
 
     def execute(self, context):
         scene = context.scene
         floors = scene.floors
         floor_index = scene.active_floor_index
-        curve_index = scene.active_curve_index
+        segment_index = scene.active_segment_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors")
@@ -167,18 +235,54 @@ class BLENDERRAIL_OT_remove_curve(bpy.types.Operator):
             self.report({"WARNING"}, "Active floor index out of range")
             return {"CANCELLED"}
         
-        input_curves = floors[floor_index].input_curve
-        if len(input_curves) == 0:
-            self.report({"WARNING"}, "Active floor has no rooms")
+        segments = floors[floor_index].segments
+        if len(segments) == 0:
+            self.report({"WARNING"}, "Active floor has no segments")
             return {"CANCELLED"}
         
-        if curve_index < 0 or curve_index >= len(input_curves):
-            scene.active_curve_index = max(0, len(input_curves) - 1)
-            curve_index = scene.active_curve_index
+        if segment_index < 0 or segment_index >= len(segments):
+            scene.active_segment_index = max(0, len(segments) - 1)
+            segment_index = scene.active_segment_index
 
-        input_curves.remove(curve_index)
-        # Clamp room index
-        scene.active_curve_index = min(curve_index, max(0, len(input_curves) - 1))
+        segments.remove(segment_index)
+        scene.active_segment_index = min(segment_index, max(0, len(segments) - 1))
+        return {"FINISHED"}
+    
+
+
+    # -----------------------------------------------------------------------------
+# Operators: add floor / remove active floor
+# -----------------------------------------------------------------------------
+
+class BLENDERRAIL_OT_add_element_object(bpy.types.Operator):
+    bl_idname = "blenderrail.add_element_object"
+    bl_label = "Add Element Object"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        scene = context.scene
+        element_objects = scene.floors[scene.active_floor_index].element_object
+
+        element_objects.add()
+
+        return {"FINISHED"}
+
+
+class BLENDERRAIL_OT_remove_element_object(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_element_object"
+    bl_label = "Remove Element Object"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        scene = context.scene
+        element_objects = scene.floors[scene.active_floor_index].element_object
+
+        if len(element_objects) == 0:
+            self.report({"WARNING"}, "No objects to remove")
+            return {"CANCELLED"}
+
+        element_objects.remove(len(element_objects) - 1)
+
         return {"FINISHED"}
 
 

@@ -27,12 +27,14 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
 
         controlsColumn = faketreeBox.column(align = True)
         floorRow = controlsColumn.row(align = True)
-        floorRow.operator("blenderrail.add_floor", text="Add Floor", icon="ADD")
-        floorRow.operator("blenderrail.remove_floor", text="Remove Floor", icon="REMOVE")
+        floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
+        floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
 
-        #curveRow = controlsColumn.row(align=True)
-        #curveRow.operator("blenderrail.add_curve", text="Add Room", icon="ADD")
-        #curveRow.operator("blenderrail.remove_curve", text="Remove Room", icon="REMOVE")
+        segmentRow = controlsColumn.row(align=True)
+        segmentRow.operator("blenderrail.add_segment", text = "Add Segment", icon = "ADD")
+        segmentRow.operator("blenderrail.remove_segment", text = "Remove Segment", icon = "REMOVE")
+        controlsColumn.operator("blenderrail.iterate_segments", text = "Iterate Segments")
+        controlsColumn.operator("blenderrail.iterate_floors", text = "Iterate Floors")
 
         faketreeBox.separator()
 
@@ -40,46 +42,61 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
             faketreeBox.label(text = "No floors added")
 
         active_floor_index = scene.active_floor_index
-        active_curve_index = scene.active_curve_index
+        active_segment_index = scene.active_segment_index
 
-        for i, floor in enumerate(floors):
+        for floor_index, floor in enumerate(floors):
 
             flooritemRow = faketreeBox.row(align = True)
             flooritemRow.separator(factor = 0.5)
 
-            flooractivateIcon = "RADIOBUT_ON" if i == active_floor_index else "RADIOBUT_OFF"
+            flooractivateIcon = "RADIOBUT_ON" if floor_index == active_floor_index else "RADIOBUT_OFF"
 
             activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
-            activateFloor.floor_index = i
+            activateFloor.floor_index = floor_index
 
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
-            flooritemRow.prop(floor, "is_open", text = "#" + str(i) + " Floor", icon = floorExpandIcon, emboss = False)
-            #flooritemRow.prop(floor, "name", text = "#" + str(i) + " Floor")
+            flooritemRow.prop(floor, "is_open", text = "Floor" + " #" + str(floor_index), icon = floorExpandIcon, emboss = False)
 
-            '''
+
             if not floor.is_open:
                 continue
                 
-            for j, curve in enumerate(floor.input_curve):
+            for segment in floor.segments:
 
-                curveitemRow = layout.row(align = True)
-                curveitemRow.separator(factor = 2.0)
+                segmentitemRow = faketreeBox.row(align = True)
+                segmentitemRow.separator(factor = 2.0)
 
-                curveactivateIcon = "RADIOBUT_ON" if (i == active_floor_index and j == active_curve_index) else "RADIOBUT_OFF"
+                segmentactivateIcon = "RADIOBUT_ON" if (floor_index == active_floor_index and segment.ID == active_segment_index) else "RADIOBUT_OFF"
 
-                activateCurve = curveitemRow.operator("blenderrail.set_active_indecies", text = "", icon = curveactivateIcon, emboss = False)
-                activateCurve.floor_index = i
-                activateCurve.curve_index = j
+                activateSegment = segmentitemRow.operator("blenderrail.set_active_indecies", text = "", icon = segmentactivateIcon, emboss = False)
+                activateSegment.floor_index = floor_index
+                activateSegment.segment_index = segment.ID
 
-                curveitemRow.prop(curve, "name", text = "Room")
-                curveitemRow.prop(curve, "element_ID", text = "ID")
-            '''
-
+                segmentitemRow.label(text = "segment" + " #" + str(segment.ID))
+                segmentitemRow.prop(segment, "element_ID", text = "Element ID")
+            
 
         if floors and 0 <= active_floor_index < len(floors):
             floor_entry = floors[active_floor_index]
 
-            box = layout.box()
+            elementsBox = layout.box()
 
-            box.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
-            box.prop(floor_entry, "element_collection", text = "Elements", icon = 'OUTLINER_COLLECTION')
+            elementsBox.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
+            elementsBox.prop(floor_entry, "element_method", text = "")
+
+            if floor_entry.element_method == 'COLLECTION':
+                elementsBox.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
+
+            else:
+                objectAddRemove = elementsBox.row(align = True)
+                objectAddRemove.alignment = 'CENTER'
+                objectAddRemove.operator("blenderrail.add_element_object", text = "", icon = 'ADD')
+                objectAddRemove.operator("blenderrail.remove_element_object", text = "", icon = 'REMOVE')
+
+                objectElements = elementsBox.column(align = True)
+
+                for object in floor_entry.element_object:
+                    objectElements.prop(object, "object", text = "", placeholder = "Object")
+            elementsBox.prop(floor_entry, "height", icon = 'PMARKER_ACT')
+
+            #box.operator("blenderrail.apply_floor_heights", text = "assign heights")
