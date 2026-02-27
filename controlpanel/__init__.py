@@ -16,8 +16,7 @@ classes = [
     properties.BLENDERRAIL_OT_add_element_object,
     properties.BLENDERRAIL_OT_remove_element_object,
     
-    operators.BLENDERRAIL_OT_iterate_floors,
-    operators.BLENDERRAIL_OT_iterate_segments,
+    operators.BLENDERRAIL_OT_generate_building,
     
     ui.VIEW3D_PT_treeview
 ]
@@ -35,6 +34,8 @@ def register():
 
     bpy.types.Scene.active_floor_index = bpy.props.IntProperty(default = 0)
     bpy.types.Scene.active_segment_index = bpy.props.IntProperty(default = 0)
+
+    bpy.app.handlers.depsgraph_update_post.append(properties._segment_element_id_update)
 
 
 

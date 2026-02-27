@@ -26,15 +26,13 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
         faketreeBox = layout.box()
 
         controlsColumn = faketreeBox.column(align = True)
+        controlsColumn.alignment = 'CENTER'
+        controlsColumn.scale_y = 1.5
         floorRow = controlsColumn.row(align = True)
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
 
-        segmentRow = controlsColumn.row(align=True)
-        segmentRow.operator("blenderrail.add_segment", text = "Add Segment", icon = "ADD")
-        segmentRow.operator("blenderrail.remove_segment", text = "Remove Segment", icon = "REMOVE")
-        controlsColumn.operator("blenderrail.iterate_segments", text = "Iterate Segments")
-        controlsColumn.operator("blenderrail.iterate_floors", text = "Iterate Floors")
+        controlsColumn.operator("blenderrail.generate_building", text = "Generate!")
 
         faketreeBox.separator()
 
@@ -47,7 +45,7 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
         for floor_index, floor in enumerate(floors):
 
             flooritemRow = faketreeBox.row(align = True)
-            flooritemRow.separator(factor = 0.5)
+            flooritemRow.separator(factor = 0.5, type = 'SPACE')
 
             flooractivateIcon = "RADIOBUT_ON" if floor_index == active_floor_index else "RADIOBUT_OFF"
 
@@ -57,14 +55,16 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
             flooritemRow.prop(floor, "is_open", text = "Floor" + " #" + str(floor_index), icon = floorExpandIcon, emboss = False)
 
+            segmentsColumn = faketreeBox.column(align = True)
+
 
             if not floor.is_open:
                 continue
                 
             for segment in floor.segments:
 
-                segmentitemRow = faketreeBox.row(align = True)
-                segmentitemRow.separator(factor = 2.0)
+                segmentitemRow = segmentsColumn.row(align = True)
+                segmentitemRow.separator(factor = 2.0, type = 'LINE')
 
                 segmentactivateIcon = "RADIOBUT_ON" if (floor_index == active_floor_index and segment.ID == active_segment_index) else "RADIOBUT_OFF"
 

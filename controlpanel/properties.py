@@ -250,9 +250,9 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
     
 
 
-    # -----------------------------------------------------------------------------
-# Operators: add floor / remove active floor
-# -----------------------------------------------------------------------------
+    # ----------------------------------------
+# Operators: add floor / remove element object
+# --------------------------------------------
 
 class BLENDERRAIL_OT_add_element_object(bpy.types.Operator):
     bl_idname = "blenderrail.add_element_object"

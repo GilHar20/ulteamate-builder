@@ -6,19 +6,31 @@ import bpy
 # Operators: Floor
 # ----------------
 
-class BLENDERRAIL_OT_iterate_floors(bpy.types.Operator):
-    bl_idname = "blenderrail.iterate_floors"
-    bl_label = "Apply Floor Heights to Displacement"
-    bl_description = "For each floor, assign its curve the Displacement_GN modifier and set height to Socket_8[2] (Z component of vector)"
+class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
+    bl_idname = "blenderrail.generate_building"
+    bl_label = "Generate building"
+    bl_description = "For each floor: set segments, assign its curve with the required modifiers and link elements"
     bl_options = {"REGISTER", "UNDO"}
 
     def _combine_element_objects(self, context, floor, collection):
+        """Assemble custom element collection for a floor"""
         element_objects = floor.element_object
 
-        for obj in element_objects:
-            collection.objects.link(obj.object)
+        for object in collection.objects:
+            collection.objects.unlink(object)
+
+        for object in element_objects:
+            collection.objects.link(object.object)
 
         return collection
+
+
+    def _spline_control_point_count(self, context,spline):
+        """Return number of control points in the spline (for segment count, use this - 1)."""
+        if spline.type == 'BEZIER':
+            return len(spline.bezier_points)
+        # POLY, NURBS, etc.
+        return len(spline.points)
 
 
     def execute(self, context):
@@ -32,7 +44,27 @@ class BLENDERRAIL_OT_iterate_floors(bpy.types.Operator):
         for floor_index, floor in enumerate(floors):
 
             floor.name = "Floor" + " #" + str(floor_index)
+            
+            curve_obj = floor.curve
+            if curve_obj is None:
+                self.report({"WARNING"}, "Floor '%s' has no curve assigned" % floor.name)
+                continue
 
+            # Loop through all curve points and assign segments
+            # Last point has no "next" segment
+            curve_data = curve_obj.data
+            floor.segments.clear()
+            context.scene.active_floor_index = floor_index
+
+            for spline in curve_data.splines:
+                control_points = self._spline_control_point_count(context, spline)
+                for index in range(control_points - 1):
+                    segment = floor.segments.add()
+                    segment.ID = index
+                    index += 1
+
+            # Assign modifiers
+            # First create a custom element collection
             parent_collection = floor.curve.users_collection[0]
 
             if floor.name + "_elements" not in parent_collection.children:
@@ -40,11 +72,6 @@ class BLENDERRAIL_OT_iterate_floors(bpy.types.Operator):
                 parent_collection.children.link(floor_element_collection)
             else:
                 floor_element_collection = bpy.data.collections.get(floor.name + "_elements")
-            
-            curve_obj = floor.curve
-            if curve_obj is None:
-                self.report({"WARNING"}, "Floor '%s' has no curve assigned" % floor.name)
-                continue
 
             curve_obj.modifiers.clear()
 
@@ -70,57 +97,4 @@ class BLENDERRAIL_OT_iterate_floors(bpy.types.Operator):
 
 
         self.report({"INFO"}, "Applied heights to %d floor(s)" % len(floors))
-        return {"FINISHED"}
-
-
-
-class BLENDERRAIL_OT_iterate_segments(bpy.types.Operator):
-    bl_idname = "blenderrail.iterate_segments"
-    bl_label = "Register splines as segments"
-    bl_description = "Iterate through all spline in curve, register a segment in the floor for each"
-    bl_options = {"REGISTER", "UNDO"}
-
-    use_evaluated: bpy.props.BoolProperty(
-        name = "Use evaluated (after modifiers)",
-        default = False,
-        description = "Use curve geometry after modifiers (e.g. Geometry Nodes). Slower and result is temporary"
-    )
-
-
-    def _spline_control_point_count(self, context,spline):
-        """Return number of control points in the spline (for segment count, use this - 1)."""
-        if spline.type == 'BEZIER':
-            return len(spline.bezier_points)
-        # POLY, NURBS, etc.
-        return len(spline.points)
-
-
-    def execute(self, context):
-        scene = context.scene
-        floors = scene.floors
-
-        if not floors or len(floors) == 0:
-            self.report({"WARNING"}, "No floors in collection")
-            return {"CANCELLED"}
-
-        for floor_index, floor in enumerate(floors):
-            curve_obj = floor.curve
-            if curve_obj is None or curve_obj.type != 'CURVE' or curve_obj.data is None:
-                continue
-
-            curve_data = curve_obj.data
-            floor.segments.clear()
-            context.scene.active_floor_index = floor_index
-            index = 0
-
-            for spline_index, spline in enumerate(curve_data.splines):
-                n_points = self._spline_control_point_count(context, spline)
-                # One segment per span between control points; last point has no "next" segment
-                n_segments = max(0, n_points - 1)
-                for i in range(n_segments):
-                    segment = floor.segments.add()
-                    segment.name = "Segment #%d" % index
-                    segment.ID = index
-                    index += 1
-
         return {"FINISHED"}
