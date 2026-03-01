@@ -11,6 +11,7 @@ classes = [
     properties.BLENDERRAIL_OT_set_active_indecies,
     properties.BLENDERRAIL_OT_add_floor,
     properties.BLENDERRAIL_OT_remove_floor,
+    properties.BLENDERRAIL_OT_reorder_floor,
     properties.BLENDERRAIL_OT_add_segment,
     properties.BLENDERRAIL_OT_remove_segment,
     properties.BLENDERRAIL_OT_add_element_object,
@@ -34,8 +35,6 @@ def register():
 
     bpy.types.Scene.active_floor_index = bpy.props.IntProperty(default = 0)
     bpy.types.Scene.active_segment_index = bpy.props.IntProperty(default = 0)
-
-    bpy.app.handlers.depsgraph_update_post.append(properties._segment_element_id_update)
 
 
 

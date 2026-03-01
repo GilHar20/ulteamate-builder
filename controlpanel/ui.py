@@ -12,7 +12,7 @@ import bpy
 # -----------------------------------------------------------------------------
 
 class VIEW3D_PT_treeview(bpy.types.Panel):
-    bl_label = "Fake Tree"
+    bl_label = "BlenderRail"
     bl_idname = "VIEW3D_PT_blenderrail_tree"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -55,6 +55,14 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
             flooritemRow.prop(floor, "is_open", text = "Floor" + " #" + str(floor_index), icon = floorExpandIcon, emboss = False)
 
+            move_up = flooritemRow.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
+            move_up.up_down = True
+            move_up.floor_index = floor_index
+
+            move_down = flooritemRow.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW')
+            move_down.up_down = False
+            move_down.floor_index = floor_index
+
             segmentsColumn = faketreeBox.column(align = True)
 
 
@@ -63,17 +71,17 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
                 
             for segment in floor.segments:
 
-                segmentitemRow = segmentsColumn.row(align = True)
-                segmentitemRow.separator(factor = 2.0, type = 'LINE')
+                segmentRow = segmentsColumn.row(align = True)
+                segmentRow.separator(factor = 2.0, type = 'LINE')
 
                 segmentactivateIcon = "RADIOBUT_ON" if (floor_index == active_floor_index and segment.ID == active_segment_index) else "RADIOBUT_OFF"
 
-                activateSegment = segmentitemRow.operator("blenderrail.set_active_indecies", text = "", icon = segmentactivateIcon, emboss = False)
+                activateSegment = segmentRow.operator("blenderrail.set_active_indecies", text = "", icon = segmentactivateIcon, emboss = False)
                 activateSegment.floor_index = floor_index
                 activateSegment.segment_index = segment.ID
 
-                segmentitemRow.label(text = "segment" + " #" + str(segment.ID))
-                segmentitemRow.prop(segment, "element_ID", text = "Element ID")
+                segmentRow.label(text = "segment" + " #" + str(segment.ID))
+                segmentRow.prop(segment, "element_ID", text = "Element ID")
             
 
         if floors and 0 <= active_floor_index < len(floors):
@@ -98,5 +106,3 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
                 for object in floor_entry.element_object:
                     objectElements.prop(object, "object", text = "", placeholder = "Object")
             elementsBox.prop(floor_entry, "height", icon = 'PMARKER_ACT')
-
-            #box.operator("blenderrail.apply_floor_heights", text = "assign heights")

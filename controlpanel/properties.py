@@ -6,28 +6,16 @@ import bpy
 # Property groups: Segment
 # ---------------------
 
-def _segment_element_id_update(self, context):
-    """Push each floor's segment.element_ID to the BLENDERRAIL_ElementID_GN modifier
-    whose Socket_2 equals the segment index j."""
-    scene = context.scene
-
-    for floor in scene.floors:
-        curve_obj = floor.curve
-
-        segments = floor.segments
-
-        for modifier in curve_obj.modifiers:
-            if modifier.name != "BLENDERRAIL_ElementID_GN" or modifier.type != "NODES":
-                continue
-
-            j = modifier["Socket_2"]
-
-            if j == self.ID:
-                modifier["Socket_3"] = self.element_ID
-
 class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):   
     ID : bpy.props.IntProperty(
         name = "Segment ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
+    curve_ID : bpy.props.IntProperty(
+        name = "Curve ID",
         default = 0,
         min = 0,
         max = 10000
@@ -37,8 +25,7 @@ class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):
         name = "Element ID",
         default = 0,
         min = 0,
-        max = 10000,
-        update = _segment_element_id_update
+        max = 10000
     )
 
 
@@ -139,6 +126,7 @@ class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
 class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
     bl_idname = "blenderrail.add_floor"
     bl_label = "Add Floor"
+    bl_description = "Add floor to the list right after the active one"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -160,6 +148,7 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
 class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     bl_idname = "blenderrail.remove_floor"
     bl_label = "Remove Active Floor"
+    bl_description = "Delete the active floor"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -179,6 +168,40 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
         floors.remove(floor_index)
         # Clamp active so it stays valid
         scene.active_floor_index = min(floor_index, max(0, len(floors) - 1))
+        return {"FINISHED"}
+
+
+class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
+    bl_idname = "blenderrail.reorder_floor"
+    bl_label = "Reorder Floor"
+    bl_description = "Move the floor up and down the list"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    up_down : bpy.props.BoolProperty(
+        name = "Up Down",
+        description = " Switches between moving floor up or dowm the list",
+        default = True)
+    
+
+    def execute(self, context):
+        scene = context.scene
+        floors = scene.floors
+
+        if self.floor_index == 0 and self.up_down == False:
+            self.report({"INFO"}, "Floor is the first item in the list")
+            return{"CANCELLED"}
+
+        if self.floor_index == len(floors) - 1 and self.up_down == True:
+            self.report({"INFO"}, "Floor is the last item in the list")
+            return{"CANCELLED"}
+        
+        if self.up_down == True:
+            floors.move(self.floor_index, self.floor_index + 1)
+        else:
+            floors.move(self.floor_index, self.floor_index - 1)
+
         return {"FINISHED"}
 
 

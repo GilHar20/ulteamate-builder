@@ -61,6 +61,7 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
                 for index in range(control_points - 1):
                     segment = floor.segments.add()
                     segment.ID = index
+                    segment.cruve_ID = floor_index
                     index += 1
 
             # Assign modifiers
@@ -89,12 +90,21 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
                 split_segments["Socket_2"] = self._combine_element_objects(context, floor, floor_element_collection)
             split_segments.show_expanded = False
 
-            for segment in floor.segments:
+            for seg_index, segment in enumerate(floor.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
                 element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
                 element_id["Socket_2"] = segment.ID
                 element_id.show_expanded = False
+                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % element_id.name)
+                driver = fcurve.driver
+                driver.type = 'AVERAGE'
+                var = driver.variables.new()
+                var.name = "element_ID"
+                var.type = 'SINGLE_PROP'
+                var.targets[0].id_type = 'SCENE'
+                var.targets[0].id = scene
+                var.targets[0].data_path = 'floors[%d].segments[%d].element_ID' % (floor_index, seg_index)
 
 
-        self.report({"INFO"}, "Applied heights to %d floor(s)" % len(floors))
+        self.report({"INFO"}, "Generated %d floor(s)" % len(floors))
         return {"FINISHED"}
