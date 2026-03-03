@@ -30,9 +30,9 @@ class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):
 
 
 
-# ----------------------
+# ------------------------
 # Property groups: Objects
-# ----------------------
+# ------------------------
 
 class BLENDERRAIL_PG_Elements_Objects(bpy.types.PropertyGroup):   
     object : bpy.props.PointerProperty(
@@ -47,15 +47,18 @@ class BLENDERRAIL_PG_Elements_Objects(bpy.types.PropertyGroup):
 # ----------------------
 
 class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
-    name : bpy.props.StringProperty(
-        name = "Floor",
-        default = "Floor")
-
     is_open : bpy.props.BoolProperty(
         name = "Open",
         default = False,
         description = "Show/hide rooms")
-    
+
+    height : bpy.props.FloatProperty(
+        name = "Height",
+        default = 3.4,
+        min = 0.0,
+        max = 100.0
+    )
+
     curve : bpy.props.PointerProperty(
         name = "Input curve object",
         description = "Input curve geometry",
@@ -66,14 +69,6 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
         name = "Segments",
         description = "Segments of the curve object",
         type = BLENDERRAIL_PG_Segments
-    )
-
-
-    height : bpy.props.FloatProperty(
-        name = "Height",
-        default = 3.4,
-        min = 0.0,
-        max = 100.0
     )
 
     element_method : bpy.props.EnumProperty(
@@ -96,6 +91,25 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
         name = "Segments",
         description = "Element to assign to the floor",
         type = BLENDERRAIL_PG_Elements_Objects
+    )
+
+
+
+# ----------------------
+# Property groups: Floor
+# ----------------------
+
+class BLENDERRAIL_PG_Building(bpy.types.PropertyGroup):
+    building : bpy.props.PointerProperty(
+        name = "Building",
+        description = "Input base geometry to hold the constract modifier",
+        type = bpy.types.Object
+    )
+
+    floors : bpy.props.CollectionProperty(
+        name = "Floors",
+        description = "List of all the floors in the building",
+        type = BLENDERRAIL_PG_Floors
     )
 
 

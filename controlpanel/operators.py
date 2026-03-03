@@ -87,7 +87,8 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
             if floor.element_method == 'COLLECTION':
                 split_segments["Socket_2"] = floor.element_collection
             else:
-                split_segments["Socket_2"] = self._combine_element_objects(context, floor, floor_element_collection)
+                floor.element_object = self._combine_element_objects(context, floor, floor_element_collection)
+                split_segments["Socket_2"] = self.element_object
             split_segments.show_expanded = False
 
             for seg_index, segment in enumerate(floor.segments):

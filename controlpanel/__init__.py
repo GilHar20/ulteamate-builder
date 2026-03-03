@@ -8,6 +8,7 @@ classes = [
     properties.BLENDERRAIL_PG_Segments,
     properties.BLENDERRAIL_PG_Elements_Objects,
     properties.BLENDERRAIL_PG_Floors,
+    properties.BLENDERRAIL_PG_Building,
     properties.BLENDERRAIL_OT_set_active_indecies,
     properties.BLENDERRAIL_OT_add_floor,
     properties.BLENDERRAIL_OT_remove_floor,
@@ -19,7 +20,9 @@ classes = [
     
     operators.BLENDERRAIL_OT_generate_building,
     
-    ui.VIEW3D_PT_treeview
+    ui.BLENDERRAIL_UL_building_list,
+    ui.BLENDERRAIL_UL_floor_list,
+    ui.BLENDERRAIL_PT_treeview
 ]
 
 
@@ -29,10 +32,12 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
+    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Building)    
     bpy.types.Scene.floors = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Floors)
     bpy.types.Scene.segments = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Segments)
     bpy.types.Scene.element_objects = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Elements_Objects)
 
+    bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
     bpy.types.Scene.active_floor_index = bpy.props.IntProperty(default = 0)
     bpy.types.Scene.active_segment_index = bpy.props.IntProperty(default = 0)
 

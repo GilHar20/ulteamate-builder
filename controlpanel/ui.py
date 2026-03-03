@@ -7,11 +7,45 @@ import bpy
 
 
 
+# -----------------------
+# Buildings/Floors UIList
+# -----------------------
+
+class BLENDERRAIL_UL_building_list(bpy.types.UIList):
+    """UIList for displaying collection items"""
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if item.pattern_sample:
+                layout.label(text = str(index + 1) + ": " + item.pattern_sample, icon = 'CHECKBOX_HLT')
+            else:
+                layout.label(text = str(index + 1) + ": " + "- no pattern -", icon = 'CHECKBOX_DEHLT')
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text = item.pattern_sample, icon = 'CHECKBOX_HLT')
+
+
+
+class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
+    """UIList for displaying collection items"""
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if item.curve:
+                layout.label(text = str(index + 1) + ": " + item.curve.name, icon = 'CHECKBOX_HLT')
+            else:
+                layout.label(text = str(index + 1) + ": " + "- no curve assigned -", icon = 'CHECKBOX_DEHLT')
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text = item.curve.name, icon = 'CHECKBOX_HLT')
+
+
+
 # -----------------------------------------------------------------------------
 # Fake tree panel (viewport sidebar, tab "blenderrail")
 # -----------------------------------------------------------------------------
 
-class VIEW3D_PT_treeview(bpy.types.Panel):
+class BLENDERRAIL_PT_treeview(bpy.types.Panel):
     bl_label = "BlenderRail"
     bl_idname = "VIEW3D_PT_blenderrail_tree"
     bl_space_type = "VIEW_3D"
@@ -23,9 +57,31 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
         scene = context.scene
         floors = scene.floors
 
-        faketreeBox = layout.box()
+        builingBox = layout.box()
 
-        controlsColumn = faketreeBox.column(align = True)
+        builingBox.template_list(
+            "BLENDERRAIL_UL_building_list",
+            "blenderrail_building_list",
+            context.scene,
+            "buildings",
+            context.scene,
+            "active_building_index",
+            rows = 4           
+        )
+
+        floorsBox = layout.box()
+
+        floorsBox.template_list(
+            "BLENDERRAIL_UL_floor_list",
+            "blenderrail_floor_list",
+            context.scene,
+            "floors",
+            context.scene,
+            "active_floor_index",
+            rows = 4           
+        )
+
+        controlsColumn = floorsBox.column(align = True)
         controlsColumn.alignment = 'CENTER'
         controlsColumn.scale_y = 1.5
         floorRow = controlsColumn.row(align = True)
@@ -34,17 +90,17 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
 
         controlsColumn.operator("blenderrail.generate_building", text = "Generate!")
 
-        faketreeBox.separator()
+        floorsBox.separator()
 
         if not floors or len(floors) == 0:
-            faketreeBox.label(text = "No floors added")
+            floorsBox.label(text = "No floors added")
 
         active_floor_index = scene.active_floor_index
         active_segment_index = scene.active_segment_index
 
         for floor_index, floor in enumerate(floors):
 
-            flooritemRow = faketreeBox.row(align = True)
+            flooritemRow = floorsBox.row(align = True)
             flooritemRow.separator(factor = 0.5, type = 'SPACE')
 
             flooractivateIcon = "RADIOBUT_ON" if floor_index == active_floor_index else "RADIOBUT_OFF"
@@ -63,7 +119,7 @@ class VIEW3D_PT_treeview(bpy.types.Panel):
             move_down.up_down = False
             move_down.floor_index = floor_index
 
-            segmentsColumn = faketreeBox.column(align = True)
+            segmentsColumn = floorsBox.column(align = True)
 
 
             if not floor.is_open:
