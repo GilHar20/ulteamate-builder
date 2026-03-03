@@ -9,12 +9,17 @@ classes = [
     properties.BLENDERRAIL_PG_Elements_Objects,
     properties.BLENDERRAIL_PG_Floors,
     properties.BLENDERRAIL_PG_Building,
+
     properties.BLENDERRAIL_OT_set_active_indecies,
+
     properties.BLENDERRAIL_OT_add_floor,
     properties.BLENDERRAIL_OT_remove_floor,
     properties.BLENDERRAIL_OT_reorder_floor,
+    properties.BLENDERRAIL_OT_select_floor_curve,
+
     properties.BLENDERRAIL_OT_add_segment,
     properties.BLENDERRAIL_OT_remove_segment,
+
     properties.BLENDERRAIL_OT_add_element_object,
     properties.BLENDERRAIL_OT_remove_element_object,
     

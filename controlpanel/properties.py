@@ -179,9 +179,9 @@ class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
 
 
 
-# ------------------------------------------
-# Operators: add floor / remove active floor
-# ------------------------------------------
+# ---------------------------------
+# Operators: active floor operators
+# ---------------------------------
 
 class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
     bl_idname = "blenderrail.add_floor"
@@ -211,23 +211,20 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     bl_description = "Delete the active floor"
     bl_options = {"REGISTER", "UNDO"}
 
+    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
-        floor_index = building.active_floor_index
+        floor_index = self.floor_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors to remove")
             building.active_floor_index = 0
             return {"CANCELLED"}
-        
-        if floor_index < 0 or floor_index >= len(floors):
-            building.active_floor_index = max(0, len(floors) - 1)
-            self.report({"WARNING"}, "Active index out of range, adjusted")
 
         floors.remove(floor_index)
-        # Clamp active so it stays valid
         building.active_floor_index = min(floor_index, max(0, len(floors) - 1))
         return {"FINISHED"}
 
@@ -238,13 +235,11 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
     bl_description = "Move the floor up and down the list"
     bl_options = {"REGISTER", "UNDO"}
 
-
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     up_down : bpy.props.BoolProperty(
         name = "Up Down",
         description = " Switches between moving floor up or dowm the list",
         default = True)
-    
 
     def execute(self, context):
         scene = context.scene
@@ -265,6 +260,25 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
             floors.move(self.floor_index, self.floor_index - 1)
 
         return {"FINISHED"}
+
+
+class BLENDERRAIL_OT_select_floor_curve(bpy.types.Operator):
+    bl_idname = "blenderrail.select_floor_curve"
+    bl_label = "Select Floor Curve"
+    bl_description = "Select the curve object assigned to the floor"
+    bl_options = {"REGISTER", "UNDO"}
+
+    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def execute(self, context):
+        scene = context.scene
+        object = scene.buildings[scene.active_building_index].floors[self.floor_index].curve
+
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = object
+        object.select_set(True)
+
+        return{"FINISHED"}
 
 
 
