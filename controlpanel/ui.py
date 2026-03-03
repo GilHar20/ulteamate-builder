@@ -12,22 +12,22 @@ import bpy
 # -----------------------
 
 class BLENDERRAIL_UL_building_list(bpy.types.UIList):
-    """UIList for displaying collection items"""
+    """UIList for displaying buildings"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if item.pattern_sample:
-                layout.label(text = str(index + 1) + ": " + item.pattern_sample, icon = 'CHECKBOX_HLT')
-            else:
-                layout.label(text = str(index + 1) + ": " + "- no pattern -", icon = 'CHECKBOX_DEHLT')
+            name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
+            row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
+            layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            layout.label(text = item.pattern_sample, icon = 'CHECKBOX_HLT')
+            name = item.name if item.name else (item.base_object.name if item.base_object else "-")
+            layout.label(text = name, icon = 'CHECKBOX_HLT')
 
 
 
 class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
-    """UIList for displaying collection items"""
+    """UIList for displaying displaying floors per building"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -55,11 +55,22 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        floors = scene.floors
+        buildings = scene.buildings
+        building_index = scene.active_building_index
+        active_building = None
 
-        builingBox = layout.box()
+        buildingBox = layout.box()
+        addbuildingRow = buildingBox.row()
+        addbuildingRow.scale_y = 1.5
+        addbuildingRow.operator("blenderrail.generate_building", text = "Add Building")
 
-        builingBox.template_list(
+        if len(buildings) <= 0:
+            floors = None
+
+        active_building = buildings[building_index]
+        floors = active_building.floors
+
+        buildingBox.template_list(
             "BLENDERRAIL_UL_building_list",
             "blenderrail_building_list",
             context.scene,
@@ -69,8 +80,19 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             rows = 4           
         )
 
+        buildingColumn = buildingBox.column(align = True)
+        buildingColumn.prop(active_building, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
+        buildingColumn.prop(active_building, "base_object", text = "", placeholder = "Base Object")
+        buildingColumn.operator("blenderrail.select_base_object", text = "Select Base Object", icon = 'RESTRICT_SELECT_OFF')
+        
+
         floorsBox = layout.box()
 
+        if floors == None:
+            floorsBox.label(text = "There are no buildings yet", icon = 'INFO')
+            return
+
+        '''
         floorsBox.template_list(
             "BLENDERRAIL_UL_floor_list",
             "blenderrail_floor_list",
@@ -80,23 +102,30 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             "active_floor_index",
             rows = 4           
         )
+        '''
 
         controlsColumn = floorsBox.column(align = True)
         controlsColumn.alignment = 'CENTER'
         controlsColumn.scale_y = 1.5
+        controlsColumn.enabled = active_building is not None
         floorRow = controlsColumn.row(align = True)
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
 
-        controlsColumn.operator("blenderrail.generate_building", text = "Generate!")
+        controlsColumn.operator("blenderrail.evaluate_building", text = "Generate!")
 
         floorsBox.separator()
 
-        if not floors or len(floors) == 0:
-            floorsBox.label(text = "No floors added")
+        if active_building is None:
+            floorsBox.label(text = "No buildings added")
+            return
 
-        active_floor_index = scene.active_floor_index
-        active_segment_index = scene.active_segment_index
+        if len(floors) == 0:
+            floorsBox.label(text = "No floors added")
+            return
+
+        active_floor_index = active_building.active_floor_index
+        active_segment_index = active_building.active_segment_index
 
         for floor_index, floor in enumerate(floors):
 
@@ -143,22 +172,23 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         if floors and 0 <= active_floor_index < len(floors):
             floor_entry = floors[active_floor_index]
 
-            elementsBox = layout.box()
+            floorentryBox = layout.box()
 
-            elementsBox.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
-            elementsBox.prop(floor_entry, "element_method", text = "")
+            floorentryBox.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
+            floorentryBox.prop(floor_entry, "height", icon = 'PMARKER_ACT')
+            floorentryBox.prop(floor_entry, "array", icon = 'ANCHOR_BOTTOM')
+            floorentryBox.prop(floor_entry, "element_method", text = "")
 
             if floor_entry.element_method == 'COLLECTION':
-                elementsBox.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
+                floorentryBox.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
 
             else:
-                objectAddRemove = elementsBox.row(align = True)
+                objectAddRemove = floorentryBox.row(align = True)
                 objectAddRemove.alignment = 'CENTER'
                 objectAddRemove.operator("blenderrail.add_element_object", text = "", icon = 'ADD')
                 objectAddRemove.operator("blenderrail.remove_element_object", text = "", icon = 'REMOVE')
 
-                objectElements = elementsBox.column(align = True)
+                objectElements = floorentryBox.column(align = True)
 
                 for object in floor_entry.element_object:
                     objectElements.prop(object, "object", text = "", placeholder = "Object")
-            elementsBox.prop(floor_entry, "height", icon = 'PMARKER_ACT')
