@@ -2,9 +2,9 @@ import bpy
 
 
 
-# ---------------------
+# ------------------------
 # Property groups: Segment
-# ---------------------
+# ------------------------
 
 class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):   
     ID : bpy.props.IntProperty(
@@ -65,6 +65,13 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
+    array : bpy.props.IntProperty(
+        name = "Floor Array",
+        default = 1,
+        min = 1,
+        max = 1000
+    )
+
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
@@ -95,12 +102,31 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
 
 
 
-# ----------------------
-# Property groups: Floor
-# ----------------------
+# -------------------------
+# Property groups: Building
+# -------------------------
 
 class BLENDERRAIL_PG_Building(bpy.types.PropertyGroup):
-    building : bpy.props.PointerProperty(
+    def _update_base_object_name(self, context):
+        object = self.base_object
+        object.name = self.name + "_Constructor"
+        return
+    
+    ID : bpy.props.IntProperty(
+        name = "Building ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
+    name : bpy.props.StringProperty(
+        name = "Building Name",
+        description = "Name of the building",
+        default = "",
+        update = _update_base_object_name
+    )
+    
+    base_object : bpy.props.PointerProperty(
         name = "Building",
         description = "Input base geometry to hold the constract modifier",
         type = bpy.types.Object
@@ -110,6 +136,20 @@ class BLENDERRAIL_PG_Building(bpy.types.PropertyGroup):
         name = "Floors",
         description = "List of all the floors in the building",
         type = BLENDERRAIL_PG_Floors
+    )
+
+    active_floor_index : bpy.props.IntProperty(
+        name = "Active Floor Index",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
+    active_segment_index : bpy.props.IntProperty(
+        name = "Active Segment Index",
+        default = 0,
+        min = 0,
+        max = 10000
     )
 
 
@@ -127,8 +167,14 @@ class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
     segment_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def execute(self, context):
-        context.scene.active_floor_index = self.floor_index
-        context.scene.active_segment_index = self.segment_index
+        scene = context.scene
+        buildings = scene.buildings
+        building_index = scene.active_building_index
+        building = buildings[building_index]
+
+        building.active_floor_index = self.floor_index
+        building.active_segment_index = self.segment_index
+
         return {"FINISHED"}
 
 
@@ -145,16 +191,16 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
-        floor_index = scene.active_floor_index
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor_index = building.active_floor_index
 
         if len(floors) == 0:
             floors.add()
-
         else:
             floors.add()
             floors.move(len(floors) - 1, floor_index + 1)
-            scene.active_floor_index = floor_index + 1
+            building.active_floor_index = floor_index + 1
 
         return {"FINISHED"}
 
@@ -167,21 +213,22 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
-        floor_index = scene.active_floor_index
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor_index = building.active_floor_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors to remove")
-            scene.active_floor_index = 0
+            building.active_floor_index = 0
             return {"CANCELLED"}
         
         if floor_index < 0 or floor_index >= len(floors):
-            scene.active_floor_index = max(0, len(floors) - 1)
+            building.active_floor_index = max(0, len(floors) - 1)
             self.report({"WARNING"}, "Active index out of range, adjusted")
 
         floors.remove(floor_index)
         # Clamp active so it stays valid
-        scene.active_floor_index = min(floor_index, max(0, len(floors) - 1))
+        building.active_floor_index = min(floor_index, max(0, len(floors) - 1))
         return {"FINISHED"}
 
 
@@ -201,7 +248,8 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
 
         if self.floor_index == 0 and self.up_down == False:
             self.report({"INFO"}, "Floor is the first item in the list")
@@ -231,9 +279,10 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
-        floor_index = scene.active_floor_index
-        segment_index = scene.active_segment_index
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor_index = building.active_floor_index
+        segment_index = building.active_segment_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors added")
@@ -248,7 +297,7 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
         else:
             floor.segments.add()
             floor.segments.move(len(floor.segments) - 1, segment_index + 1)
-            scene.active_segment_index = segment_index + 1
+            building.active_segment_index = segment_index + 1
 
         return {"FINISHED"}
 
@@ -260,16 +309,13 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
-        floor_index = scene.active_floor_index
-        segment_index = scene.active_segment_index
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor_index = building.active_floor_index
+        segment_index = building.active_segment_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors")
-            return {"CANCELLED"}
-        
-        if floor_index < 0 or floor_index >= len(floors):
-            self.report({"WARNING"}, "Active floor index out of range")
             return {"CANCELLED"}
         
         segments = floors[floor_index].segments
@@ -278,11 +324,11 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
             return {"CANCELLED"}
         
         if segment_index < 0 or segment_index >= len(segments):
-            scene.active_segment_index = max(0, len(segments) - 1)
-            segment_index = scene.active_segment_index
+            building.active_segment_index = max(0, len(segments) - 1)
+            segment_index = building.active_segment_index
 
         segments.remove(segment_index)
-        scene.active_segment_index = min(segment_index, max(0, len(segments) - 1))
+        building.active_segment_index = min(segment_index, max(0, len(segments) - 1))
         return {"FINISHED"}
     
 
@@ -298,7 +344,9 @@ class BLENDERRAIL_OT_add_element_object(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        element_objects = scene.floors[scene.active_floor_index].element_object
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        element_objects = floors[building.active_floor_index].element_object
 
         element_objects.add()
 
@@ -312,7 +360,9 @@ class BLENDERRAIL_OT_remove_element_object(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        element_objects = scene.floors[scene.active_floor_index].element_object
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        element_objects = floors[building.active_floor_index].element_object
 
         if len(element_objects) == 0:
             self.report({"WARNING"}, "No objects to remove")
@@ -321,6 +371,3 @@ class BLENDERRAIL_OT_remove_element_object(bpy.types.Operator):
         element_objects.remove(len(element_objects) - 1)
 
         return {"FINISHED"}
-
-
-

@@ -19,6 +19,8 @@ classes = [
     properties.BLENDERRAIL_OT_remove_element_object,
     
     operators.BLENDERRAIL_OT_generate_building,
+    operators.BLENDERRAIL_OT_evaluate_building,
+    operators.BLENDERRAIL_OT_select_base_object,
     
     ui.BLENDERRAIL_UL_building_list,
     ui.BLENDERRAIL_UL_floor_list,
@@ -31,25 +33,18 @@ def register():
     # Register classes
     for cls in classes:
         bpy.utils.register_class(cls)
-    
-    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Building)    
-    bpy.types.Scene.floors = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Floors)
-    bpy.types.Scene.segments = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Segments)
-    bpy.types.Scene.element_objects = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Elements_Objects)
+
+    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Building)
 
     bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
-    bpy.types.Scene.active_floor_index = bpy.props.IntProperty(default = 0)
-    bpy.types.Scene.active_segment_index = bpy.props.IntProperty(default = 0)
 
 
 
 def unregister():
-    if hasattr(bpy.types.Scene, 'floors'):
-        delattr(bpy.types.Scene, 'floors')
-    if hasattr(bpy.types.Scene, 'active_floor_index'):
-        delattr(bpy.types.Scene, 'active_floor_index')
-    if hasattr(bpy.types.Scene, 'active_segment_index'):
-        delattr(bpy.types.Scene, 'active_segment_index')
+    if hasattr(bpy.types.Scene, 'buildings'):
+        delattr(bpy.types.Scene, 'buildings')
+    if hasattr(bpy.types.Scene, 'active_building_index'):
+        delattr(bpy.types.Scene, 'active_building_index')
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

@@ -2,13 +2,44 @@ import bpy
 
 
 
-# ----------------
-# Operators: Floor
-# ----------------
+# --------------------
+# Operators: Buildings
+# --------------------
 
 class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
     bl_idname = "blenderrail.generate_building"
     bl_label = "Generate building"
+    bl_description = "Add base object with construct modifier"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        scene = context.scene
+        buildings = scene.buildings
+
+        bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+        cube_obj = context.view_layer.objects.active
+
+        node_group = bpy.data.node_groups.get("BLENDERRAIL_Construct_GN")
+        if node_group is None:
+            self.report({"ERROR"}, "Node group 'BLENDERRAIL_Construct_GN' not found")
+            return {"CANCELLED"}
+
+        modifier = cube_obj.modifiers.new(name = "BLENDERRAIL_Construct_GN", type = "NODES")
+        modifier.node_group = node_group
+        modifier.show_expanded = False
+
+        building = buildings.add()
+        building.base_object = cube_obj
+
+        bpy.ops.blenderrail.add_floor()
+
+        return {"FINISHED"}
+
+
+
+class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
+    bl_idname = "blenderrail.evaluate_building"
+    bl_label = "Evaluate building"
     bl_description = "For each floor: set segments, assign its curve with the required modifiers and link elements"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -25,6 +56,7 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         return collection
 
 
+
     def _spline_control_point_count(self, context,spline):
         """Return number of control points in the spline (for segment count, use this - 1)."""
         if spline.type == 'BEZIER':
@@ -35,11 +67,25 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        floors = scene.floors
+        buildings = scene.buildings
+        building_index = scene.active_building_index
 
-        if not floors or len(floors) == 0:
-            self.report({"WARNING"}, "No floors in collection")
+        if len(buildings) == 0:
+            self.report({"WARNING"}, "No buildings in collection")
             return {"CANCELLED"}
+
+        if building_index < 0 or building_index >= len(buildings):
+            building_index = max(0, len(buildings) - 1)
+            scene.active_building_index = building_index
+
+        building = buildings[building_index]
+        floors = building.floors
+
+        if len(floors) == 0:
+            self.report({"WARNING"}, "Active building has no floors")
+            return {"CANCELLED"}
+
+        generated_floors = 0
 
         for floor_index, floor in enumerate(floors):
 
@@ -54,7 +100,7 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
             # Last point has no "next" segment
             curve_data = curve_obj.data
             floor.segments.clear()
-            context.scene.active_floor_index = floor_index
+            building.active_floor_index = floor_index
 
             for spline in curve_data.splines:
                 control_points = self._spline_control_point_count(context, spline)
@@ -68,11 +114,11 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
             # First create a custom element collection
             parent_collection = floor.curve.users_collection[0]
 
-            if floor.name + "_elements" not in parent_collection.children:
-                floor_element_collection = bpy.data.collections.new(name = floor.name + "_elements")
+            if floor.curve.name + "_Elements" not in bpy.data.collections:
+                floor_element_collection = bpy.data.collections.new(name = floor.curve.name + "_Elements")
                 parent_collection.children.link(floor_element_collection)
             else:
-                floor_element_collection = bpy.data.collections.get(floor.name + "_elements")
+                floor_element_collection = bpy.data.collections.get(floor.curve.name + "_Elements")
 
             curve_obj.modifiers.clear()
 
@@ -82,13 +128,19 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
             displacement["Socket_8"][2] = floor.height * floor_index
             displacement.show_expanded = False
 
+            array = curve_obj.modifiers.new(name = "Array_GN", type = "NODES")
+            array.node_group = bpy.data.node_groups.get('Array_GN')
+            array["Socket_6"] = floor.array
+            array["Socket_18"][2] = floor.height
+            array.show_expanded = False
+
             split_segments = curve_obj.modifiers.new(name = "BLENDERRAIL_SplitToSegmenmts_GN", type = "NODES")
             split_segments.node_group = bpy.data.node_groups.get('BLENDERRAIL_SplitToSegmenmts_GN')
             if floor.element_method == 'COLLECTION':
                 split_segments["Socket_2"] = floor.element_collection
             else:
-                floor.element_object = self._combine_element_objects(context, floor, floor_element_collection)
-                split_segments["Socket_2"] = self.element_object
+                combined_collection = self._combine_element_objects(context, floor, floor_element_collection)
+                split_segments["Socket_2"] = combined_collection
             split_segments.show_expanded = False
 
             for seg_index, segment in enumerate(floor.segments):
@@ -104,8 +156,31 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
                 var.type = 'SINGLE_PROP'
                 var.targets[0].id_type = 'SCENE'
                 var.targets[0].id = scene
-                var.targets[0].data_path = 'floors[%d].segments[%d].element_ID' % (floor_index, seg_index)
+                var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, floor_index, seg_index)
+
+            generated_floors += 1
 
 
-        self.report({"INFO"}, "Generated %d floor(s)" % len(floors))
+        self.report({"INFO"}, "Generated %d floor(s)" % generated_floors)
+        return {"FINISHED"}
+
+
+
+class BLENDERRAIL_OT_select_base_object(bpy.types.Operator):
+    bl_idname = "blenderrail.select_base_object"
+    bl_label = "Select Base Object"
+    bl_description = "Selects the building base object"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        scene = context.scene
+        buildings = scene.buildings
+        building_index = scene.active_building_index
+
+        object = buildings[building_index].base_object
+
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = object
+        object.select_set(True)
+
         return {"FINISHED"}
