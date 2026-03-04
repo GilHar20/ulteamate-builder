@@ -172,12 +172,13 @@ class BLENDERRAIL_OT_select_base_object(bpy.types.Operator):
     bl_description = "Selects the building base object"
     bl_options = {"REGISTER", "UNDO"}
 
+    building_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
     def execute(self, context):
         scene = context.scene
         buildings = scene.buildings
-        building_index = scene.active_building_index
 
-        object = buildings[building_index].base_object
+        object = buildings[self.building_index].base_object
 
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.objects.active = object

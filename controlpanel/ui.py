@@ -19,6 +19,9 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
             name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
             row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
             layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
+            select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_object.building_index = index
+
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             name = item.name if item.name else (item.base_object.name if item.base_object else "-")
@@ -77,15 +80,15 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             "buildings",
             context.scene,
             "active_building_index",
-            rows = 4           
         )
 
         buildingColumn = buildingBox.column(align = True)
         buildingColumn.prop(active_building, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
         buildingColumn.prop(active_building, "base_object", text = "", placeholder = "Base Object")
-        buildingColumn.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-        buildingColumn.operator("blenderrail.select_base_object", text = "Select Base Object", icon = 'RESTRICT_SELECT_OFF')
-        
+        refresh = buildingBox.column()
+        refresh.scale_y = 2
+        refresh.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+
 
         floorsBox = layout.box()
 
