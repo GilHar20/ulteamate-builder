@@ -132,7 +132,8 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
 
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
             flooritemRow.prop(floor, "is_open", text = "", icon = floorExpandIcon, emboss = False)
-            flooritemRow.label(text = str(floor_index) + "- " + floor.curve.name + ", " + str(len(floor.segments)) + " segments")
+            floor_label = str(floor_index) + "- " + floor.curve.name + ", " + str(len(floor.segments)) + " segments" if floor.curve else str(floor_index) + "- "
+            flooritemRow.label(text = floor_label)
 
             select_curve = flooritemRow.operator("blenderrail.select_floor_curve", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = floor_index

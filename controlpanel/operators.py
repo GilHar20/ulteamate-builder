@@ -128,12 +128,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             displacement["Socket_8"][2] = floor.height * floor_index
             displacement.show_expanded = False
 
-            array = curve_obj.modifiers.new(name = "Array_GN", type = "NODES")
-            array.node_group = bpy.data.node_groups.get('Array_GN')
-            array["Socket_6"] = floor.array
-            array["Socket_18"][2] = floor.height
-            array.show_expanded = False
-
             split_segments = curve_obj.modifiers.new(name = "BLENDERRAIL_SplitToSegmenmts_GN", type = "NODES")
             split_segments.node_group = bpy.data.node_groups.get('BLENDERRAIL_SplitToSegmenmts_GN')
             if floor.element_method == 'COLLECTION':
@@ -157,6 +151,12 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 var.targets[0].id_type = 'SCENE'
                 var.targets[0].id = scene
                 var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, floor_index, seg_index)
+
+            array = curve_obj.modifiers.new(name = "Array_GN", type = "NODES")
+            array.node_group = bpy.data.node_groups.get('Array_GN')
+            array["Socket_6"] = floor.array
+            array["Socket_18"][2] = floor.height
+            array.show_expanded = False
 
             generated_floors += 1
 
