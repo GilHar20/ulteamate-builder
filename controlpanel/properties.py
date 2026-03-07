@@ -6,7 +6,7 @@ import bpy
 # Property groups: Segment
 # ------------------------
 
-class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):   
+class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     ID : bpy.props.IntProperty(
         name = "Segment ID",
         default = 0,
@@ -34,7 +34,7 @@ class BLENDERRAIL_PG_Segments(bpy.types.PropertyGroup):
 # Property groups: Objects
 # ------------------------
 
-class BLENDERRAIL_PG_Elements_Objects(bpy.types.PropertyGroup):   
+class BLENDERRAIL_PG_elements_objects(bpy.types.PropertyGroup):   
     object : bpy.props.PointerProperty(
         name = "Element Object",
         type = bpy.types.Object
@@ -46,7 +46,14 @@ class BLENDERRAIL_PG_Elements_Objects(bpy.types.PropertyGroup):
 # Property groups: Floor
 # ----------------------
 
-class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
+class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
+    ID : bpy.props.IntProperty(
+        name = "Building ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
     is_open : bpy.props.BoolProperty(
         name = "Open",
         default = False,
@@ -57,6 +64,13 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
         default = 3.4,
         min = 0.0,
         max = 100.0
+    )
+
+    total_height : bpy.props.FloatProperty(
+        name = "Total Height",
+        default = 0,
+        min = 0.0,
+        max = 10000.0
     )
 
     curve : bpy.props.PointerProperty(
@@ -75,7 +89,7 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
-        type = BLENDERRAIL_PG_Segments
+        type = BLENDERRAIL_PG_segment
     )
 
     element_method : bpy.props.EnumProperty(
@@ -97,7 +111,7 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
     element_object : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Element to assign to the floor",
-        type = BLENDERRAIL_PG_Elements_Objects
+        type = BLENDERRAIL_PG_elements_objects
     )
 
 
@@ -106,7 +120,7 @@ class BLENDERRAIL_PG_Floors(bpy.types.PropertyGroup):
 # Property groups: Building
 # -------------------------
 
-class BLENDERRAIL_PG_Building(bpy.types.PropertyGroup):
+class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
         object = self.base_object
         object.name = self.name + "_Constructor"
@@ -135,7 +149,7 @@ class BLENDERRAIL_PG_Building(bpy.types.PropertyGroup):
     floors : bpy.props.CollectionProperty(
         name = "Floors",
         description = "List of all the floors in the building",
-        type = BLENDERRAIL_PG_Floors
+        type = BLENDERRAIL_PG_floor
     )
 
     active_floor_index : bpy.props.IntProperty(

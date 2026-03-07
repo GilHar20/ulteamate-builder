@@ -5,10 +5,10 @@ import bpy
 from . import properties, ui, operators
 
 classes = [
-    properties.BLENDERRAIL_PG_Segments,
-    properties.BLENDERRAIL_PG_Elements_Objects,
-    properties.BLENDERRAIL_PG_Floors,
-    properties.BLENDERRAIL_PG_Building,
+    properties.BLENDERRAIL_PG_segment,
+    properties.BLENDERRAIL_PG_elements_objects,
+    properties.BLENDERRAIL_PG_floor,
+    properties.BLENDERRAIL_PG_building,
 
     properties.BLENDERRAIL_OT_set_active_indecies,
 
@@ -24,8 +24,8 @@ classes = [
     properties.BLENDERRAIL_OT_remove_element_object,
     
     operators.BLENDERRAIL_OT_generate_building,
-    operators.BLENDERRAIL_OT_evaluate_building,
     operators.BLENDERRAIL_OT_select_base_object,
+    operators.BLENDERRAIL_OT_evaluate_building,
     
     ui.BLENDERRAIL_UL_building_list,
     ui.BLENDERRAIL_UL_floor_list,
@@ -39,7 +39,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_Building)
+    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_building)
 
     bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
 
