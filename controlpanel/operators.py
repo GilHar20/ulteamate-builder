@@ -8,7 +8,7 @@ import bpy
 
 class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
     bl_idname = "blenderrail.generate_building"
-    bl_label = "Generate building"
+    bl_label = "Generate Building"
     bl_description = "Add base object with construct modifier"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -34,6 +34,23 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         bpy.ops.blenderrail.add_floor()
 
         return {"FINISHED"}
+
+
+
+class BLENDERRAIL_OT_remove_building(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_building"
+    bl_label = "Remove Building"
+    bl_description = "Delete active building from list"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        scene = context.scene
+        buildings = scene.buildings
+        active_building_index = scene.active_building_index
+
+        buildings.remove(active_building_index)
+
+        return{"FINISHED"}
 
 
 
@@ -92,9 +109,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
         current = len(floor.segments)
         delta = required - current
 
-        if delta == 0:
-            return
-
         if delta > 0:
             for index in range(delta):
                 segment = floor.segments.add()
@@ -103,12 +117,10 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             for index in range(-delta):
                 floor.segments.remove(len(floor.segments) - 1)
 
-        segment_ID = 0
-        for spline_index, spline in enumerate(curve_data.splines):
-            for segment in floor.segments:
-                segment.ID = segment_ID
-                segment.curve_ID = spline_index
-                segment_ID += 1
+        #for spline_index, spline in enumerate(curve_data.splines):
+        for segment_ID, segment in enumerate(floor.segments):
+            segment.ID = segment_ID
+            segment.curve_ID = floor.ID
 
         return
 

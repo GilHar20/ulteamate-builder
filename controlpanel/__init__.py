@@ -24,6 +24,7 @@ classes = [
     properties.BLENDERRAIL_OT_remove_element_object,
     
     operators.BLENDERRAIL_OT_generate_building,
+    operators.BLENDERRAIL_OT_remove_building,
     operators.BLENDERRAIL_OT_select_base_object,
     operators.BLENDERRAIL_OT_evaluate_building,
     

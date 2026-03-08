@@ -66,12 +66,14 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         addbuildingRow = buildingBox.row()
         addbuildingRow.scale_y = 1.5
         addbuildingRow.operator("blenderrail.generate_building", text = "Add Building")
+        buildingBox.operator("blenderrail.remove_building", text = "Remove Building")
 
-        if len(buildings) <= 0:
-            floors = None
 
         active_building = buildings[building_index]
         floors = active_building.floors
+
+        if len(buildings) <= 0:
+            floors = None
 
         buildingBox.template_list(
             "BLENDERRAIL_UL_building_list",
@@ -80,14 +82,15 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             "buildings",
             context.scene,
             "active_building_index",
+            rows = 2
         )
 
         buildingColumn = buildingBox.column(align = True)
         buildingColumn.prop(active_building, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
         buildingColumn.prop(active_building, "base_object", text = "", placeholder = "Base Object")
-        refresh = buildingBox.column()
-        refresh.scale_y = 2
-        refresh.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        refreshColumn = buildingBox.column()
+        refreshColumn.scale_y = 2
+        refreshColumn.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
 
         floorsBox = layout.box()
@@ -108,10 +111,14 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         )
         '''
 
-        floorRow = floorsBox.row(align = True)
+        floorColumn = floorsBox.column(align = True)
+        floorRow = floorColumn.row(align = True)
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         remove = floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
+        segmentRow = floorsBox.row(align = True)
+        segmentRow.operator("blenderrail.add_segment", text = "Add Segment", icon = "ADD")
+        segmentRow.operator("blenderrail.remove_segment", text = "Remove Segment", icon = "REMOVE")
 
 
         floorsBox.separator()
@@ -133,10 +140,9 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
             activateFloor.floor_index = floor_index
 
-            floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
-            flooritemRow.prop(floor, "is_open", text = "", icon = floorExpandIcon, emboss = False)
             floor_label = str(floor_index) + "- " + floor.curve.name + ", " + str(len(floor.segments)) + " segments" if floor.curve else str(floor_index) + "- "
-            flooritemRow.label(text = floor_label)
+            floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
+            flooritemRow.prop(floor, "is_open", text = floor_label, icon = floorExpandIcon, emboss = False)
 
             select_curve = flooritemRow.operator("blenderrail.select_floor_curve", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = floor_index
