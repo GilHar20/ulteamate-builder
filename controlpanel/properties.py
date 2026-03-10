@@ -14,13 +14,20 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         max = 10000
     )
 
-    curve_ID : bpy.props.IntProperty(
-        name = "Curve ID",
+    spline_ID : bpy.props.IntProperty(
+        name = "Spline ID",
         default = 0,
         min = 0,
         max = 10000
     )
-    
+
+    spline_factor : bpy.props.FloatProperty(
+        name = "Curve Factor",
+        default = 0.0,
+        min = 0.0,
+        max = 1.0
+    )
+
     element_ID : bpy.props.IntProperty(
         name = "Element ID",
         default = 0,

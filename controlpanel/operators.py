@@ -1,4 +1,116 @@
 import bpy
+import mathutils
+
+
+
+def _spline_cumulative_lengths(spline, resolution):
+    """
+    Return (cumulative_lengths, total_length) for the spline.
+    cumulative_lengths[i] = length from spline start to control point i (0 at index 0).
+    total_length = full spline length.
+    """
+    count = 0
+    if spline.type == 'BEZIER':
+        count = len(spline.bezier_points)
+    else:
+        count = len(spline.points)
+
+    if count == 0:
+        return ([], 0.0)
+    if count == 1:
+        return ([0.0], 0.0)
+
+    segment_lengths = []
+
+    if spline.type == 'BEZIER':
+        pts = spline.bezier_points
+        for i in range(count):
+            knot1 = pts[i].co
+            handle1 = pts[i].handle_right
+            handle2 = pts[i + 1].handle_left
+            knot2 = pts[i + 1].co
+            samples = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, resolution)
+            length = 0.0
+            for j in range(len(samples) - 1):
+                length += (mathutils.Vector(samples[j + 1]) - mathutils.Vector(samples[j])).length
+            segment_lengths.append(length)
+        if spline.use_cyclic_u:
+            knot1 = pts[-1].co
+            handle1 = pts[-1].handle_right
+            handle2 = pts[0].handle_left
+            knot2 = pts[0].co
+            samples = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, resolution)
+            length = 0.0
+            for j in range(len(samples) - 1):
+                length += (mathutils.Vector(samples[j + 1]) - mathutils.Vector(samples[j])).length
+            segment_lengths.append(length)
+
+    else:
+        # POLY or NURBS: use chord length between control points
+        pts = spline.points
+        for i in range(n - 1):
+            p0 = mathutils.Vector((pts[i].co[0], pts[i].co[1], pts[i].co[2]))
+            p1 = mathutils.Vector((pts[i + 1].co[0], pts[i + 1].co[1], pts[i + 1].co[2]))
+            segment_lengths.append((p1 - p0).length)
+        if spline.use_cyclic_u:
+            p0 = mathutils.Vector((pts[-1].co[0], pts[-1].co[1], pts[-1].co[2]))
+            p1 = mathutils.Vector((pts[0].co[0], pts[0].co[1], pts[0].co[2]))
+            segment_lengths.append((p1 - p0).length)
+
+    total = sum(segment_lengths)
+    cumulative = [0.0]
+
+    # For open curves, last point is at total length; for closed, we have n segments, no extra append
+    for L in segment_lengths[:-1]:
+        cumulative.append(cumulative[-1] + L)
+    if not spline.use_cyclic_u:
+        cumulative.append(total)
+
+    return (cumulative, total)
+
+
+def _segment_curve_factor(curve_data, segment_index):
+    """
+    Return (spline_index, factor) for the segment at segment_index.
+    Factor is 0-1 along that spline only, based on curve length to that control point.
+    Uses the same segment count as _sync_segments_to_curve (one segment per control point).
+    """
+    offset = 0
+
+    for spline_index, spline in enumerate(curve_data.splines):
+        if spline.type == 'BEZIER':
+            count = len(spline.bezier_points)
+        else:
+            count = len(spline.points)
+
+        if segment_index < offset + count:
+            point_index = segment_index - offset
+            #resolution = spline.resolution_u if spline.type == 'BEZIER' else 12
+            #if resolution <= 0:
+            resolution = 12
+            cumulative, total = _spline_cumulative_lengths(spline, resolution)
+            if total <= 0 or point_index >= len(cumulative):
+                factor = 0.0
+            else:
+                factor = cumulative[point_index] / total
+            return (spline_index, factor)
+
+        offset += count
+
+    return (0, 0.0)
+
+
+def _match_element_id_by_factor(spline_index, factor, old_assignments):
+    """
+    From old_assignments (list of (spline_index, factor, element_ID)), return the element_ID
+    whose (spline_index, factor) is closest to the given pair (same spline_index only).
+    If no match, return None (caller can use segment.ID).
+    """
+    candidates = [(factor, element_ID) for (spline_index, factor, element_ID) in old_assignments if spline_index == spline_index]
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda candidate: abs(candidate[0] - factor))
+    return best[1]
 
 
 
@@ -120,7 +232,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
         #for spline_index, spline in enumerate(curve_data.splines):
         for segment_ID, segment in enumerate(floor.segments):
             segment.ID = segment_ID
-            segment.curve_ID = floor.ID
 
         return
 
@@ -158,7 +269,21 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 continue
 
             curve_data = curve_obj.data
+
+            # Persist (spline_ID, factor) -> element_ID so we can re-match after topology change
+            old_assignments = [
+                (segment.spline_ID, segment.spline_factor, segment.element_ID)
+                for segment in floor.segments
+            ]
             self._sync_segments_to_curve(curve_data, floor)
+
+            # Set element_ID by factor: match each new segment to closest old (spline_ID, factor)
+            for segment_index, segment in enumerate(floor.segments):
+                spline_index, factor = _segment_curve_factor(curve_data, segment_index)
+                matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
+                segment.element_ID = matched if matched is not None else segment.ID
+                segment.spline_ID = spline_index
+                segment.spline_factor = factor
 
             parent_collection = floor.curve.users_collection[0]
 
