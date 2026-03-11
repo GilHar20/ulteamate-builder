@@ -1,7 +1,45 @@
+from typing import List
 import bpy
 import mathutils
+from bpy.app.handlers import persistent
 
 
+
+# ----------------
+# Helper Functions
+# ----------------
+
+def _curve_point_count(splines: List[bpy.types.Spline]):
+    """Total control-point count across all splines (matches _sync_segments_to_curve logic)."""
+    count = 0
+    for spline in splines:
+        if spline.type == 'BEZIER':
+            count += len(spline.bezier_points)
+        else:
+            count += len(spline.points)
+    return count
+
+def _match_element_id_by_factor(spline_index, factor, old_assignments):
+    """
+    Interval-based matching: find the old segment on the same spline whose factor
+    is at or just below the given factor. Exact matches (within epsilon) take priority.
+    A new segment inherits from the old segment whose interval it falls within.
+    If no match, return None (caller can use segment.ID).
+    """
+    candidates = [(f, element_ID) for (s_ix, f, element_ID) in old_assignments if s_ix == spline_index]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda c: c[0])
+    for c in candidates:
+        if round(c[0], 3) == round(factor, 3):
+            return c[1]
+    best = candidates[0]
+    for c in candidates:
+        if c[0] <= factor:
+            best = c
+        else:
+            break
+    return best[1]
 
 def _spline_cumulative_lengths(spline, resolution):
     """
@@ -68,7 +106,6 @@ def _spline_cumulative_lengths(spline, resolution):
 
     return (cumulative, total)
 
-
 def _segment_curve_factors_for_curve(curve_data):
     """
     Precompute (spline_index, factor) for every segment index.
@@ -95,34 +132,12 @@ def _segment_curve_factors_for_curve(curve_data):
 
     return result
 
-
-def _match_element_id_by_factor(spline_index, factor, old_assignments):
-    """
-    From old_assignments (list of (spline_index, factor, element_ID)), return the element_ID
-    whose (spline_index, factor) is closest to the given pair (same spline_index only).
-    On tie (e.g. new segment midway between two old segments), prefer the earlier segment
-    (smaller factor) so a subdivided segment inherits the split segment's element_ID.
-    If no match, return None (caller can use segment.ID).
-    """
-    candidates = [(f, element_ID) for (s_ix, f, element_ID) in old_assignments if s_ix == spline_index]
-    if not candidates:
-        return None
-    best = min(candidates, key=lambda c: (abs(c[0] - factor), c[0]))
-    return best[1]
-
-
 def _sync_segments_to_curve(curve_data, floor):
     """Add or remove segments so floor.segments matches the curve; only the delta is changed."""
-    required = 0
-
-    for spline in curve_data.splines:
-        if spline.type == 'BEZIER':
-            required += len(spline.bezier_points)
-        else:
-            required += len(spline.points)
+    count = _curve_point_count(curve_data.splines)
     
     current = len(floor.segments)
-    delta = required - current
+    delta = count - current
 
     if delta > 0:
         for index in range(delta):
@@ -137,6 +152,57 @@ def _sync_segments_to_curve(curve_data, floor):
         segment.ID = segment_ID
 
     return
+
+def _rematch_segments(scene, building_index, floor_index, floor, curve_data):
+    """Sync segment count to curve topology and re-match element_IDs by curve factor."""
+    old_assignments = [
+        (seg.spline_ID, seg.spline_factor, seg.element_ID)
+        for seg in floor.segments
+    ]
+    _sync_segments_to_curve(curve_data, floor)
+    precomputed = _segment_curve_factors_for_curve(curve_data)
+    for seg_index, segment in enumerate(floor.segments):
+        spline_index, factor = precomputed[seg_index]
+        matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
+        segment.element_ID = matched if matched is not None else segment.ID
+        segment.spline_ID = spline_index
+        segment.spline_factor = factor
+
+_rematch_in_progress = False
+
+@persistent
+def on_depsgraph_update(scene, depsgraph):
+    """Re-match segments when a floor's curve topology changes."""
+    global _rematch_in_progress
+    if _rematch_in_progress:
+        return
+
+    if not hasattr(scene, "buildings"):
+        return
+
+    #updated_curves = {update.id for update in depsgraph.updates if isinstance(update.id, bpy.types.Curve)}
+    #if not updated_curves:
+    #    return
+
+    _rematch_in_progress = True
+    try:
+        for building_index, building in enumerate(scene.buildings):
+            for floor_index, floor in enumerate(building.floors):
+                curve_obj = floor.curve
+                if curve_obj is None or curve_obj.type != 'CURVE':
+                    continue
+                curve_data = curve_obj.data
+                #if curve_data not in updated_curves:
+                #   continue
+                required = _curve_point_count(curve_data.splines)
+                current = len(floor.segments)
+                if required == current:
+                    continue
+                _rematch_segments(scene, building_index, floor_index, floor, curve_data)
+    finally:
+        _rematch_in_progress = False
+
+
 
 
 
@@ -198,22 +264,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             curve_data = curve_obj.data
 
-            # Persist (spline_ID, factor) -> element_ID so we can re-match after topology change
-            old_assignments = [
-                (segment.spline_ID, segment.spline_factor, segment.element_ID)
-                for segment in floor.segments
-            ]
-            _sync_segments_to_curve(curve_data, floor)
-
-            # Precompute (spline_index, factor) once per curve, then match by index
-            precomputed = _segment_curve_factors_for_curve(curve_data)
-
-            for segment_index, segment in enumerate(floor.segments):
-                spline_index, factor = precomputed[segment_index]
-                matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
-                segment.element_ID = matched if matched is not None else segment.ID
-                segment.spline_ID = spline_index
-                segment.spline_factor = factor
+            _rematch_segments(scene, building_index, floor_index, floor, curve_data)
 
             parent_collection = floor.curve.users_collection[0]
 

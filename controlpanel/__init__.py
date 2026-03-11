@@ -44,9 +44,14 @@ def register():
 
     bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
 
+    bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
+
 
 
 def unregister():
+    if operators.on_depsgraph_update in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(operators.on_depsgraph_update)
+
     if hasattr(bpy.types.Scene, 'buildings'):
         delattr(bpy.types.Scene, 'buildings')
     if hasattr(bpy.types.Scene, 'active_building_index'):
