@@ -54,6 +54,7 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "BlenderRail"
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
@@ -95,10 +96,6 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
 
         floorsBox = layout.box()
 
-        if active_building == None:
-            floorsBox.label(text = "There are no buildings yet", icon = 'INFO')
-            return
-
         '''
         floorsBox.template_list(
             "BLENDERRAIL_UL_floor_list",
@@ -125,7 +122,6 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
 
         if len(floors) == 0:
             floorsBox.label(text = "No floors added")
-            return
 
         active_floor_index = active_building.active_floor_index
         active_segment_index = active_building.active_segment_index

@@ -1,4 +1,3 @@
-from typing import List
 import bpy
 import mathutils
 from bpy.app.handlers import persistent
@@ -8,16 +7,6 @@ from bpy.app.handlers import persistent
 # ----------------
 # Helper Functions
 # ----------------
-
-def _curve_point_count(splines: List[bpy.types.Spline]):
-    """Total control-point count across all splines (matches _sync_segments_to_curve logic)."""
-    count = 0
-    for spline in splines:
-        if spline.type == 'BEZIER':
-            count += len(spline.bezier_points)
-        else:
-            count += len(spline.points)
-    return count
 
 def _match_element_id_by_factor(spline_index, factor, old_assignments):
     """
@@ -41,18 +30,12 @@ def _match_element_id_by_factor(spline_index, factor, old_assignments):
             break
     return best[1]
 
-def _spline_cumulative_lengths(spline, resolution):
+def _spline_cumulative_lengths(count, spline):
     """
     Return (cumulative_lengths, total_length) for the spline.
     cumulative_lengths[i] = length from spline start to control point i (0 at index 0).
     total_length = full spline length.
     """
-    count = 0
-    if spline.type == 'BEZIER':
-        count = len(spline.bezier_points)
-    else:
-        count = len(spline.points)
-
     if count == 0:
         return ([], 0.0)
     if count == 1:
@@ -62,29 +45,15 @@ def _spline_cumulative_lengths(spline, resolution):
 
     if spline.type == 'BEZIER':
         pts = spline.bezier_points
-        for i in range(count - 1):
-            knot1 = pts[i].co
-            handle1 = pts[i].handle_right
-            handle2 = pts[i + 1].handle_left
-            knot2 = pts[i + 1].co
-            samples = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, resolution)
-            length = 0.0
-            for j in range(len(samples) - 1):
-                length += (mathutils.Vector(samples[j + 1]) - mathutils.Vector(samples[j])).length
-            segment_lengths.append(length)
-        if spline.use_cyclic_u:
-            knot1 = pts[-1].co
-            handle1 = pts[-1].handle_right
-            handle2 = pts[0].handle_left
-            knot2 = pts[0].co
-            samples = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, resolution)
-            length = 0.0
-            for j in range(len(samples) - 1):
-                length += (mathutils.Vector(samples[j + 1]) - mathutils.Vector(samples[j])).length
-            segment_lengths.append(length)
+        if spline.type == 'BEZIER':
+            pts = spline.bezier_points
+            for i in range(count - 1):
+                segment_lengths.append((pts[i + 1].co - pts[i].co).length)
+            if spline.use_cyclic_u:
+                segment_lengths.append((pts[0].co - pts[-1].co).length)
 
-    else:
-        # POLY or NURBS: use chord length between control points
+    # POLY or NURBS
+    else: 
         pts = spline.points
         for i in range(count - 1):
             p0 = mathutils.Vector((pts[i].co[0], pts[i].co[1], pts[i].co[2]))
@@ -106,63 +75,43 @@ def _spline_cumulative_lengths(spline, resolution):
 
     return (cumulative, total)
 
-def _segment_curve_factors_for_curve(curve_data):
-    """
-    Precompute (spline_index, factor) for every segment index.
-    Returns a list of length = total segment count (same as _sync_segments_to_curve).
-    Calls _spline_cumulative_lengths once per spline.
-    """
-    resolution = 12
-    result = []
+def _sync_segments_to_curve(curve_data, floor):
+    """Sync floor.segments to curve topology and re-match element_IDs by curve factor."""
+    old_assignments = [
+        (seg.spline_ID, seg.spline_factor, seg.element_ID)
+        for seg in floor.segments
+    ]
+
+    factors = []
+    total_points = 0
 
     for spline_index, spline in enumerate(curve_data.splines):
         if spline.type == 'BEZIER':
             count = len(spline.bezier_points)
         else:
             count = len(spline.points)
+        total_points += count
 
-        cumulative, total = _spline_cumulative_lengths(spline, resolution)
-
+        cumulative, total = _spline_cumulative_lengths(count, spline)
         for point_index in range(count):
             if total <= 0 or point_index >= len(cumulative):
                 factor = 0.0
             else:
                 factor = cumulative[point_index] / total
-            result.append((spline_index, factor))
+            factors.append((spline_index, factor))
 
-    return result
-
-def _sync_segments_to_curve(curve_data, floor):
-    """Add or remove segments so floor.segments matches the curve; only the delta is changed."""
-    count = _curve_point_count(curve_data.splines)
-    
     current = len(floor.segments)
-    delta = count - current
-
+    delta = total_points - current
     if delta > 0:
-        for index in range(delta):
-            segment = floor.segments.add()
-
+        for _ in range(delta):
+            floor.segments.add()
     elif delta < 0:
-        for index in range(-delta):
+        for _ in range(-delta):
             floor.segments.remove(len(floor.segments) - 1)
 
-    #for spline_index, spline in enumerate(curve_data.splines):
-    for segment_ID, segment in enumerate(floor.segments):
-        segment.ID = segment_ID
-
-    return
-
-def _rematch_segments(scene, building_index, floor_index, floor, curve_data):
-    """Sync segment count to curve topology and re-match element_IDs by curve factor."""
-    old_assignments = [
-        (seg.spline_ID, seg.spline_factor, seg.element_ID)
-        for seg in floor.segments
-    ]
-    _sync_segments_to_curve(curve_data, floor)
-    precomputed = _segment_curve_factors_for_curve(curve_data)
     for seg_index, segment in enumerate(floor.segments):
-        spline_index, factor = precomputed[seg_index]
+        segment.ID = seg_index
+        spline_index, factor = factors[seg_index]
         matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
         segment.element_ID = matched if matched is not None else segment.ID
         segment.spline_ID = spline_index
@@ -180,10 +129,6 @@ def on_depsgraph_update(scene, depsgraph):
     if not hasattr(scene, "buildings"):
         return
 
-    #updated_curves = {update.id for update in depsgraph.updates if isinstance(update.id, bpy.types.Curve)}
-    #if not updated_curves:
-    #    return
-
     _rematch_in_progress = True
     try:
         for building_index, building in enumerate(scene.buildings):
@@ -192,17 +137,19 @@ def on_depsgraph_update(scene, depsgraph):
                 if curve_obj is None or curve_obj.type != 'CURVE':
                     continue
                 curve_data = curve_obj.data
-                #if curve_data not in updated_curves:
-                #   continue
-                required = _curve_point_count(curve_data.splines)
+                required = 0
+                for spline in curve_data.splines:
+                    if spline.type == 'BEZIER':
+                        required += len(spline.bezier_points)
+                    else:
+                        required += len(spline.points)
                 current = len(floor.segments)
                 if required == current:
                     continue
-                _rematch_segments(scene, building_index, floor_index, floor, curve_data)
+                _sync_segments_to_curve(curve_data, floor)
+        
     finally:
         _rematch_in_progress = False
-
-
 
 
 
@@ -264,7 +211,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             curve_data = curve_obj.data
 
-            _rematch_segments(scene, building_index, floor_index, floor, curve_data)
+            _sync_segments_to_curve(curve_data, floor)
 
             parent_collection = floor.curve.users_collection[0]
 
@@ -347,6 +294,7 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
 
         building = buildings.add()
         building.base_object = cube_obj
+        scene.active_building_index = len(buildings) - 1
 
         bpy.ops.blenderrail.add_floor()
 

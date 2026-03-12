@@ -15,6 +15,7 @@ bl_info = {
 
 import bpy
 from . import controlpanel
+from . import ifcimporter
 
 from . import addon_updater_ops
 
@@ -103,14 +104,14 @@ def register():
     
     addon_updater_ops.register(bl_info)
 
+    ifcimporter.register()
     controlpanel.register()
 
-
 def unregister():
-    addon_updater_ops.unregister()
-
     controlpanel.unregister()
+    ifcimporter.unregister()
 
+    addon_updater_ops.unregister()
     bpy.utils.unregister_class(SetupAutoPreferences)
 
 
