@@ -7,6 +7,11 @@ import bpy
 # ------------------------
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
+    def _element_ID_update(self, context):
+        """While technically works, quite heavy on preformance."""
+        bpy.context.view_layer.update()
+        return
+    
     ID : bpy.props.IntProperty(
         name = "Segment ID",
         default = 0,
@@ -33,6 +38,7 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000
+        #update = _element_ID_update
     )
 
 

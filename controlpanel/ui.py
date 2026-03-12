@@ -113,12 +113,14 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         remove = floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
-        segmentRow = floorsBox.row(align = True)
+        segmentRow = floorColumn.row(align = True)
         segmentRow.operator("blenderrail.add_segment", text = "Add Segment", icon = "ADD")
         segmentRow.operator("blenderrail.remove_segment", text = "Remove Segment", icon = "REMOVE")
 
+        floorColumn.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
 
         floorsBox.separator()
+
 
         if len(floors) == 0:
             floorsBox.label(text = "No floors added")

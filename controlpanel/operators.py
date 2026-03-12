@@ -191,6 +191,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             scene.active_building_index = building_index
 
         building = buildings[building_index]
+        old_active_floor = building.active_floor_index
         floors = building.floors
 
         if len(floors) == 0:
@@ -226,7 +227,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             displacement = curve_obj.modifiers.new(name = "Displacement_GN", type = "NODES")
             displacement.node_group = bpy.data.node_groups.get('Displacement_GN')
             displacement["Socket_14"] = True
-            displacement["Socket_8"][2] = total_height
+            displacement["Socket_8"][2] = total_height          
             displacement.show_expanded = False
 
             split_segments = curve_obj.modifiers.new(name = "BLENDERRAIL_SplitToSegmenmts_GN", type = "NODES")
@@ -255,14 +256,34 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             array = curve_obj.modifiers.new(name = "Array_GN", type = "NODES")
             array.node_group = bpy.data.node_groups.get('Array_GN')
-            array["Socket_6"] = floor.array
-            array["Socket_18"][2] = floor.height
+            #array["Socket_6"] = floor.array
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_6"]' % array.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'Array'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, floor_index)     
+            #array["Socket_18"][2] = floor.height
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_18"]' % array.name, 2)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'Height'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, floor_index)     
             array.show_expanded = False
 
             floor.total_height = floor.height * floor.array
             total_height += floor.total_height
 
             generated_floors += 1
+
+            building.active_floor_index = old_active_floor
 
 
         self.report({"INFO"}, "Generated %d floor(s)" % generated_floors)

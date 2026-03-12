@@ -16,6 +16,7 @@ bl_info = {
 import bpy
 from . import controlpanel
 from . import ifcimporter
+from . import viewportgui
 
 from . import addon_updater_ops
 
@@ -106,8 +107,10 @@ def register():
 
     ifcimporter.register()
     controlpanel.register()
+    viewportgui.register()
 
 def unregister():
+    viewportgui.unregister()
     controlpanel.unregister()
     ifcimporter.unregister()
 
