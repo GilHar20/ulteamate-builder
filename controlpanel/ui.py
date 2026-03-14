@@ -44,11 +44,11 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
 
 
 
-# -----------------------------------------------------------------------------
-# Fake tree panel (viewport sidebar, tab "blenderrail")
-# -----------------------------------------------------------------------------
+# ----------
+# Main Panel
+# ----------
 
-class BLENDERRAIL_PT_treeview(bpy.types.Panel):
+class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_label = "BlenderRail"
     bl_idname = "VIEW3D_PT_blenderrail_tree"
     bl_space_type = "VIEW_3D"
@@ -64,10 +64,11 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         active_building = None
 
         buildingBox = layout.box()
-        addbuildingRow = buildingBox.row()
-        addbuildingRow.scale_y = 1.5
-        addbuildingRow.operator("blenderrail.generate_building", text = "Add Building")
-        buildingBox.operator("blenderrail.remove_building", text = "Remove Building")
+        buildingColumn = buildingBox.column(align = True)
+        addbuildingRow = buildingColumn.row()
+        addbuildingRow.scale_y = 2.0
+        addbuildingRow.operator("blenderrail.generate_building", text = "Add Building", icon = 'PLUS')
+        buildingColumn.operator("blenderrail.remove_building", text = "Remove Building")
 
 
         active_building = buildings[building_index]
@@ -83,15 +84,12 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
             "buildings",
             context.scene,
             "active_building_index",
-            rows = 2
+            rows = 4
         )
 
         buildingColumn = buildingBox.column(align = True)
         buildingColumn.prop(active_building, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
         buildingColumn.prop(active_building, "base_object", text = "", placeholder = "Base Object")
-        refreshColumn = buildingBox.column()
-        refreshColumn.scale_y = 2
-        refreshColumn.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
 
         floorsBox = layout.box()
@@ -113,11 +111,9 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         remove = floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
-        segmentRow = floorColumn.row(align = True)
-        segmentRow.operator("blenderrail.add_segment", text = "Add Segment", icon = "ADD")
-        segmentRow.operator("blenderrail.remove_segment", text = "Remove Segment", icon = "REMOVE")
 
         floorColumn.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
+        floorColumn.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
         floorsBox.separator()
 
@@ -176,29 +172,40 @@ class BLENDERRAIL_PT_treeview(bpy.types.Panel):
                 segmentRow.label(text = "segment" + " #" + str(segment.ID))
                 segmentRow.prop(segment, "element_ID", text = "Element ID")
             
-
+        # Floor Settings
         if floors and 0 <= active_floor_index < len(floors):
             floor_entry = floors[active_floor_index]
 
             floorentryBox = floorsBox.box()
+            floorentryBox.label(text = "Floor Settings: ")
 
-            floorentryBox.prop(floor_entry, "curve", text = "Input Curve", icon = 'CURVE_DATA')
-            floorentryBox.prop(floor_entry, "height", icon = 'PMARKER_ACT')
-            floorentryBox.prop(floor_entry, "array", icon = 'ANCHOR_BOTTOM')
-            floorentryBox.prop(floor_entry, "element_method", text = "")
+            propertyColumn = floorentryBox.column(align = True)
+            propertyColumn.prop(floor_entry, "curve", text = "", placeholder = "Input Curve", icon = 'CURVE_DATA')
+            propertyColumn.prop(floor_entry, "height", icon = 'PMARKER_ACT')
+            propertyColumn.prop(floor_entry, "array", icon = 'ANCHOR_BOTTOM')
+            propertyColumn.prop(floor_entry, "floor_ceiling", text = "")
 
+            # Main Elements Settings:
+            floorentryBox.separator()
+            floorentryBox.label(text = "Main: ")
+            elementsColumn = floorentryBox.column(align = True)
+            elementsColumn.prop(floor_entry, "element_method", text = "")
             if floor_entry.element_method == 'COLLECTION':
-                floorentryBox.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-
+                elementsColumn.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
             else:
-                objectsRow = floorentryBox.row()
+                objectsRow = elementsColumn.row()
                 objectColumn = objectsRow.column(align = True)
-
                 for object in floor_entry.element_object:
                     objectColumn.prop(object, "object", text = "", placeholder = "Object")
-
                 objectAddRemove = objectsRow.column(align = True)
                 objectAddRemove.operator("blenderrail.add_element_object", text = "", icon = 'ADD')
                 objectAddRemove.operator("blenderrail.remove_element_object", text = "", icon = 'REMOVE')
 
+            # Corner Elements Settings:
+            floorentryBox.separator()
+            floorentryBox.label(text = "Corners: ")
+
+            # Interval Elements Settings:
+            floorentryBox.separator()
+            floorentryBox.label(text = "Interval: ")
 

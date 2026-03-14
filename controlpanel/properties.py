@@ -1,10 +1,49 @@
 import bpy
+from . import operators
 
 
 
 # ------------------------
 # Property groups: Segment
 # ------------------------
+
+class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):   
+    object : bpy.props.PointerProperty(
+        name = "Element Object",
+        type = bpy.types.Object
+    )
+
+class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
+    collect_method : bpy.props.EnumProperty(
+        name = "Collect Method",
+        description = "Method of assigning elements to the Target Collection of the floor",
+        items = [
+        ('OBJECTS', "Objects", "Select objects and create a collection", 0),
+        ('EXISTING', "Existing", "Choose existing Target Collection", 1),
+        ],
+        default = 'OBJECTS'
+    )
+
+    objects : bpy.props.CollectionProperty(
+        name = "Element Object",
+        description = "Objects to insert into the Tartget Collection",
+        type = BLENDERRAIL_PG_collect_objects
+    )
+
+    existing_collection : bpy.props.PointerProperty(
+        name = "Existing Collection",
+        description = "Collection of objects to insert into the Tartget Collection",
+        type = bpy.types.Collection
+    )
+
+
+    target_collection : bpy.props.PointerProperty(
+        name = "Target Collection",
+        description = "Collection of elements to instance along the curve splines",
+        type = bpy.types.Collection
+    )
+
+
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
@@ -43,23 +82,15 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
 
 
 
-# ------------------------
-# Property groups: Objects
-# ------------------------
-
-class BLENDERRAIL_PG_elements_objects(bpy.types.PropertyGroup):   
-    object : bpy.props.PointerProperty(
-        name = "Element Object",
-        type = bpy.types.Object
-    )
-
-
-
-# ----------------------
-# Property groups: Floor
-# ----------------------
-
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
+    def _update_total_height(self, context):
+        operators._calculate_floor_start_height(context, None)
+        return
+    
+    def _update_element_method(self, context):
+        operators._set_element_collection()
+        return
+    
     ID : bpy.props.IntProperty(
         name = "Building ID",
         default = 0,
@@ -71,6 +102,14 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         name = "Open",
         default = False,
         description = "Show/hide rooms")
+
+    array : bpy.props.IntProperty(
+        name = "Floor Array",
+        default = 1,
+        min = 1,
+        max = 1000,
+        update = _update_total_height
+    )
 
     height : bpy.props.FloatProperty(
         name = "Height",
@@ -86,23 +125,35 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000.0
     )
 
+    start_height : bpy.props.FloatProperty(
+        name = "Total Height",
+        default = 0,
+        min = 0.0,
+        max = 10000.0
+    )
+
     curve : bpy.props.PointerProperty(
         name = "Input curve object",
         description = "Input curve geometry",
         type = bpy.types.Object
     )
 
-    array : bpy.props.IntProperty(
-        name = "Floor Array",
-        default = 1,
-        min = 1,
-        max = 1000
-    )
-
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
         type = BLENDERRAIL_PG_segment
+    )
+
+    floor_ceiling : bpy.props.EnumProperty(
+        name = "Floor Ceiling",
+        description = "Select adding floor, ceiling or both",
+        items = [
+        ('NONE', "None", "None", 0),
+        ('TOP', "Top", "Add ceiling", 1),
+        ('BOTTOM', "Bottom", "Add floor", 2),
+        ('BOTH', "Both", "Add ceiling and floor", 3),
+        ],
+        default = 'TOP'
     )
 
     element_method : bpy.props.EnumProperty(
@@ -124,14 +175,29 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     element_object : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Element to assign to the floor",
-        type = BLENDERRAIL_PG_elements_objects
+        type = BLENDERRAIL_PG_collect_objects
     )
 
+    '''
+    main_elements : bpy.props.CollectionProperty(
+        name = "Main Elements",
+        description = "Collection of main elements",
+        type = BLENDERRAIL_PG_elements_collection
+    )
 
+    corner_elements : bpy.props.CollectionProperty(
+        name = "Main Elements",
+        description = "Collection of main elements",
+        type = BLENDERRAIL_PG_elements_collection
+    )
 
-# -------------------------
-# Property groups: Building
-# -------------------------
+    interval_elements : bpy.props.CollectionProperty(
+        name = "Main Elements",
+        description = "Collection of main elements",
+        type = BLENDERRAIL_PG_elements_collection
+    )
+    '''
+
 
 class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
@@ -172,6 +238,13 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         max = 10000
     )
 
+    active_curve_index : bpy.props.IntProperty(
+        name = "Active Floor Index",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
     active_segment_index : bpy.props.IntProperty(
         name = "Active Segment Index",
         default = 0,
@@ -179,11 +252,18 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         max = 10000
     )
 
+    active_element_index : bpy.props.IntProperty(
+        name = "Active Floor Index",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
 
 
-# -----------------------------------------------------------------------------
-# Operators: set active floor / room (so remove works on selection)
-# -----------------------------------------------------------------------------
+
+# --------------------------------
+# Property Group Actions Operators
+# --------------------------------
 
 class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
     bl_idname = "blenderrail.set_active_indecies"

@@ -6,7 +6,8 @@ from . import properties, ui, operators
 
 classes = [
     properties.BLENDERRAIL_PG_segment,
-    properties.BLENDERRAIL_PG_elements_objects,
+    properties.BLENDERRAIL_PG_collect_objects,
+    #properties.BLENDERRAIL_PG_elements_collection,
     properties.BLENDERRAIL_PG_floor,
     properties.BLENDERRAIL_PG_building,
 
@@ -16,13 +17,13 @@ classes = [
     properties.BLENDERRAIL_OT_remove_floor,
     properties.BLENDERRAIL_OT_reorder_floor,
     properties.BLENDERRAIL_OT_select_floor_curve,
-
+    
     properties.BLENDERRAIL_OT_add_segment,
     properties.BLENDERRAIL_OT_remove_segment,
 
     properties.BLENDERRAIL_OT_add_element_object,
     properties.BLENDERRAIL_OT_remove_element_object,
-    
+
     operators.BLENDERRAIL_OT_generate_building,
     operators.BLENDERRAIL_OT_remove_building,
     operators.BLENDERRAIL_OT_select_base_object,
@@ -30,7 +31,7 @@ classes = [
     
     ui.BLENDERRAIL_UL_building_list,
     ui.BLENDERRAIL_UL_floor_list,
-    ui.BLENDERRAIL_PT_treeview
+    ui.BLENDERRAIL_PT_controlpanel
 ]
 
 

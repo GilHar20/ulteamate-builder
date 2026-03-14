@@ -151,6 +151,42 @@ def on_depsgraph_update(scene, depsgraph):
     finally:
         _rematch_in_progress = False
 
+def _calculate_floor_start_height(context, floors):
+    if floors:
+        pass
+    else:
+        scene = context.scene
+        floors = scene.buildings[scene.active_building_index].floors
+    
+    accumulated_height: float = 0
+    for floor in floors:
+        floor.start_height = accumulated_height
+        total_height = floor.total_height = floor.height * floor.array
+        accumulated_height += total_height
+    return
+
+def _combine_element_objects(floor, collection):
+    """Assemble custom element collection for a floor"""
+    if not floor.element_object:
+        return
+    
+    element_objects = floor.element_object
+
+    for object in collection.objects:
+        collection.objects.unlink(object)
+
+    for object in element_objects:
+        collection.objects.link(object.object)
+
+    return collection
+
+def _set_element_collection(floor, modifier, element_collection):
+    if floor.element_method == 'COLLECTION':
+        modifier["Socket_2"] = floor.element_collection
+    else:
+        modifier["Socket_2"] = element_collection
+    return
+
 
 
 # --------------------
@@ -162,19 +198,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
     bl_label = "Evaluate building"
     bl_description = "For each floor: set segments, assign its curve with the required modifiers and link elements"
     bl_options = {"REGISTER", "UNDO"}
-
-
-    def _combine_element_objects(self, context, floor, collection):
-        """Assemble custom element collection for a floor"""
-        element_objects = floor.element_object
-
-        for object in collection.objects:
-            collection.objects.unlink(object)
-
-        for object in element_objects:
-            collection.objects.link(object.object)
-
-        return collection
 
 
     def execute(self, context):
@@ -198,8 +221,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
 
-        generated_floors: int = 0
-        total_height: int = 0
+        _calculate_floor_start_height(context, floors)
 
         for floor_index, floor in enumerate(floors):
             floor.ID = floor_index
@@ -221,29 +243,60 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 parent_collection.children.link(floor_element_collection)
             else:
                 floor_element_collection = bpy.data.collections.get(floor.curve.name + "_Elements")
+            _combine_element_objects(floor, floor_element_collection)
 
             curve_obj.modifiers.clear()
 
             displacement = curve_obj.modifiers.new(name = "Displacement_GN", type = "NODES")
             displacement.node_group = bpy.data.node_groups.get('Displacement_GN')
             displacement["Socket_14"] = True
-            displacement["Socket_8"][2] = total_height          
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_8"]' % displacement.name)
+            driver = fcurve[2].driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'prev_disp'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, floor_index)
             displacement.show_expanded = False
 
-            split_segments = curve_obj.modifiers.new(name = "BLENDERRAIL_SplitToSegmenmts_GN", type = "NODES")
-            split_segments.node_group = bpy.data.node_groups.get('BLENDERRAIL_SplitToSegmenmts_GN')
-            if floor.element_method == 'COLLECTION':
-                split_segments["Socket_2"] = floor.element_collection
-            else:
-                combined_collection = self._combine_element_objects(context, floor, floor_element_collection)
-                split_segments["Socket_2"] = combined_collection
-            split_segments.show_expanded = False
+            curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
+            curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
+            _set_element_collection(floor, curve_attributes, floor_element_collection)
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'Array'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, floor_index)     
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'Height'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, floor_index)
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_5"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'Floor Ceiling'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].floor_ceiling' % (building_index, floor_index)        
+            curve_attributes.show_expanded = False
 
             for seg_index, segment in enumerate(floor.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
                 element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
                 element_id["Socket_2"] = segment.ID
-                element_id.show_expanded = False
                 fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % element_id.name)
                 driver = fcurve.driver
                 driver.type = 'AVERAGE'
@@ -253,40 +306,11 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 var.targets[0].id_type = 'SCENE'
                 var.targets[0].id = scene
                 var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, floor_index, seg_index)
+                element_id.show_expanded = False
 
-            array = curve_obj.modifiers.new(name = "Array_GN", type = "NODES")
-            array.node_group = bpy.data.node_groups.get('Array_GN')
-            #array["Socket_6"] = floor.array
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_6"]' % array.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'Array'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, floor_index)     
-            #array["Socket_18"][2] = floor.height
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_18"]' % array.name, 2)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'Height'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, floor_index)     
-            array.show_expanded = False
+        building.active_floor_index = old_active_floor
 
-            floor.total_height = floor.height * floor.array
-            total_height += floor.total_height
-
-            generated_floors += 1
-
-            building.active_floor_index = old_active_floor
-
-
-        self.report({"INFO"}, "Generated %d floor(s)" % generated_floors)
+        self.report({"INFO"}, "Generated %d floor(s)" % len(floors))
         return {"FINISHED"}
 
 
