@@ -115,7 +115,8 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         name = "Height",
         default = 3.4,
         min = 0.0,
-        max = 100.0
+        max = 100.0,
+        update = _update_total_height
     )
 
     total_height : bpy.props.FloatProperty(
