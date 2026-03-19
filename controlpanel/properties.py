@@ -58,6 +58,13 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         max = 10000
     )
 
+    curve_ID : bpy.props.IntProperty(
+        name = "Curve ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
     spline_ID : bpy.props.IntProperty(
         name = "Spline ID",
         default = 0,
@@ -133,10 +140,10 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000.0
     )
 
-    curve : bpy.props.PointerProperty(
+    curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = bpy.types.Object
+        type = BLENDERRAIL_PG_collect_objects
     )
 
     segments : bpy.props.CollectionProperty(
@@ -370,17 +377,33 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_select_floor_curve(bpy.types.Operator):
-    bl_idname = "blenderrail.select_floor_curve"
+class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
+    bl_idname = "blenderrail.select_floor_curves"
     bl_label = "Select Floor Curve"
     bl_description = "Select the curve object assigned to the floor"
     bl_options = {"REGISTER", "UNDO"}
 
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    curve_index : bpy.props.IntProperty(default = -1 ,options = {"HIDDEN"})
+
+    def _select_set(self, context, curves):
+        if self.curve_index != -1:
+            context.view_layer.objects.active = curves[self.curve_index].object
+            curves[self.curve_index].object.select_set(True)
+            return
+
+        context.view_layer.objects.active = curves[0].object
+        for curve in curves:
+            curve.object.select_set(True)
+        return
 
     def execute(self, context):
         scene = context.scene
-        object = scene.buildings[scene.active_building_index].floors[self.floor_index].curve
+        curves = scene.buildings[scene.active_building_index].floors[self.floor_index].curves
+
+        if len(curves) == 0:
+            self.report({'INFO'}, "No curve objects assigned")
+            return{"CANCELLED"}
 
         if context.mode == 'EDIT_MESH':
             self.report({'WARNING'}, "Cannot select curve while in mesh edit mode")
@@ -389,14 +412,12 @@ class BLENDERRAIL_OT_select_floor_curve(bpy.types.Operator):
         elif context.mode == 'EDIT_CURVE':
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action='DESELECT')
-            context.view_layer.objects.active = object
-            object.select_set(True)
+            self._select_set(context, curves)
             bpy.ops.object.mode_set(mode='EDIT')
 
         elif context.mode == 'OBJECT':
             bpy.ops.object.select_all(action='DESELECT')
-            context.view_layer.objects.active = object
-            object.select_set(True)
+            self._select_set(context, curves)
 
         return{"FINISHED"}
 
@@ -411,6 +432,13 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
     current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     level_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
+    def _copy_curve(self, current_floor, new_floor):
+        for curve_item in current_floor.curves:
+            new_curve = curve_item.object.copy()
+            new_curve.data = curve_item.object.data.copy()
+            curve_item.object.users_collection[0].objects.link(new_curve)
+            new_floor.curves.add().object = new_curve
+
     def execute(self, context):
         scene = context.scene
         floors = scene.buildings[scene.active_building_index].floors
@@ -422,12 +450,10 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
         new_floor = floors[self.current_floor_index + 1]
         current_floor.array = self.level_index + 1
         new_floor.array = current_floor_array - self.level_index - 1
-        new_curve = current_floor.curve.copy()
-        new_curve.data = current_floor.curve.data.copy()
-        current_floor.curve.users_collection[0].objects.link(new_curve)
-        new_floor.curve = new_curve
 
-        skip_props = {'rna_type', 'name', 'array', 'curve'}
+        self._copy_curve(current_floor, new_floor)
+
+        skip_props = {'rna_type', 'name', 'array', 'curves'}
         for prop in current_floor.bl_rna.properties:
             if prop.identifier in skip_props:
                 continue
@@ -515,40 +541,44 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
 
 
     # ----------------------------------------
-# Operators: add floor / remove element object
+# Operators: add / remove collect object
 # --------------------------------------------
 
-class BLENDERRAIL_OT_add_element_object(bpy.types.Operator):
-    bl_idname = "blenderrail.add_element_object"
-    bl_label = "Add Element Object"
+class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.add_collect_object"
+    bl_label = "Add Collect Object"
     bl_options = {"REGISTER", "UNDO"}
+
+    collection_name : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        element_objects = floors[building.active_floor_index].element_object
+        floor = building.floors[building.active_floor_index]
+        collection = getattr(floor, self.collection_name)
 
-        element_objects.add()
+        collection.add()
 
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_remove_element_object(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_element_object"
-    bl_label = "Remove Element Object"
+class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_collect_object"
+    bl_label = "Remove Collect Object"
     bl_options = {"REGISTER", "UNDO"}
+
+    collection_name : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        element_objects = floors[building.active_floor_index].element_object
+        floor = building.floors[building.active_floor_index]
+        collection = getattr(floor, self.collection_name)
 
-        if len(element_objects) == 0:
+        if len(collection) == 0:
             self.report({"WARNING"}, "No objects to remove")
             return {"CANCELLED"}
 
-        element_objects.remove(len(element_objects) - 1)
+        collection.remove(len(collection) - 1)
 
         return {"FINISHED"}

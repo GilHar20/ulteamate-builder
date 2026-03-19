@@ -34,13 +34,13 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if item.curve:
-                layout.label(text = str(index + 1) + ": " + item.curve.name, icon = 'CHECKBOX_HLT')
+            if len(item.curves) > 0:
+                layout.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = 'CHECKBOX_HLT')
             else:
                 layout.label(text = str(index + 1) + ": " + "- no curve assigned -", icon = 'CHECKBOX_DEHLT')
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            layout.label(text = item.curve.name, icon = 'CHECKBOX_HLT')
+            layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
 
 
 
@@ -55,6 +55,18 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_category = "BlenderRail"
     bl_options = {"DEFAULT_CLOSED"}
+
+
+    def draw_collect_objects(self, layout, collection_name, collection):
+        row = layout.row()
+        col = row.column(align=True)
+        for item in collection:
+            col.prop(item, "object", text="", placeholder="Object")
+        buttons = row.column(align=True)
+        add = buttons.operator("blenderrail.add_collect_object", text="", icon='ADD')
+        add.collection_name = collection_name
+        remove = buttons.operator("blenderrail.remove_collect_object", text="", icon='REMOVE')
+        remove.collection_name = collection_name
 
 
     def draw(self, context):
@@ -131,11 +143,11 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
             activateFloor.floor_index = floor_index
 
-            floor_label = str(level) + "- " + str(len(floor.segments)) + " segments" if floor.curve else str(floor_index) + "- "
+            floor_label = str(level) + "- " + str(len(floor.segments)) + " segments" if len(floor.curves) > 0 else str(floor_index) + "- "
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
             flooritemRow.prop(floor, "is_open", text = floor_label, icon = floorExpandIcon, emboss = False)
 
-            select_curve = flooritemRow.operator("blenderrail.select_floor_curve", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_curve = flooritemRow.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = floor_index
 
             move_up = flooritemRow.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW', emboss = False)
@@ -186,7 +198,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             floorentryBox.label(text = "Floor Settings: ")
 
             propertyColumn = floorentryBox.column(align = True)
-            propertyColumn.prop(floor_entry, "curve", text = "", placeholder = "Input Curve", icon = 'CURVE_DATA')
+            self.draw_collect_objects(propertyColumn, "curves", floor_entry.curves)
             propertyColumn.prop(floor_entry, "height", icon = 'PMARKER_ACT')
             propertyColumn.prop(floor_entry, "array", icon = 'ANCHOR_BOTTOM')
             propertyColumn.prop(floor_entry, "floor_ceiling", text = "")
@@ -199,13 +211,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             if floor_entry.element_method == 'COLLECTION':
                 elementsColumn.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
             else:
-                objectsRow = elementsColumn.row()
-                objectColumn = objectsRow.column(align = True)
-                for object in floor_entry.element_object:
-                    objectColumn.prop(object, "object", text = "", placeholder = "Object")
-                objectAddRemove = objectsRow.column(align = True)
-                objectAddRemove.operator("blenderrail.add_element_object", text = "", icon = 'ADD')
-                objectAddRemove.operator("blenderrail.remove_element_object", text = "", icon = 'REMOVE')
+                self.draw_collect_objects(elementsColumn, "element_object", floor_entry.element_object)
 
             # Corner Elements Settings:
             floorentryBox.separator()
