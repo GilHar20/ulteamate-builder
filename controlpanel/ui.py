@@ -56,6 +56,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_category = "BlenderRail"
     bl_options = {"DEFAULT_CLOSED"}
 
+
     def draw(self, context):
         layout = self.layout
         scene = context.scene
@@ -111,30 +112,26 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         floorRow.operator("blenderrail.add_floor", text = "Add Floor", icon = "ADD")
         remove = floorRow.operator("blenderrail.remove_floor", text = "Remove Floor", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
-
         floorColumn.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
         floorColumn.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
-        floorsBox.separator()
-
-
         if len(floors) == 0:
-            floorsBox.label(text = "No floors added")
+            floorsBox.label(text = "No floors added", icon = 'INFO')
 
         active_floor_index = active_building.active_floor_index
         active_segment_index = active_building.active_segment_index
+        level: int = 1
 
         for floor_index, floor in enumerate(floors):
-
             flooritemRow = floorsBox.row(align = True)
-            flooritemRow.separator(factor = 0.5, type = 'SPACE')
+            flooritemRow.alignment = 'LEFT'
 
             flooractivateIcon = "RADIOBUT_ON" if floor_index == active_floor_index else "RADIOBUT_OFF"
 
             activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
             activateFloor.floor_index = floor_index
 
-            floor_label = str(floor_index) + "- " + floor.curve.name + ", " + str(len(floor.segments)) + " segments" if floor.curve else str(floor_index) + "- "
+            floor_label = str(level) + "- " + str(len(floor.segments)) + " segments" if floor.curve else str(floor_index) + "- "
             floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
             flooritemRow.prop(floor, "is_open", text = floor_label, icon = floorExpandIcon, emboss = False)
 
@@ -152,12 +149,20 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             remove_self = flooritemRow.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
             remove_self.floor_index = floor_index
 
+            for array_level in range(floor.array - 1):
+                level += 1
+                flooritemRow = floorsBox.row(align = True)
+                flooritemRow.alignment = 'LEFT'
+                floor_label = "       " + str(level) + "- " + "Floor array"
+                flooritemRow.label(text = floor_label, icon = 'RADIOBUT_OFF')
+                split = flooritemRow.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
+                split.current_floor_index = floor_index
+                split.level_index = array_level
+            level += 1
+
             segmentsColumn = floorsBox.column(align = True)
-
-
             if not floor.is_open:
                 continue
-                
             for segment in floor.segments:
 
                 segmentRow = segmentsColumn.row(align = True)
@@ -172,6 +177,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
                 segmentRow.label(text = "segment" + " #" + str(segment.ID))
                 segmentRow.prop(segment, "element_ID", text = "Element ID")
             
+
         # Floor Settings
         if floors and 0 <= active_floor_index < len(floors):
             floor_entry = floors[active_floor_index]

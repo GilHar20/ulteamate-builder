@@ -151,18 +151,16 @@ def on_depsgraph_update(scene, depsgraph):
     finally:
         _rematch_in_progress = False
 
-def _calculate_floor_start_height(context, floors):
-    if floors:
-        pass
-    else:
+def _calculate_floors_start_height(context, floors):
+    if not floors:
         scene = context.scene
         floors = scene.buildings[scene.active_building_index].floors
     
     accumulated_height: float = 0
     for floor in floors:
         floor.start_height = accumulated_height
-        total_height = floor.total_height = floor.height * floor.array
-        accumulated_height += total_height
+        floor.total_height = floor.height * floor.array
+        accumulated_height += floor.total_height
     return
 
 def _combine_element_objects(floor, collection):
@@ -221,7 +219,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
 
-        _calculate_floor_start_height(context, floors)
+        _calculate_floors_start_height(context, floors)
 
         for floor_index, floor in enumerate(floors):
             floor.ID = floor_index
@@ -237,6 +235,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             building.base_object.select_set(True)
             curve_obj.select_set(True)
             bpy.ops.object.parent_no_inverse_set(keep_transform=False)
+            curve_obj.driver_remove('location', 2)
             fcurve = curve_obj.driver_add('location', 2)
             driver = fcurve.driver
             driver.type = 'AVERAGE'

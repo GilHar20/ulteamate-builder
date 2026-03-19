@@ -17,6 +17,7 @@ classes = [
     properties.BLENDERRAIL_OT_remove_floor,
     properties.BLENDERRAIL_OT_reorder_floor,
     properties.BLENDERRAIL_OT_select_floor_curve,
+    properties.BLENDERRAIL_OT_split_floor_array,
     
     properties.BLENDERRAIL_OT_add_segment,
     properties.BLENDERRAIL_OT_remove_segment,

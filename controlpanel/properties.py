@@ -84,7 +84,7 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
 
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
-        operators._calculate_floor_start_height(context, None)
+        operators._calculate_floors_start_height(context, None)
         return
     
     def _update_element_method(self, context):
@@ -288,7 +288,7 @@ class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
 
 
 # ---------------------------------
-# Operators: active floor operators
+# Operators: Floor Operators
 # ---------------------------------
 
 class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
@@ -301,14 +301,14 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
-        floor_index = building.active_floor_index
+        active_floor_index = building.active_floor_index
 
         if len(floors) == 0:
             floors.add()
         else:
             floors.add()
-            floors.move(len(floors) - 1, floor_index + 1)
-            building.active_floor_index = floor_index + 1
+            floors.move(len(floors) - 1, active_floor_index + 1)
+            building.active_floor_index = active_floor_index + 1
 
         return {"FINISHED"}
 
@@ -340,13 +340,13 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
 class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
     bl_idname = "blenderrail.reorder_floor"
     bl_label = "Reorder Floor"
-    bl_description = "Move the floor up and down the list"
+    bl_description = "Move the floor up or down the list (True for down the list, false for up)"
     bl_options = {"REGISTER", "UNDO"}
 
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     up_down : bpy.props.BoolProperty(
         name = "Up Down",
-        description = " Switches between moving floor up or dowm the list",
+        description = " Switches between moving floor up or dowm the list (True for down the list, false for up)",
         default = True)
 
     def execute(self, context):
@@ -399,6 +399,53 @@ class BLENDERRAIL_OT_select_floor_curve(bpy.types.Operator):
             object.select_set(True)
 
         return{"FINISHED"}
+
+
+
+class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
+    bl_idname = "blenderrail.split_floor_array"
+    bl_label = "Split Floor Array"
+    bl_description = "Split the floor array in a given position into to floors with the same curve object and the correct array amount"
+    bl_options = {"REGISTER", "UNDO"}
+
+    current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    level_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def execute(self, context):
+        scene = context.scene
+        floors = scene.buildings[scene.active_building_index].floors
+        current_floor = floors[self.current_floor_index]
+        current_floor_array: int = current_floor.array
+
+        floors.add()
+        floors.move(len(floors) - 1, self.current_floor_index + 1)
+        new_floor = floors[self.current_floor_index + 1]
+        current_floor.array = self.level_index + 1
+        new_floor.array = current_floor_array - self.level_index - 1
+        new_curve = current_floor.curve.copy()
+        new_curve.data = current_floor.curve.data.copy()
+        current_floor.curve.users_collection[0].objects.link(new_curve)
+        new_floor.curve = new_curve
+
+        skip_props = {'rna_type', 'name', 'array', 'curve'}
+        for prop in current_floor.bl_rna.properties:
+            if prop.identifier in skip_props:
+                continue
+            if prop.type == 'COLLECTION':
+                src_collection = getattr(current_floor, prop.identifier)
+                dst_collection = getattr(new_floor, prop.identifier)
+                for src_item in src_collection:
+                    dst_item = dst_collection.add()
+                    for item_prop in src_item.bl_rna.properties:
+                        if item_prop.identifier == 'rna_type':
+                            continue
+                        setattr(dst_item, item_prop.identifier, getattr(src_item, item_prop.identifier))
+            else:
+                setattr(new_floor, prop.identifier, getattr(current_floor, prop.identifier))
+        
+        bpy.ops.blenderrail.evaluate_building()
+
+        return {"FINISHED"}
 
 
 
