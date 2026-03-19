@@ -382,9 +382,21 @@ class BLENDERRAIL_OT_select_floor_curve(bpy.types.Operator):
         scene = context.scene
         object = scene.buildings[scene.active_building_index].floors[self.floor_index].curve
 
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.view_layer.objects.active = object
-        object.select_set(True)
+        if context.mode == 'EDIT_MESH':
+            self.report({'WARNING'}, "Cannot select curve while in mesh edit mode")
+            return {"CANCELLED"}
+            
+        elif context.mode == 'EDIT_CURVE':
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.select_all(action='DESELECT')
+            context.view_layer.objects.active = object
+            object.select_set(True)
+            bpy.ops.object.mode_set(mode='EDIT')
+
+        elif context.mode == 'OBJECT':
+            bpy.ops.object.select_all(action='DESELECT')
+            context.view_layer.objects.active = object
+            object.select_set(True)
 
         return{"FINISHED"}
 
