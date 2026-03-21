@@ -13,6 +13,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
+
 class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
     collect_method : bpy.props.EnumProperty(
         name = "Collect Method",
@@ -42,7 +43,6 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         description = "Collection of elements to instance along the curve splines",
         type = bpy.types.Collection
     )
-
 
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
@@ -88,12 +88,44 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
     )
 
 
+class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
+    def _update_total_height(self, context):
+        operators._calculate_floors_start_height(context, None)
+        return
+
+    curve_object : bpy.props.PointerProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = bpy.types.Object
+    )
+
+    height : bpy.props.FloatProperty(
+        name = "Height",
+        default = 3.4,
+        min = 0.0,
+        max = 100.0,
+        update = _update_total_height
+    )
+
+    floor_ceiling : bpy.props.EnumProperty(
+        name = "Floor Ceiling",
+        description = "Select adding floor, ceiling or both",
+        items = [
+        ('NONE', "None", "None", 0),
+        ('TOP', "Top", "Add ceiling", 1),
+        ('BOTTOM', "Bottom", "Add floor", 2),
+        ('BOTH', "Both", "Add ceiling and floor", 3),
+        ],
+        default = 'TOP'
+    )
+
+
 
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
         operators._calculate_floors_start_height(context, None)
         return
-    
+
     def _update_element_method(self, context):
         operators._set_element_collection()
         return
@@ -105,24 +137,11 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000
     )
 
-    is_open : bpy.props.BoolProperty(
-        name = "Open",
-        default = False,
-        description = "Show/hide rooms")
-
     array : bpy.props.IntProperty(
         name = "Floor Array",
         default = 1,
         min = 1,
         max = 1000,
-        update = _update_total_height
-    )
-
-    height : bpy.props.FloatProperty(
-        name = "Height",
-        default = 3.4,
-        min = 0.0,
-        max = 100.0,
         update = _update_total_height
     )
 
@@ -143,25 +162,13 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = BLENDERRAIL_PG_collect_objects
+        type = BLENDERRAIL_PG_curve
     )
 
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
         type = BLENDERRAIL_PG_segment
-    )
-
-    floor_ceiling : bpy.props.EnumProperty(
-        name = "Floor Ceiling",
-        description = "Select adding floor, ceiling or both",
-        items = [
-        ('NONE', "None", "None", 0),
-        ('TOP', "Top", "Add ceiling", 1),
-        ('BOTTOM', "Bottom", "Add floor", 2),
-        ('BOTH', "Both", "Add ceiling and floor", 3),
-        ],
-        default = 'TOP'
     )
 
     element_method : bpy.props.EnumProperty(
@@ -399,9 +406,12 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        curves = scene.buildings[scene.active_building_index].floors[self.floor_index].curves
+        building = scene.buildings[scene.active_building_index]
+        active_floor_index = building.active_floor_index
+        curves = building.floors[active_floor_index].curves
+        curve_objects = [curve for curve in curves if curve.curve_object is not None]
 
-        if len(curves) == 0:
+        if len(curve_objects) == 0:
             self.report({'INFO'}, "No curve objects assigned")
             return{"CANCELLED"}
 
@@ -412,12 +422,12 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
         elif context.mode == 'EDIT_CURVE':
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curves)
+            self._select_set(context, curve_objects)
             bpy.ops.object.mode_set(mode='EDIT')
 
         elif context.mode == 'OBJECT':
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curves)
+            self._select_set(context, curve_objects)
 
         return{"FINISHED"}
 
@@ -433,10 +443,11 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
     level_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def _copy_curve(self, current_floor, new_floor):
-        for curve_item in current_floor.curves:
-            new_curve = curve_item.object.copy()
-            new_curve.data = curve_item.object.data.copy()
-            curve_item.object.users_collection[0].objects.link(new_curve)
+        curve_objects = [obj for obj in current_floor.curves.curve_object if obj is not None]
+        for curve_object in curve_objects:
+            new_curve = curve_object.copy()
+            new_curve.data = curve_object.data.copy()
+            curve_object.users_collection[0].objects.link(new_curve)
             new_floor.curves.add().object = new_curve
 
     def execute(self, context):
@@ -475,9 +486,9 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
 
 
 
-# ------------------------------
+# --------------------------------
 # Operators: add / remove segments
-# ------------------------------
+# --------------------------------
 
 class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
     bl_idname = "blenderrail.add_segment"
@@ -496,7 +507,6 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
             return {"CANCELLED"}
         
         floor = floors[floor_index]
-        floor.is_open = True
 
         if len(floor.segments) == 0:
             floor.segments.add()
@@ -540,9 +550,70 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
     
 
 
-    # ----------------------------------------
+# ------------------------------
+# Operators: add / remove curves
+# ------------------------------
+
+class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.add_curve_object"
+    bl_label = "Add Curve"
+    bl_description = "Add a curve object to the active floor"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curves = floor.curves
+        active_curve_index = building.active_curve_index
+
+        if len(floors) == 0:
+            self.report({"WARNING"}, "No floors — add a floor first")
+            return {"CANCELLED"}
+
+        if len(curves) == 0:
+            curves.add()
+            building.active_curve_index = 0
+        else:
+            curves.add()
+
+        return {"FINISHED"}
+
+
+class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_curve_object"
+    bl_label = "Remove Curve"
+    bl_description = "Remove a curve object from the active floor"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curves = floor.curves
+
+        if len(floors) == 0:
+            self.report({"WARNING"}, "No floors")
+            return {"CANCELLED"}
+
+        if len(curves) == 0:
+            self.report({"WARNING"}, "No curve rows to remove")
+            building.active_curve_index = 0
+            return {"CANCELLED"}
+
+        curves.remove(len(curves) - 1)
+
+        return {"FINISHED"}
+
+
+
+# --------------------------------------
 # Operators: add / remove collect object
-# --------------------------------------------
+# --------------------------------------
 
 class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
     bl_idname = "blenderrail.add_collect_object"

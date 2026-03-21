@@ -8,6 +8,7 @@ classes = [
     properties.BLENDERRAIL_PG_segment,
     properties.BLENDERRAIL_PG_collect_objects,
     #properties.BLENDERRAIL_PG_elements_collection,
+    properties.BLENDERRAIL_PG_curve,
     properties.BLENDERRAIL_PG_floor,
     properties.BLENDERRAIL_PG_building,
 
@@ -24,6 +25,9 @@ classes = [
 
     properties.BLENDERRAIL_OT_add_collect_object,
     properties.BLENDERRAIL_OT_remove_collect_object,
+
+    properties.BLENDERRAIL_OT_add_curve_object,
+    properties.BLENDERRAIL_OT_remove_curve_object,
 
     operators.BLENDERRAIL_OT_generate_building,
     operators.BLENDERRAIL_OT_remove_building,

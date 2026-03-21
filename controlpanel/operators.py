@@ -119,22 +119,18 @@ def _sync_segments_to_curves(curve_data_list, floor):
         segment.spline_ID = spline_index
         segment.spline_factor = factor
 
-def _sync_floor_curves(floor):
+def _collect_floor_curves(floor):
     """Collect valid curve data, sync segments when combined topology changes."""
     curve_data_list = []
     required = 0
-    for curve_item in floor.curves:
-        curve_obj = curve_item.object
-        if curve_obj is None or curve_obj.type != 'CURVE':
+
+    curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
+    for curve_object in curve_objects:
+        if curve_object is None or curve_object.type != 'CURVE':
             continue
-        curve_data = curve_obj.data
+
+        curve_data = curve_object.data
         curve_data_list.append(curve_data)
-        for spline in curve_data.splines:
-            if spline.type == 'BEZIER':
-                required += len(spline.bezier_points)
-            else:
-                required += len(spline.points)
-    if curve_data_list and required != len(floor.segments):
         _sync_segments_to_curves(curve_data_list, floor)
 
 _rematch_in_progress = False
@@ -153,7 +149,7 @@ def on_depsgraph_update(scene, depsgraph):
     try:
         for building_index, building in enumerate(scene.buildings):
             for floor_index, floor in enumerate(building.floors):
-                _sync_floor_curves(floor)
+                _collect_floor_curves(floor)
         
     finally:
         _rematch_in_progress = False
@@ -209,18 +205,13 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
         scene = context.scene
         buildings = scene.buildings
         building_index = scene.active_building_index
+        building = buildings[building_index]
+        old_active_floor = building.active_floor_index
+        floors = building.floors
 
         if len(buildings) == 0:
             self.report({"WARNING"}, "No buildings in collection")
             return {"CANCELLED"}
-
-        if building_index < 0 or building_index >= len(buildings):
-            building_index = max(0, len(buildings) - 1)
-            scene.active_building_index = building_index
-
-        building = buildings[building_index]
-        old_active_floor = building.active_floor_index
-        floors = building.floors
 
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
@@ -232,11 +223,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             floor.ID = floor_index
             building.active_floor_index = floor_index
 
-            if len(floor.curves) == 0:
-                self.report({"WARNING"}, "Floor %d has no curves assigned" % floor_index)
-                continue
-
-            _sync_floor_curves(floor)
+            _collect_floor_curves(floor)
 
             parent_collection = building.base_object.users_collection[0]
 
@@ -247,8 +234,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 floor_element_collection = bpy.data.collections.get(str(floor.ID) + "_Elements")
             _combine_element_objects(floor, floor_element_collection)
 
-            for curve_item in floor.curves:
-                curve_obj = curve_item.object
+            for curve in floor.curves:
+                curve_obj = curve.curve_object
                 if curve_obj is None:
                     continue
 
