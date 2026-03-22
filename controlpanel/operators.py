@@ -161,8 +161,18 @@ def _calculate_floors_start_height(context, floors):
     
     accumulated_height: float = 0
     for floor in floors:
+        curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
+        if not curve_objects:
+            floor.start_height = accumulated_height
+            floor.total_height = 0
+            continue
+
+        max_curve = max(curve_objects, key=lambda c: c.curve_object.location.z)
+        min_curve = min(curve_objects, key=lambda c: c.curve_object.location.z)
+        z_diff = abs(max_curve.curve_object.location.z - min_curve.curve_object.location.z)
+
         floor.start_height = accumulated_height
-        floor.total_height = floor.height * floor.array
+        floor.total_height = (z_diff + max_curve.height) * floor.array
         accumulated_height += floor.total_height
     return
 
@@ -219,6 +229,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         _calculate_floors_start_height(context, floors)
 
+        all_curve_objects = []
+
         for floor_index, floor in enumerate(floors):
             floor.ID = floor_index
             building.active_floor_index = floor_index
@@ -234,79 +246,83 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 floor_element_collection = bpy.data.collections.get(str(floor.ID) + "_Elements")
             _combine_element_objects(floor, floor_element_collection)
 
-            for curve in floor.curves:
-                curve_obj = curve.curve_object
-                if curve_obj is None:
-                    continue
+            curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
+            for curve in curve_objects: curve.floor_ID = floor.ID
+            all_curve_objects.extend(curve_objects)
 
-                if curve_obj.parent != building.base_object:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    context.view_layer.objects.active = building.base_object
-                    building.base_object.select_set(True)
-                    curve_obj.select_set(True)
-                    bpy.ops.object.parent_no_inverse_set(keep_transform=False)
-                curve_obj.driver_remove('location', 2)
-                fcurve = curve_obj.driver_add('location', 2)
+        for curve in all_curve_objects:
+            curve_obj = curve.curve_object
+            if curve_obj is None:
+                continue
+
+            if curve_obj.parent != building.base_object:
+                bpy.ops.object.select_all(action='DESELECT')
+                context.view_layer.objects.active = building.base_object
+                building.base_object.select_set(True)
+                curve_obj.select_set(True)
+                bpy.ops.object.parent_no_inverse_set(keep_transform=False)
+            curve_obj.driver_remove('location', 2)
+            fcurve = curve_obj.driver_add('location', 2)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'start_height'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, curve.floor_ID)
+
+            curve_obj.modifiers.clear()
+
+            curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
+            curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
+            _set_element_collection(floor, curve_attributes, floor_element_collection)
+
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'height'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, curve.floor_ID)
+
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'array'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)     
+
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_5"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'floor_ceiling'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].floor_ceiling' % (building_index, curve.floor_ID)        
+            curve_attributes.show_expanded = False
+
+            for seg_index, segment in enumerate(curve.segments):
+                element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
+                element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
+                element_id["Socket_2"] = segment.ID
+                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % element_id.name)
                 driver = fcurve.driver
                 driver.type = 'AVERAGE'
                 var = driver.variables.new()
-                var.name = 'start_height'
+                var.name = "element_ID"
                 var.type = 'SINGLE_PROP'
                 var.targets[0].id_type = 'SCENE'
                 var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, floor_index)
-
-                curve_obj.modifiers.clear()
-
-                curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
-                curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
-                _set_element_collection(floor, curve_attributes, floor_element_collection)
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = 'height'
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, floor_index)
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % curve_attributes.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = 'array'
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, floor_index)     
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_5"]' % curve_attributes.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = 'floor_ceiling'
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].floor_ceiling' % (building_index, floor_index)        
-                curve_attributes.show_expanded = False
-
-                for seg_index, segment in enumerate(floor.segments):
-                    element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
-                    element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
-                    element_id["Socket_2"] = segment.ID
-                    fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % element_id.name)
-                    driver = fcurve.driver
-                    driver.type = 'AVERAGE'
-                    var = driver.variables.new()
-                    var.name = "element_ID"
-                    var.type = 'SINGLE_PROP'
-                    var.targets[0].id_type = 'SCENE'
-                    var.targets[0].id = scene
-                    var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, floor_index, seg_index)
-                    element_id.show_expanded = False
+                var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, seg_index)
+                element_id.show_expanded = False
 
         building.active_floor_index = old_active_floor
 

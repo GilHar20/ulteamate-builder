@@ -93,10 +93,11 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         operators._calculate_floors_start_height(context, None)
         return
 
-    curve_object : bpy.props.PointerProperty(
-        name = "Input curve object",
-        description = "Input curve geometry",
-        type = bpy.types.Object
+    floor_ID : bpy.props.IntProperty(
+        name = "Floor ID",
+        default = 0,
+        min = 0,
+        max = 10000
     )
 
     height : bpy.props.FloatProperty(
@@ -118,6 +119,19 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         ],
         default = 'TOP'
     )
+
+    curve_object : bpy.props.PointerProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = bpy.types.Object
+    )
+
+    segments : bpy.props.CollectionProperty(
+        name = "Segments",
+        description = "Segments of the curve object",
+        type = BLENDERRAIL_PG_segment
+    )
+
 
 
 
