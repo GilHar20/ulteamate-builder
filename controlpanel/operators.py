@@ -122,14 +122,13 @@ def _sync_segments_to_curves(curve_data_list, floor):
 def _collect_floor_curves(floor):
     """Collect valid curve data, sync segments when combined topology changes."""
     curve_data_list = []
-    required = 0
 
-    curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
-    for curve_object in curve_objects:
-        if curve_object is None or curve_object.type != 'CURVE':
+    curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
+    for curve_item in curve_items:
+        if curve_item.curve_object is None or curve_item.curve_object.type != 'CURVE':
             continue
 
-        curve_data = curve_object.data
+        curve_data = curve_item.curve_object.data
         curve_data_list.append(curve_data)
         _sync_segments_to_curves(curve_data_list, floor)
 
@@ -246,9 +245,11 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 floor_element_collection = bpy.data.collections.get(str(floor.ID) + "_Elements")
             _combine_element_objects(floor, floor_element_collection)
 
-            curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
-            for curve in curve_objects: curve.floor_ID = floor.ID
-            all_curve_objects.extend(curve_objects)
+            curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
+            for curve_index, curve_item in enumerate(curve_items):
+                curve_item.ID = curve_index
+                curve_item.floor_ID = floor.ID
+            all_curve_objects.extend(curve_items)
 
         for curve in all_curve_objects:
             curve_obj = curve.curve_object
@@ -286,7 +287,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.type = 'SINGLE_PROP'
             var.targets[0].id_type = 'SCENE'
             var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].height' % (building_index, curve.floor_ID)
+            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
 
             fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % curve_attributes.name)
             driver = fcurve.driver

@@ -93,6 +93,13 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         operators._calculate_floors_start_height(context, None)
         return
 
+    ID : bpy.props.IntProperty(
+        name = "Segment ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
     floor_ID : bpy.props.IntProperty(
         name = "Floor ID",
         default = 0,
@@ -407,15 +414,15 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     curve_index : bpy.props.IntProperty(default = -1 ,options = {"HIDDEN"})
 
-    def _select_set(self, context, curves):
+    def _select_set(self, context, curve_items):
         if self.curve_index != -1:
-            context.view_layer.objects.active = curves[self.curve_index].object
-            curves[self.curve_index].object.select_set(True)
+            context.view_layer.objects.active = curve_items[self.curve_index].curve_object
+            curve_items[self.curve_index].curve_object.select_set(True)
             return
 
-        context.view_layer.objects.active = curves[0].object
-        for curve in curves:
-            curve.object.select_set(True)
+        context.view_layer.objects.active = curve_items[0].curve_object
+        for curve in curve_items:
+            curve.curve_object.select_set(True)
         return
 
     def execute(self, context):
@@ -423,9 +430,9 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
         building = scene.buildings[scene.active_building_index]
         active_floor_index = building.active_floor_index
         curves = building.floors[active_floor_index].curves
-        curve_objects = [curve for curve in curves if curve.curve_object is not None]
+        curve_items = [curve for curve in curves if curve.curve_object is not None]
 
-        if len(curve_objects) == 0:
+        if len(curve_items) == 0:
             self.report({'INFO'}, "No curve objects assigned")
             return{"CANCELLED"}
 
@@ -436,12 +443,12 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
         elif context.mode == 'EDIT_CURVE':
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curve_objects)
+            self._select_set(context, curve_items)
             bpy.ops.object.mode_set(mode='EDIT')
 
         elif context.mode == 'OBJECT':
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curve_objects)
+            self._select_set(context, curve_items)
 
         return{"FINISHED"}
 
@@ -498,6 +505,67 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
 
         return {"FINISHED"}
 
+
+
+# ------------------------------
+# Operators: add / remove curves
+# ------------------------------
+
+class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.add_curve_object"
+    bl_label = "Add Curve"
+    bl_description = "Add a curve object to the active floor"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curves = floor.curves
+        active_curve_index = building.active_curve_index
+
+        if len(floors) == 0:
+            self.report({"WARNING"}, "No floors — add a floor first")
+            return {"CANCELLED"}
+
+        if len(curves) == 0:
+            curves.add()
+            building.active_curve_index = 0
+        else:
+            curves.add()
+
+        return {"FINISHED"}
+
+
+class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.remove_curve_object"
+    bl_label = "Remove Curve"
+    bl_description = "Remove a curve object from the active floor"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curves = floor.curves
+
+        if len(floors) == 0:
+            self.report({"WARNING"}, "No floors")
+            return {"CANCELLED"}
+
+        if len(curves) == 0:
+            self.report({"WARNING"}, "No curve rows to remove")
+            building.active_curve_index = 0
+            return {"CANCELLED"}
+
+        curves.remove(len(curves) - 1)
+
+        return {"FINISHED"}
+    
 
 
 # --------------------------------
@@ -562,67 +630,6 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
         building.active_segment_index = min(segment_index, max(0, len(segments) - 1))
         return {"FINISHED"}
     
-
-
-# ------------------------------
-# Operators: add / remove curves
-# ------------------------------
-
-class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.add_curve_object"
-    bl_label = "Add Curve"
-    bl_description = "Add a curve object to the active floor"
-    bl_options = {"REGISTER", "UNDO"}
-
-
-    def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        floor = floors[building.active_floor_index]
-        curves = floor.curves
-        active_curve_index = building.active_curve_index
-
-        if len(floors) == 0:
-            self.report({"WARNING"}, "No floors — add a floor first")
-            return {"CANCELLED"}
-
-        if len(curves) == 0:
-            curves.add()
-            building.active_curve_index = 0
-        else:
-            curves.add()
-
-        return {"FINISHED"}
-
-
-class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_curve_object"
-    bl_label = "Remove Curve"
-    bl_description = "Remove a curve object from the active floor"
-    bl_options = {"REGISTER", "UNDO"}
-
-
-    def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        floor = floors[building.active_floor_index]
-        curves = floor.curves
-
-        if len(floors) == 0:
-            self.report({"WARNING"}, "No floors")
-            return {"CANCELLED"}
-
-        if len(curves) == 0:
-            self.report({"WARNING"}, "No curve rows to remove")
-            building.active_curve_index = 0
-            return {"CANCELLED"}
-
-        curves.remove(len(curves) - 1)
-
-        return {"FINISHED"}
-
 
 
 # --------------------------------------

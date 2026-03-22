@@ -36,6 +36,8 @@ classes = [
     
     ui.BLENDERRAIL_UL_building_list,
     ui.BLENDERRAIL_UL_floor_list,
+    ui.BLENDERRAIL_UL_curve_list,
+    ui.BLENDERRAIL_UL_segment_list,
     ui.BLENDERRAIL_PT_controlpanel
 ]
 
