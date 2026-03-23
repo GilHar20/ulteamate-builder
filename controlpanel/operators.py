@@ -175,20 +175,33 @@ def _calculate_floors_start_height(context, floors):
         accumulated_height += floor.total_height
     return
 
-def _combine_element_objects(floor, collection):
+def _combine_element_objects(self, curve, elements_collection_name, parent_collection):
     """Assemble custom element collection for a floor"""
-    if not floor.element_object:
-        return
+    elements_collection = getattr(curve, elements_collection_name)
     
-    element_objects = floor.element_object
+    if len(elements_collection.objects) == 0 and not elements_collection.existing_collection:
+        self.report({'WARNING'}, "Please provide elemets!")
+        return
 
-    for object in collection.objects:
-        collection.objects.unlink(object)
+    if curve.curve_object.name + "_" + elements_collection_name not in bpy.data.collections:
+        target_collection = bpy.data.collections.new(name = curve.curve_object.name + "_" + elements_collection_name)
+        parent_collection.children.link(target_collection)
+    else:
+        target_collection = bpy.data.collections.get(curve.curve_object.name + "_" + elements_collection_name)
 
-    for object in element_objects:
-        collection.objects.link(object.object)
+    for object in target_collection.objects:
+        target_collection.objects.unlink(object)
 
-    return collection
+    if elements_collection.collect_method == 'OBJECTS':
+        for obj in elements_collection.objects:
+            target_collection.objects.link(obj.object)
+    elif elements_collection.collect_method == 'EXISTING':
+        for obj in elements_collection.existing_ollection.objects:
+            target_collection.objects.link(obj)
+
+    elements_collection.target_collection = target_collection
+
+    return
 
 def _set_element_collection(floor, modifier, element_collection):
     if floor.element_method == 'COLLECTION':
@@ -238,12 +251,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             parent_collection = building.base_object.users_collection[0]
 
-            if str(floor.ID) + "_Elements" not in bpy.data.collections:
-                floor_element_collection = bpy.data.collections.new(name = str(floor.ID) + "_Elements")
-                parent_collection.children.link(floor_element_collection)
-            else:
-                floor_element_collection = bpy.data.collections.get(str(floor.ID) + "_Elements")
-            _combine_element_objects(floor, floor_element_collection)
+
+            #_combine_element_objects(floor, floor_element_collection)
 
             curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
             for curve_index, curve_item in enumerate(curve_items):
@@ -273,11 +282,16 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.targets[0].id = scene
             var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, curve.floor_ID)
 
+            _combine_element_objects(self, curve, "main_elements", parent_collection)
+            _combine_element_objects(self, curve, "corner_elements", parent_collection)
+
             curve_obj.modifiers.clear()
 
             curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
             curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
-            _set_element_collection(floor, curve_attributes, floor_element_collection)
+            curve_attributes["Socket_2"] = curve.main_elements.target_collection
+            curve_attributes["Socket_9"] = curve.corner_elements.target_collection
+            # _set_element_collection(floor, curve_attributes, floor_element_collection)
 
             fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
             driver = fcurve.driver
@@ -307,7 +321,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.type = 'SINGLE_PROP'
             var.targets[0].id_type = 'SCENE'
             var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].floor_ceiling' % (building_index, curve.floor_ID)        
+            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)        
             curve_attributes.show_expanded = False
 
             for seg_index, segment in enumerate(curve.segments):
@@ -322,7 +336,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 var.type = 'SINGLE_PROP'
                 var.targets[0].id_type = 'SCENE'
                 var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, seg_index)
+                var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, seg_index)
                 element_id.show_expanded = False
 
         building.active_floor_index = old_active_floor

@@ -139,7 +139,17 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         type = BLENDERRAIL_PG_segment
     )
 
+    main_elements : bpy.props.PointerProperty(
+        name = "Main Elements",
+        description = "Collection of main elements",
+        type = BLENDERRAIL_PG_elements_collection
+    )
 
+    corner_elements : bpy.props.PointerProperty(
+        name = "Main Elements",
+        description = "Collection of main elements",
+        type = BLENDERRAIL_PG_elements_collection
+    )
 
 
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
@@ -213,26 +223,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         description = "Element to assign to the floor",
         type = BLENDERRAIL_PG_collect_objects
     )
-
-    '''
-    main_elements : bpy.props.CollectionProperty(
-        name = "Main Elements",
-        description = "Collection of main elements",
-        type = BLENDERRAIL_PG_elements_collection
-    )
-
-    corner_elements : bpy.props.CollectionProperty(
-        name = "Main Elements",
-        description = "Collection of main elements",
-        type = BLENDERRAIL_PG_elements_collection
-    )
-
-    interval_elements : bpy.props.CollectionProperty(
-        name = "Main Elements",
-        description = "Collection of main elements",
-        type = BLENDERRAIL_PG_elements_collection
-    )
-    '''
 
 
 class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
@@ -641,15 +631,16 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
     bl_label = "Add Collect Object"
     bl_options = {"REGISTER", "UNDO"}
 
-    collection_name : bpy.props.StringProperty(options = {"HIDDEN"})
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
-        collection = getattr(floor, self.collection_name)
+        curve = floor.curves[building.active_curve_index]
+        collection = getattr(curve, self.element_type)
 
-        collection.add()
+        collection.objects.add()
 
         return {"FINISHED"}
 
@@ -659,18 +650,19 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
     bl_label = "Remove Collect Object"
     bl_options = {"REGISTER", "UNDO"}
 
-    collection_name : bpy.props.StringProperty(options = {"HIDDEN"})
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
-        collection = getattr(floor, self.collection_name)
+        curve = floor.curves[building.active_curve_index]
+        collection = getattr(curve, self.element_type)
 
-        if len(collection) == 0:
+        if len(collection.objects) == 0:
             self.report({"WARNING"}, "No objects to remove")
             return {"CANCELLED"}
 
-        collection.remove(len(collection) - 1)
+        collection.objects.remove(len(collection.objects) - 1)
 
         return {"FINISHED"}

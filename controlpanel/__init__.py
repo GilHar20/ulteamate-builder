@@ -7,7 +7,7 @@ from . import properties, ui, operators
 classes = [
     properties.BLENDERRAIL_PG_segment,
     properties.BLENDERRAIL_PG_collect_objects,
-    #properties.BLENDERRAIL_PG_elements_collection,
+    properties.BLENDERRAIL_PG_elements_collection,
     properties.BLENDERRAIL_PG_curve,
     properties.BLENDERRAIL_PG_floor,
     properties.BLENDERRAIL_PG_building,

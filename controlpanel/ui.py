@@ -14,6 +14,8 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
             name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
             row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
             layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
+            layout.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
+            layout.prop(item, "base_object", text = "", placeholder = "Base Object")
             select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_object.building_index = index
 
@@ -76,16 +78,16 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
 
-    def draw_collect_objects(self, layout, collection_name, collection):
+    def draw_collect_objects(self, layout, elements_type, objects):
         row = layout.row()
         col = row.column(align=True)
-        for item in collection:
-            col.prop(item, "object", text="", placeholder="Object")
+        for obj in objects:
+            col.prop(obj, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
         buttons = row.column(align=True)
-        add = buttons.operator("blenderrail.add_collect_object", text="", icon='ADD')
-        add.collection_name = collection_name
-        remove = buttons.operator("blenderrail.remove_collect_object", text="", icon='REMOVE')
-        remove.collection_name = collection_name
+        add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
+        add_object.element_type = elements_type
+        remove_object = buttons.operator("blenderrail.remove_collect_object", text = "", icon = 'REMOVE')
+        remove_object.element_type = elements_type
 
 
     def draw(self, context):
@@ -113,7 +115,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         active_floor = floors[floor_index]
         curves = active_floor.curves
         curve_index = active_building.active_curve_index
-        active_curve = curves[curve_index]
+
 
         buildings_box.template_list(
             "BLENDERRAIL_UL_building_list",
@@ -125,18 +127,11 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             rows = 4
         )
 
-        building_column = buildings_box.column(align = True)
-        building_column.prop(active_building, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
-        building_column.prop(active_building, "base_object", text = "", placeholder = "Base Object")
-        building_column.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
-        building_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-
-
         collections_row = layout.row(align = True)
         
-
         # FLOORS:
         floors_box = collections_row.box()
+        floors_box.label(text = "Floors:")
         floors_row = floors_box.row(align = True)
         floors_row.template_list(
             "BLENDERRAIL_UL_floor_list",
@@ -166,6 +161,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         # CURVES:
         curves_box = collections_row.box()
+        curves_box.label(text = "Curves:")
         curves_row = curves_box.row(align = True)
         curves_row.template_list(
             "BLENDERRAIL_UL_curve_list",
@@ -183,6 +179,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         # SEGMENTS:
         segments_box = collections_row.box()
+        segments_box.label(text = "Segments:")
         segments_row = segments_box.row(align = True)
         segments_row.template_list(
             "BLENDERRAIL_UL_segment_list",
@@ -193,71 +190,21 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "active_curve_index",
             rows = 8           
         )
-        segments_column = segments_row.column(align = True)
-        segments_column.operator("blenderrail.add_segment", text = "", icon = "ADD")
-        segments_column.operator("blenderrail.remove_segment", text = "", icon = "REMOVE")
-
-
-
-        '''
-        active_floor_index = active_building.active_floor_index
-        active_segment_index = active_building.active_segment_index
-        level: int = 1
-
-        for floor_index, floor in enumerate(floors):
-            floor_row = floors_box.row(align = True)
-            flooritemRow.alignment = 'LEFT'
-
-            flooractivateIcon = "RADIOBUT_ON" if floor_index == active_floor_index else "RADIOBUT_OFF"
-
-            activateFloor = flooritemRow.operator("blenderrail.set_active_indecies", text = "", icon = flooractivateIcon, emboss=False)
-            activateFloor.floor_index = floor_index
-
-            floor_label = str(level) + "- " + str(len(floor.segments)) + " segments" if len(floor.curves) > 0 else str(floor_index) + "- "
-            floorExpandIcon = "TRIA_DOWN" if floor.is_open else "TRIA_RIGHT"
-            flooritemRow.prop(floor, "is_open", text = floor_label, icon = floorExpandIcon, emboss = False)
-
-
-
-            for array_level in range(floor.array - 1):
-                level += 1
-                flooritemRow = floors_box.row(align = True)
-                flooritemRow.alignment = 'LEFT'
-                floor_label = "       " + str(level) + "- " + "Floor array"
-                flooritemRow.label(text = floor_label, icon = 'RADIOBUT_OFF')
-                split = flooritemRow.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
-                split.current_floor_index = floor_index
-                split.level_index = array_level
-            level += 1
-
-            segmentsColumn = floors_box.column(align = True)
-            if not floor.is_open:
-                continue
-            for segment in floor.segments:
-
-                segmentRow = segmentsColumn.row(align = True)
-                segmentRow.separator(factor = 2.0, type = 'LINE')
-
-                segmentactivateIcon = "RADIOBUT_ON" if (floor_index == active_floor_index and segment.ID == active_segment_index) else "RADIOBUT_OFF"
-
-                activateSegment = segmentRow.operator("blenderrail.set_active_indecies", text = "", icon = segmentactivateIcon, emboss = False)
-                activateSegment.floor_index = floor_index
-                activateSegment.segment_index = segment.ID
-
-                segmentRow.label(text = "segment" + " #" + str(segment.ID))
-                segmentRow.prop(segment, "element_ID", text = "Element ID")
-        '''    
 
         settings_box = layout.box()
+        operators_column = settings_box.column(align = True)
+        operators_column.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
+        operators_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
         # Floor Settings
         if floors and 0 <= floor_index < len(floors):
             floor_entry = floors[floor_index]
 
+            settings_box.separator()
             settings_box.label(text = "Floor Settings: ")
 
-            propertyColumn = settings_box.column(align = True)
-            propertyColumn.prop(floor_entry, "array", text = "", icon = 'ANCHOR_BOTTOM')
+            property_column = settings_box.column(align = True)
+            property_column.prop(floor_entry, "array", text = "", icon = 'ANCHOR_BOTTOM')
 
         # Curve Settings
         if curves and 0 <= curve_index < len(curves):
@@ -268,20 +215,31 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
             property_column = settings_box.column(align = True)
             property_column.prop(curve_entry, "height", text = "", icon = 'ANCHOR_BOTTOM')
+            floor_ceiling_row = property_column.row()
+            floor_ceiling_row.prop(curve_entry, "floor_ceiling", expand = True)
+
 
             # Main Elements Settings:
+            main_elements = curve_entry.main_elements
+
             settings_box.separator()
             settings_box.label(text = "Main: ")
-            elementsColumn = settings_box.column(align = True)
-            elementsColumn.prop(floor_entry, "element_method", text = "")
-            if floor_entry.element_method == 'COLLECTION':
-                elementsColumn.prop(floor_entry, "element_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
+
+            main_elements_column = settings_box.column(align = True)
+            collect_method_row = main_elements_column.row()
+            collect_method_row.prop(main_elements, "collect_method", expand = True)
+            if main_elements.collect_method == 'EXISTING':
+                main_elements_column.prop(main_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
             else:
-                self.draw_collect_objects(elementsColumn, "element_object", floor_entry.element_object)
+                self.draw_collect_objects(main_elements_column, "main_elements", main_elements.objects)
+
 
             # Corner Elements Settings:
+            corner_elements = curve_entry.corner_elements
+
             settings_box.separator()
             settings_box.label(text = "Corners: ")
+
 
             # Interval Elements Settings:
             settings_box.separator()
