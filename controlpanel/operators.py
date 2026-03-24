@@ -8,14 +8,14 @@ from bpy.app.handlers import persistent
 # Helper Functions
 # ----------------
 
-def _match_element_id_by_factor(curve_index, spline_index, factor, old_assignments):
+def _match_element_id_by_factor(spline_index, factor, old_assignments):
     """
     Interval-based matching: find the old segment on the same curve and spline whose factor
     is at or just below the given factor. Exact matches (within epsilon) take priority.
     A new segment inherits from the old segment whose interval it falls within.
     If no match, return None (caller can use segment.ID).
     """
-    candidates = [(f, element_ID) for (c_ix, s_ix, f, element_ID) in old_assignments if c_ix == curve_index and s_ix == spline_index]
+    candidates = [(f, element_ID) for (s_ix, f, element_ID) in old_assignments if s_ix == spline_index]
     if not candidates:
         return None
     candidates.sort(key=lambda c: c[0])
@@ -75,62 +75,49 @@ def _spline_cumulative_lengths(count, spline):
 
     return (cumulative, total)
 
-def _sync_segments_to_curves(curve_data_list, floor):
+def _sync_segments_to_curves(curve):
     """Sync floor.segments to combined curve topology and re-match element_IDs by curve factor."""
+    curve_data = curve.curve_object.data
+    
     old_assignments = [
-        (seg.curve_ID, seg.spline_ID, seg.spline_factor, seg.element_ID)
-        for seg in floor.segments
+        (seg.spline_ID, seg.spline_factor, seg.element_ID)
+        for seg in curve.segments
     ]
 
     factors = []
     total_points = 0
 
-    for curve_index, curve_data in enumerate(curve_data_list):
-        for spline_index, spline in enumerate(curve_data.splines):
-            if spline.type == 'BEZIER':
-                count = len(spline.bezier_points)
+    for spline_index, spline in enumerate(curve_data.splines):
+        if spline.type == 'BEZIER':
+            count = len(spline.bezier_points)
+        else:
+            count = len(spline.points)
+        total_points += count
+
+        cumulative, total = _spline_cumulative_lengths(count, spline)
+        for point_index in range(count):
+            if total <= 0 or point_index >= len(cumulative):
+                factor = 0.0
             else:
-                count = len(spline.points)
-            total_points += count
+                factor = cumulative[point_index] / total
+            factors.append((spline_index, factor))
 
-            cumulative, total = _spline_cumulative_lengths(count, spline)
-            for point_index in range(count):
-                if total <= 0 or point_index >= len(cumulative):
-                    factor = 0.0
-                else:
-                    factor = cumulative[point_index] / total
-                factors.append((curve_index, spline_index, factor))
-
-    current = len(floor.segments)
+    current = len(curve.segments)
     delta = total_points - current
     if delta > 0:
         for _ in range(delta):
-            floor.segments.add()
+            curve.segments.add()
     elif delta < 0:
         for _ in range(-delta):
-            floor.segments.remove(len(floor.segments) - 1)
+            curve.segments.remove(len(curve.segments) - 1)
 
-    for seg_index, segment in enumerate(floor.segments):
+    for seg_index, segment in enumerate(curve.segments):
         segment.ID = seg_index
-        curve_index, spline_index, factor = factors[seg_index]
-        matched = _match_element_id_by_factor(curve_index, spline_index, factor, old_assignments)
-        segment.element_ID = matched if matched is not None else segment.ID
-        segment.curve_ID = curve_index
+        spline_index, factor = factors[seg_index]
+        matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
+        segment.element_ID = matched
         segment.spline_ID = spline_index
         segment.spline_factor = factor
-
-def _collect_floor_curves(floor):
-    """Collect valid curve data, sync segments when combined topology changes."""
-    curve_data_list = []
-
-    curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
-    for curve_item in curve_items:
-        if curve_item.curve_object is None or curve_item.curve_object.type != 'CURVE':
-            continue
-
-        curve_data = curve_item.curve_object.data
-        curve_data_list.append(curve_data)
-        _sync_segments_to_curves(curve_data_list, floor)
 
 _rematch_in_progress = False
 
@@ -145,10 +132,19 @@ def on_depsgraph_update(scene, depsgraph):
         return
 
     _rematch_in_progress = True
+
+    buildings = scene.buildings
+    building_index = scene.active_building_index
+    active_building = buildings[building_index]
+    floors = active_building.floors
+    floor_index = active_building.active_floor_index
+    active_floor = floors[floor_index]
+    curves = active_floor.curves
+    curve_index = active_floor.active_curve_index
+    active_curve = curves[curve_index]
+
     try:
-        for building_index, building in enumerate(scene.buildings):
-            for floor_index, floor in enumerate(building.floors):
-                _collect_floor_curves(floor)
+        _sync_segments_to_curves(active_curve)
         
     finally:
         _rematch_in_progress = False
@@ -203,13 +199,6 @@ def _combine_element_objects(self, curve, elements_collection_name, parent_colle
 
     return
 
-def _set_element_collection(floor, modifier, element_collection):
-    if floor.element_method == 'COLLECTION':
-        modifier["Socket_2"] = floor.element_collection
-    else:
-        modifier["Socket_2"] = element_collection
-    return
-
 
 
 # --------------------
@@ -247,12 +236,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             floor.ID = floor_index
             building.active_floor_index = floor_index
 
-            _collect_floor_curves(floor)
-
             parent_collection = building.base_object.users_collection[0]
-
-
-            #_combine_element_objects(floor, floor_element_collection)
 
             curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
             for curve_index, curve_item in enumerate(curve_items):
@@ -264,6 +248,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_obj = curve.curve_object
             if curve_obj is None:
                 continue
+
+            _sync_segments_to_curves(curve)
 
             if curve_obj.parent != building.base_object:
                 bpy.ops.object.select_all(action='DESELECT')
@@ -291,7 +277,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
             curve_attributes["Socket_2"] = curve.main_elements.target_collection
             curve_attributes["Socket_9"] = curve.corner_elements.target_collection
-            # _set_element_collection(floor, curve_attributes, floor_element_collection)
 
             fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
             driver = fcurve.driver

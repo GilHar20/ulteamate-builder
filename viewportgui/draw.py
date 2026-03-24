@@ -25,7 +25,7 @@ panel_state = {
 # Data helpers
 # --------------------------
 
-def get_active_floor():
+def get_active_curve():
     scene = bpy.context.scene
     if not hasattr(scene, 'buildings') or len(scene.buildings) == 0:
         return None
@@ -38,37 +38,44 @@ def get_active_floor():
     if len(building.floors) == 0:
         return None
 
-    fi = building.active_floor_index
-    if fi < 0 or fi >= len(building.floors):
+    floor_idx = building.active_floor_index
+    if floor_idx < 0 or floor_idx >= len(building.floors):
         return None
 
-    return building.floors[fi]
+    floor = building.floors[floor_idx]
+    if len(floor.curves) == 0:
+        return None
+        
+    curve_idx = floor.active_curve_index
+    if curve_idx < 0 or curve_idx >= len(floor.curves):
+        return None
+    
+    return floor.curves[curve_idx]
 
 
 def get_element_names():
-    floor = get_active_floor()
-    if floor is None:
+    curve = get_active_curve()
+    if curve is None:
         return []
 
+    if curve.main_elements.target_collection == None:
+        return None
+
     names = []
-    if floor.element_method == 'COLLECTION':
-        if floor.element_collection:
-            for obj in floor.element_collection.objects:
-                names.append(obj.name)
-    else:
-        for entry in floor.element_object:
-            names.append(entry.object.name if entry.object else "- empty -")
+    for obj in curve.main_elements.target_collection.objects:
+        names.append(obj.name if obj else "- empty -")
     return names
 
 
 def get_selected_segment_indices():
-    floor = get_active_floor()
-    if floor is None or floor.curve is None:
+    curve = get_active_curve()
+    if curve is None or curve.curve_object is None:
         return []
 
-    curve_data = floor.curve.data
-    if floor.curve.type != 'CURVE':
+    if curve.curve_object.type != 'CURVE':
         return []
+    
+    curve_data = curve.curve_object.data
 
     selected = []
     flat_index = 0
@@ -87,12 +94,15 @@ def get_selected_segment_indices():
 
 
 def set_element_id_for_selected(element_id):
-    floor = get_active_floor()
-    if floor is None:
+    curve = get_active_curve()
+    if curve is None:
         return
     for idx in get_selected_segment_indices():
-        if 0 <= idx < len(floor.segments):
-            floor.segments[idx].element_ID = element_id
+        if 0 <= idx < len(curve.segments):
+            curve.segments[idx].element_ID = element_id
+    obj = curve.curve_object
+    if obj is not None:
+        obj.update_tag()
 
 
 

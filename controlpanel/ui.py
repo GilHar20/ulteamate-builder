@@ -110,11 +110,12 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         building_index = scene.active_building_index
         active_building = buildings[building_index]
-        floor_index = active_building.active_floor_index
         floors = active_building.floors
+        floor_index = active_building.active_floor_index
         active_floor = floors[floor_index]
         curves = active_floor.curves
-        curve_index = active_building.active_curve_index
+        curve_index = active_floor.active_curve_index
+        active_curve = curves[curve_index]
 
 
         buildings_box.template_list(
@@ -168,7 +169,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "blenderrail_curve_list",
             active_floor,
             "curves",
-            active_building,
+            active_floor,
             "active_curve_index",
             rows = 8           
         )
@@ -184,10 +185,10 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         segments_row.template_list(
             "BLENDERRAIL_UL_segment_list",
             "blenderrail_segment_list",
-            active_floor,
+            active_curve,
             "segments",
-            active_building,
-            "active_curve_index",
+            active_curve,
+            "active_segment_index",
             rows = 8           
         )
 
@@ -197,51 +198,52 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         operators_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
         # Floor Settings
-        if floors and 0 <= floor_index < len(floors):
-            floor_entry = floors[floor_index]
+        settings_box.separator()
+        settings_box.label(text = "Floor Settings: ")
 
-            settings_box.separator()
-            settings_box.label(text = "Floor Settings: ")
-
-            property_column = settings_box.column(align = True)
-            property_column.prop(floor_entry, "array", text = "", icon = 'ANCHOR_BOTTOM')
+        property_column = settings_box.column(align = True)
+        property_column.prop(active_floor, "array", text = "", icon = 'ANCHOR_BOTTOM')
 
         # Curve Settings
-        if curves and 0 <= curve_index < len(curves):
-            curve_entry = curves[curve_index]
+        settings_box.separator()
+        settings_box.label(text = "Curve Settings: ")
 
-            settings_box.separator()
-            settings_box.label(text = "Curve Settings: ")
-
-            property_column = settings_box.column(align = True)
-            property_column.prop(curve_entry, "height", text = "", icon = 'ANCHOR_BOTTOM')
-            floor_ceiling_row = property_column.row()
-            floor_ceiling_row.prop(curve_entry, "floor_ceiling", expand = True)
+        property_column = settings_box.column(align = True)
+        property_column.prop(active_curve, "height", text = "", icon = 'ANCHOR_BOTTOM')
+        floor_ceiling_row = property_column.row()
+        floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
 
 
-            # Main Elements Settings:
-            main_elements = curve_entry.main_elements
+        # Main Elements Settings:
+        main_elements = active_curve.main_elements
 
-            settings_box.separator()
-            settings_box.label(text = "Main: ")
+        settings_box.separator()
+        settings_box.label(text = "Main: ")
 
-            main_elements_column = settings_box.column(align = True)
-            collect_method_row = main_elements_column.row()
-            collect_method_row.prop(main_elements, "collect_method", expand = True)
-            if main_elements.collect_method == 'EXISTING':
-                main_elements_column.prop(main_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-            else:
-                self.draw_collect_objects(main_elements_column, "main_elements", main_elements.objects)
-
-
-            # Corner Elements Settings:
-            corner_elements = curve_entry.corner_elements
-
-            settings_box.separator()
-            settings_box.label(text = "Corners: ")
+        main_elements_column = settings_box.column(align = True)
+        collect_method_row = main_elements_column.row()
+        collect_method_row.prop(main_elements, "collect_method", expand = True)
+        if main_elements.collect_method == 'EXISTING':
+            main_elements_column.prop(main_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
+        else:
+            self.draw_collect_objects(main_elements_column, "main_elements", main_elements.objects)
 
 
-            # Interval Elements Settings:
-            settings_box.separator()
-            settings_box.label(text = "Interval: ")
+        # Corner Elements Settings:
+        corner_elements = active_curve.corner_elements
+
+        settings_box.separator()
+        settings_box.label(text = "Corners: ")
+
+        corner_elements_column = settings_box.column(align = True)
+        collect_method_row = corner_elements_column.row()
+        collect_method_row.prop(corner_elements, "collect_method", expand = True)
+        if corner_elements.collect_method == 'EXISTING':
+            corner_elements_column.prop(corner_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
+        else:
+            self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements.objects)
+
+        # Interval Elements Settings:
+        #settings_box.separator()
+        #settings_box.label(text = "Interval: ")
 

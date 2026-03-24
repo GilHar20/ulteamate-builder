@@ -12,8 +12,6 @@ classes = [
     properties.BLENDERRAIL_PG_floor,
     properties.BLENDERRAIL_PG_building,
 
-    properties.BLENDERRAIL_OT_set_active_indecies,
-
     properties.BLENDERRAIL_OT_add_floor,
     properties.BLENDERRAIL_OT_remove_floor,
     properties.BLENDERRAIL_OT_reorder_floor,

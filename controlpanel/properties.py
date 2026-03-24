@@ -48,7 +48,7 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
         """While technically works, quite heavy on preformance."""
-        bpy.context.view_layer.update()
+        context.view_layer.update()
         return
     
     ID : bpy.props.IntProperty(
@@ -139,6 +139,13 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         type = BLENDERRAIL_PG_segment
     )
 
+    active_segment_index : bpy.props.IntProperty(
+        name = "Active Segment Index",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
     main_elements : bpy.props.PointerProperty(
         name = "Main Elements",
         description = "Collection of main elements",
@@ -155,10 +162,6 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
         operators._calculate_floors_start_height(context, None)
-        return
-
-    def _update_element_method(self, context):
-        operators._set_element_collection()
         return
     
     ID : bpy.props.IntProperty(
@@ -196,33 +199,13 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         type = BLENDERRAIL_PG_curve
     )
 
-    segments : bpy.props.CollectionProperty(
-        name = "Segments",
-        description = "Segments of the curve object",
-        type = BLENDERRAIL_PG_segment
+    active_curve_index : bpy.props.IntProperty(
+        name = "Active Floor Index",
+        default = 0,
+        min = 0,
+        max = 10000
     )
 
-    element_method : bpy.props.EnumProperty(
-        name = "Element Method",
-        description = "Method of assigning elements to the floor",
-        items = [
-        ('COLLECTION', "Collection", "Input collection", 0),
-        ('OBJECTS', "Objects", "Select objects", 1),
-        ],
-        default = 'COLLECTION'
-    )
-
-    element_collection : bpy.props.PointerProperty(
-        name = "Elements Collection",
-        description = "Collection of elements to instance along the floor spline.",
-        type = bpy.types.Collection
-    )
-
-    element_object : bpy.props.CollectionProperty(
-        name = "Segments",
-        description = "Element to assign to the floor",
-        type = BLENDERRAIL_PG_collect_objects
-    )
 
 
 class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
@@ -247,8 +230,14 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     
     base_object : bpy.props.PointerProperty(
         name = "Building",
-        description = "Input base geometry to hold the constract modifier",
+        description = "Base geometry to hold the constract modifier",
         type = bpy.types.Object
+    )
+
+    building_collection : bpy.props.PointerProperty(
+        name = "Building_collection",
+        description = "Main collection to hold flors and elements collections",
+        type = bpy.types.Collection
     )
 
     floors : bpy.props.CollectionProperty(
@@ -263,52 +252,6 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         min = 0,
         max = 10000
     )
-
-    active_curve_index : bpy.props.IntProperty(
-        name = "Active Floor Index",
-        default = 0,
-        min = 0,
-        max = 10000
-    )
-
-    active_segment_index : bpy.props.IntProperty(
-        name = "Active Segment Index",
-        default = 0,
-        min = 0,
-        max = 10000
-    )
-
-    active_element_index : bpy.props.IntProperty(
-        name = "Active Floor Index",
-        default = 0,
-        min = 0,
-        max = 10000
-    )
-
-
-
-# --------------------------------
-# Property Group Actions Operators
-# --------------------------------
-
-class BLENDERRAIL_OT_set_active_indecies(bpy.types.Operator):
-    bl_idname = "blenderrail.set_active_indecies"
-    bl_label = "Set Active Segment"
-    bl_options = {"REGISTER", "UNDO"}
-
-    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
-    segment_index : bpy.props.IntProperty(options = {"HIDDEN"})
-
-    def execute(self, context):
-        scene = context.scene
-        buildings = scene.buildings
-        building_index = scene.active_building_index
-        building = buildings[building_index]
-
-        building.active_floor_index = self.floor_index
-        building.active_segment_index = self.segment_index
-
-        return {"FINISHED"}
 
 
 
@@ -514,7 +457,6 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
-        active_curve_index = building.active_curve_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors — add a floor first")
@@ -522,7 +464,7 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
         if len(curves) == 0:
             curves.add()
-            building.active_curve_index = 0
+            floor.active_curve_index = 0
         else:
             curves.add()
 
@@ -549,7 +491,7 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
 
         if len(curves) == 0:
             self.report({"WARNING"}, "No curve rows to remove")
-            building.active_curve_index = 0
+            floor.active_curve_index = 0
             return {"CANCELLED"}
 
         curves.remove(len(curves) - 1)
@@ -637,7 +579,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[building.active_curve_index]
+        curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
 
         collection.objects.add()
@@ -656,7 +598,7 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[building.active_curve_index]
+        curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
 
         if len(collection.objects) == 0:

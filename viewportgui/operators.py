@@ -16,16 +16,27 @@ class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
     def invoke(self, context, event):
         cls = type(self)
 
+        scene = context.scene
+        buildings = scene.buildings
+        building_index = scene.active_building_index
+        active_building = buildings[building_index]
+        floors = active_building.floors
+        floor_index = active_building.active_floor_index
+        active_floor = floors[floor_index]
+        curves = active_floor.curves
+        curve_index = active_floor.active_curve_index
+        active_curve = curves[curve_index]
+
         if cls.is_running():
             cls._remove(context)
             return {'FINISHED'}
 
-        floor = draw.get_active_floor()
-        if floor is None or floor.curve is None:
+        #floor = draw.get_active_floor()
+        if active_floor is None or active_floor.curves is None:
             self.report({'WARNING'}, "Active floor has no curve assigned")
             return {'CANCELLED'}
 
-        curve_obj = floor.curve
+        curve_obj = active_curve.curve_object
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = curve_obj
