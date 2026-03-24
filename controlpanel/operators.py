@@ -77,6 +77,9 @@ def _spline_cumulative_lengths(count, spline):
 
 def _sync_segments_to_curves(curve):
     """Sync floor.segments to combined curve topology and re-match element_IDs by curve factor."""
+    if not curve.curve_object:
+        return
+    
     curve_data = curve.curve_object.data
     
     old_assignments = [
@@ -115,7 +118,7 @@ def _sync_segments_to_curves(curve):
         segment.ID = seg_index
         spline_index, factor = factors[seg_index]
         matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
-        segment.element_ID = matched
+        segment.element_ID = matched if matched else 0
         segment.spline_ID = spline_index
         segment.spline_factor = factor
 

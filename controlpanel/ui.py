@@ -198,14 +198,12 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         operators_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
         # Floor Settings
-        settings_box.separator()
         settings_box.label(text = "Floor Settings: ")
 
         property_column = settings_box.column(align = True)
         property_column.prop(active_floor, "array", text = "", icon = 'ANCHOR_BOTTOM')
 
         # Curve Settings
-        settings_box.separator()
         settings_box.label(text = "Curve Settings: ")
 
         property_column = settings_box.column(align = True)
@@ -217,7 +215,6 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # Main Elements Settings:
         main_elements = active_curve.main_elements
 
-        settings_box.separator()
         settings_box.label(text = "Main: ")
 
         main_elements_column = settings_box.column(align = True)
@@ -232,7 +229,6 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # Corner Elements Settings:
         corner_elements = active_curve.corner_elements
 
-        settings_box.separator()
         settings_box.label(text = "Corners: ")
 
         corner_elements_column = settings_box.column(align = True)

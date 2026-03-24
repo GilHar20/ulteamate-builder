@@ -495,6 +495,7 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
             return {"CANCELLED"}
 
         curves.remove(len(curves) - 1)
+        floor.active_curve_index -= 1
 
         return {"FINISHED"}
     
