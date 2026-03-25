@@ -115,6 +115,14 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         update = _update_total_height
     )
 
+    offset_height : bpy.props.FloatProperty(
+        name = "Offset Height",
+        default = 0.0,
+        min = 0.0,
+        max = 100.0,
+        update = _update_total_height
+    )
+
     floor_ceiling : bpy.props.EnumProperty(
         name = "Floor Ceiling",
         description = "Select adding floor, ceiling or both",

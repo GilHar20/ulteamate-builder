@@ -31,20 +31,23 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if len(item.curves) > 0:
-                column = layout.column()
-                column.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = 'CHECKBOX_HLT')
-                if item.array == 1:
-                    return
-                for array in range(item.array - 1):
-                    row = column.row(align = True)
-                    row.separator(factor = 4.0, type = 'LINE')
-                    row.label(text = "Array " + str(array + 2))
-                    split = row.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
-                    split.current_floor_index = index
-                    split.level_index = array
-            else:
-                layout.label(text = str(index + 1) + ": " + "- no floors -", icon = 'CHECKBOX_DEHLT')
+            scene = context.scene
+            building = scene.buildings[scene.active_building_index]
+            active_floor_index = building.active_floor_index
+            icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
+
+            column = layout.column()
+            column.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = icon)
+            if item.array == 1:
+                return
+            for array in range(item.array - 1):
+                row = column.row(align = True)
+                row.separator(factor = 4.0, type = 'LINE')
+                row.label(text = "Array " + str(array + 2))
+                split = row.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
+                split.current_floor_index = index
+                split.level_index = array
+
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
@@ -224,7 +227,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         settings_box.label(text = "Curve Settings: ")
 
         property_column = settings_box.column(align = True)
-        property_column.prop(active_curve, "height", text = "", icon = 'ANCHOR_BOTTOM')
+        property_column.prop(active_curve, "height", text = "")
+        #property_column.prop(active_curve, "offset_height", text = "")
         floor_ceiling_row = property_column.row()
         floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
 
