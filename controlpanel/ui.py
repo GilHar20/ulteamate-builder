@@ -32,7 +32,17 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if len(item.curves) > 0:
-                layout.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = 'CHECKBOX_HLT')
+                column = layout.column()
+                column.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = 'CHECKBOX_HLT')
+                if item.array == 1:
+                    return
+                for array in range(item.array - 1):
+                    row = column.row(align = True)
+                    row.separator(factor = 4.0, type = 'LINE')
+                    row.label(text = "Array " + str(array + 2))
+                    split = row.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
+                    split.current_floor_index = index
+                    split.level_index = array
             else:
                 layout.label(text = str(index + 1) + ": " + "- no floors -", icon = 'CHECKBOX_DEHLT')
         elif self.layout_type in {'GRID'}:
@@ -45,11 +55,18 @@ class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
     """UIList for displaying displaying curves per floor"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.prop(item, "curve_object", text = "", icon = 'CURVE_DATA')
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
-            layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
+            if self.layout_type in {'DEFAULT', 'COMPACT'}:
+                scene = context.scene
+                building = scene.buildings[scene.active_building_index]
+                floor = building.floors[building.active_floor_index]
+                active_curve_index = floor.active_curve_index
+                row = layout.row(align = True)
+                icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
+                row.label(text = "", icon = icon)
+                row.prop(item, "curve_object", text = "", placeholder = "Curve", icon = 'CURVE_DATA')
+            elif self.layout_type in {'GRID'}:
+                layout.alignment = 'CENTER'
+                layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
 
 
 
@@ -141,7 +158,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "floors",
             active_building,
             "active_floor_index",
-            rows = 8,           
+            rows = 2,           
         )
         floors_column = floors_row.column(align = True)
         floors_column.operator("blenderrail.add_floor", text = "", icon = "ADD")
@@ -171,7 +188,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "curves",
             active_floor,
             "active_curve_index",
-            rows = 8           
+            rows = 2           
         )
         curves_column = curves_row.column(align = True)
         curves_column.operator("blenderrail.add_curve_object", text = "", icon = "ADD")
@@ -189,7 +206,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "segments",
             active_curve,
             "active_segment_index",
-            rows = 8           
+            rows = 2           
         )
 
         settings_box = layout.box()

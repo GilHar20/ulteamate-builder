@@ -397,12 +397,16 @@ class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):
     level_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def _copy_curve(self, current_floor, new_floor):
-        curve_objects = [obj for obj in current_floor.curves.curve_object if obj is not None]
-        for curve_object in curve_objects:
-            new_curve = curve_object.copy()
-            new_curve.data = curve_object.data.copy()
-            curve_object.users_collection[0].objects.link(new_curve)
-            new_floor.curves.add().object = new_curve
+        curve_objects = []
+        for curve in current_floor.curves:
+            curve_objects.append(curve.curve_object)
+
+        for obj in curve_objects:
+            new_obj = obj.copy()
+            new_obj.data = obj.data.copy()
+            obj.users_collection[0].objects.link(new_obj)
+            new_curve = new_floor.curves.add()
+            new_curve.curve_object = new_obj
 
     def execute(self, context):
         scene = context.scene
