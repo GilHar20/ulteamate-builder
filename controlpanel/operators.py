@@ -95,10 +95,12 @@ def _sync_segments_to_curves(curve):
             count = len(spline.bezier_points)
         else:
             count = len(spline.points)
-        total_points += count
+        segment_count = count if spline.use_cyclic_u else max(count - 1, 0)
+        total_points += segment_count        
 
         cumulative, total = _spline_cumulative_lengths(count, spline)
-        for point_index in range(count):
+
+        for point_index in range(segment_count):
             if total <= 0 or point_index >= len(cumulative):
                 factor = 0.0
             else:
@@ -132,6 +134,9 @@ def on_depsgraph_update(scene, depsgraph):
         return
 
     if not hasattr(scene, "buildings"):
+        return
+
+    if bpy.context.mode != 'EDIT_MESH':
         return
 
     _rematch_in_progress = True

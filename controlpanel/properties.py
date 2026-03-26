@@ -171,7 +171,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
         operators._calculate_floors_start_height(context, None)
         return
-    
+
     ID : bpy.props.IntProperty(
         name = "Building ID",
         default = 0,
@@ -185,6 +185,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         min = 1,
         max = 1000,
         update = _update_total_height
+    )
+
+    show_array : bpy.props.BoolProperty(
+        name = "Show Array",
+        description = "Show floor's levels from an array",
+        default = False
     )
 
     total_height : bpy.props.FloatProperty(
@@ -352,8 +358,8 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     bl_description = "Select the curve object assigned to the floor"
     bl_options = {"REGISTER", "UNDO"}
 
-    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
-    curve_index : bpy.props.IntProperty(default = -1 ,options = {"HIDDEN"})
+    floor_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def _select_set(self, context, curve_items):
         if self.curve_index != -1:
@@ -369,7 +375,10 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
-        active_floor_index = building.active_floor_index
+        if self.floor_index == -1:
+            active_floor_index = building.active_floor_index
+        else:
+            active_floor_index = self.floor_index
         curves = building.floors[active_floor_index].curves
         curve_items = [curve for curve in curves if curve.curve_object is not None]
 
@@ -393,6 +402,40 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
 
         return{"FINISHED"}
 
+
+class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
+    bl_idname = "blenderrail.copy_floor"
+    bl_label = "CopyFloor"
+    bl_description = "Copy the floor with all its settings"
+    bl_options = {"REGISTER", "UNDO"}    
+    
+    current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def _copy_curve(self, current_floor, new_floor):
+        curve_objects = []
+        for curve in current_floor.curves:
+            curve_objects.append(curve.curve_object)
+
+        for obj in curve_objects:
+            new_obj = obj.copy()
+            new_obj.data = obj.data.copy()
+            obj.users_collection[0].objects.link(new_obj)
+            new_curve = new_floor.curves.add()
+            new_curve.curve_object = new_obj
+
+    def exectue(self, context):
+        scene = context.scene
+        floors = scene.buildings[scene.active_building_index].floors
+        current_floor = floors[self.current_floor_index]
+        current_floor_array: int = current_floor.array
+
+        floors.add()
+        floors.move(len(floors) - 1, self.current_floor_index + 1)
+        new_floor = floors[self.current_floor_index + 1]
+        current_floor.array = self.level_index + 1
+        new_floor.array = current_floor_array - self.level_index - 1
+        
+        return{"FINISHED"}
 
 
 class BLENDERRAIL_OT_split_floor_array(bpy.types.Operator):

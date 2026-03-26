@@ -37,13 +37,26 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
 
             column = layout.column()
-            column.label(text = str(index + 1) + ": " + str(len(item.curves)) + " curves", icon = icon)
+            first_row = column.row(align = True)
+            first_row.alignment = 'LEFT'
+            first_row.label(text = str(index + 1) + ":   " + str(len(item.curves)), icon = icon)
+            first_row.label(text = "", icon = 'CURVE_DATA')
+            if item.array > 2:
+                first_row.prop(item, "show_array", text = "")
+            select_curve = first_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_curve.floor_index = index
+
             if item.array == 1:
+                return
+            elif item.array >= 2 and item.show_array == False:
+                row = column.row(align = True)
+                row.separator(factor = 4.0, type = 'LINE')
+                row.label(text = str(item.array - 1) + " Arrayed")
                 return
             for array in range(item.array - 1):
                 row = column.row(align = True)
                 row.separator(factor = 4.0, type = 'LINE')
-                row.label(text = "Array " + str(array + 2))
+                row.label(text = str(array + 2) + " Array")
                 split = row.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
                 split.current_floor_index = index
                 split.level_index = array
@@ -130,13 +143,6 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         building_index = scene.active_building_index
         active_building = buildings[building_index]
-        floors = active_building.floors
-        floor_index = active_building.active_floor_index
-        active_floor = floors[floor_index]
-        curves = active_floor.curves
-        curve_index = active_floor.active_curve_index
-        active_curve = curves[curve_index]
-
 
         buildings_box.template_list(
             "BLENDERRAIL_UL_building_list",
@@ -145,13 +151,15 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "buildings",
             context.scene,
             "active_building_index",
-            rows = 4
+            rows = 2
         )
+
 
         collections_row = layout.row(align = True)
         
         # FLOORS:
         floors_box = collections_row.box()
+
         floors_box.label(text = "Floors:")
         floors_row = floors_box.row(align = True)
         floors_row.template_list(
@@ -161,12 +169,21 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "floors",
             active_building,
             "active_floor_index",
-            rows = 2,           
+            rows = 4,
+            maxrows = 10
         )
         floors_column = floors_row.column(align = True)
         floors_column.operator("blenderrail.add_floor", text = "", icon = "ADD")
         remove = floors_column.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
+
+        if len(active_building.floors) <= 0:
+            floors_box.label(text = "No floors added", icon = 'INFO')
+            return
+
+        floors = active_building.floors
+        floor_index = active_building.active_floor_index
+        active_floor = floors[floor_index]
 
         move_down = floors_column.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW', emboss = False)
         move_down.up_down = False
@@ -182,6 +199,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         # CURVES:
         curves_box = collections_row.box()
+
         curves_box.label(text = "Curves:")
         curves_row = curves_box.row(align = True)
         curves_row.template_list(
@@ -191,11 +209,20 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "curves",
             active_floor,
             "active_curve_index",
-            rows = 2           
+            rows = 4,
+            maxrows = 10
         )
         curves_column = curves_row.column(align = True)
         curves_column.operator("blenderrail.add_curve_object", text = "", icon = "ADD")
         curves_column.operator("blenderrail.remove_curve_object", text = "", icon = "REMOVE")
+
+        if len(active_floor.curves) <= 0:
+            curves_box.label(text = "No curves added", icon = 'INFO')
+            return
+        
+        curves = active_floor.curves
+        curve_index = active_floor.active_curve_index
+        active_curve = curves[curve_index]
 
 
         # SEGMENTS:
@@ -209,7 +236,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "segments",
             active_curve,
             "active_segment_index",
-            rows = 2           
+            rows = 4,
+            maxrows = 10
         )
 
         settings_box = layout.box()
