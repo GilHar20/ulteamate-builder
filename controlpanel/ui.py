@@ -30,40 +30,39 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
     """UIList for displaying displaying floors per building"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            scene = context.scene
-            building = scene.buildings[scene.active_building_index]
-            active_floor_index = building.active_floor_index
-            icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        active_floor_index = building.active_floor_index
+        icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
 
-            column = layout.column()
-            first_row = column.row(align = True)
-            first_row.alignment = 'LEFT'
-            first_row.label(text = str(index + 1) + ":   " + str(len(item.curves)), icon = icon)
-            first_row.label(text = "", icon = 'CURVE_DATA')
-            if item.array > 2:
-                first_row.prop(item, "show_array", text = "")
-            select_curve = first_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-            select_curve.floor_index = index
+        column = layout.column()
+        first_row = column.row(align = True)
 
-            if item.array == 1:
-                return
-            elif item.array >= 2 and item.show_array == False:
-                row = column.row(align = True)
-                row.separator(factor = 4.0, type = 'LINE')
-                row.label(text = str(item.array - 1) + " Arrayed")
-                return
-            for array in range(item.array - 1):
-                row = column.row(align = True)
-                row.separator(factor = 4.0, type = 'LINE')
-                row.label(text = str(array + 2) + " Array")
-                split = row.operator("blenderrail.split_floor_array", text = "", icon = 'AREA_JOIN_DOWN')
-                split.current_floor_index = index
-                split.level_index = array
+        first_row.label(text = str(index + 1) + ": " + str(len(item.curves)) + "curves", icon = icon)
 
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
-            layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
+        op_row = first_row.row(align = True)
+        op_row.alignment = 'RIGHT'
+        select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+        select_curve.floor_index = index
+        if item.array > 2:
+            icon = 'DISCLOSURE_TRI_DOWN' if item.show_array else 'DISCLOSURE_TRI_RIGHT'
+            op_row.prop(item, "show_array", text = "", icon = icon, emboss = False)
+
+        if item.array == 1:
+            return
+        elif item.array >= 2 and item.show_array == False:
+            row = column.row(align = True)
+            row.separator(factor = 4.0, type = 'LINE')
+            row.label(text = str(item.array - 1) + " Arrayed")
+            return
+        for array in range(item.array - 1):
+            row = column.row(align = True)
+            row.separator(factor = 4.0, type = 'LINE')
+            row.label(text = str(array + 2) + " Array")
+            split = row.operator("blenderrail.copy_floor", text = "", icon = 'AREA_JOIN_DOWN')
+            split.current_floor_index = index
+            split.split = True
+            split.level_index = array
 
 
 
@@ -193,8 +192,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         move_up.up_down = True
         move_up.floor_index = floor_index
 
-        select_curve = floors_column.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-        select_curve.floor_index = floor_index
+        new_floor = floors_column.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
+        new_floor.current_floor_index = floor_index
 
 
         # CURVES:
