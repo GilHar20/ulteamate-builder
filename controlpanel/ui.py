@@ -10,19 +10,13 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     """UIList for displaying buildings"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
-            row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
-            layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
-            layout.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
-            layout.prop(item, "base_object", text = "", placeholder = "Base Object")
-            select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-            select_object.building_index = index
-
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
-            name = item.name if item.name else (item.base_object.name if item.base_object else "-")
-            layout.label(text = name, icon = 'CHECKBOX_HLT')
+        name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
+        row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
+        layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
+        layout.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
+        layout.prop(item, "base_object", text = "", placeholder = "Base Object")
+        select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+        select_object.building_index = index
 
 
 
@@ -65,35 +59,40 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             split.level_index = array
 
 
-
 class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
     """UIList for displaying displaying curves per floor"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-            if self.layout_type in {'DEFAULT', 'COMPACT'}:
-                scene = context.scene
-                building = scene.buildings[scene.active_building_index]
-                floor = building.floors[building.active_floor_index]
-                active_curve_index = floor.active_curve_index
-                row = layout.row(align = True)
-                icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
-                row.label(text = "", icon = icon)
-                row.prop(item, "curve_object", text = "", placeholder = "Curve", icon = 'CURVE_DATA')
-            elif self.layout_type in {'GRID'}:
-                layout.alignment = 'CENTER'
-                layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
+            scene = context.scene
+            building = scene.buildings[scene.active_building_index]
+            active_floor_index = building.active_floor_index
+            floor = building.floors[active_floor_index]
+            active_curve_index = floor.active_curve_index
 
+            row = layout.row(align = True)
+            icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
+            row.label(text = "", icon = icon)
+            row.prop(item, "curve_object", text = "", placeholder = "Curve", icon = 'CURVE_DATA')
+            select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF')
+            select_curve.floor_index = active_floor_index
+            select_curve.curve_index = index
 
 
 class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
     """UIList for displaying displaying segments per curve"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.prop(item, "element_ID", text = str(index + 1) + ": " + "segment")
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
-            layout.label(text = str(len(item.curves)), icon = 'CHECKBOX_HLT')
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        active_segment_index = curve.active_segment_index
+
+        icon = 'CHECKBOX_HLT' if active_segment_index == index else 'CHECKBOX_DEHLT'
+
+        row = layout.row(align = True)
+        row.label(text = "", icon = icon)
+        row.prop(item, "element_ID", text = str(index + 1) + ": " + "segment")
 
 
 
@@ -245,20 +244,22 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         operators_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
 
         # Floor Settings
-        settings_box.label(text = "Floor Settings: ")
+        settings_box.label(text = "Floor Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
-        property_column.prop(active_floor, "array", text = "", icon = 'ANCHOR_BOTTOM')
+        property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
 
         # Curve Settings
-        settings_box.label(text = "Curve Settings: ")
+        settings_box.label(text = "Curve Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
-        property_column.prop(active_curve, "height", text = "")
-        property_column.prop(active_curve, "inset", text = "")
+        property_column.prop(active_curve, "height", text = "Height")
+        property_column.prop(active_curve, "inset", text = "Shrink/Expand")
         floor_ceiling_row = property_column.row()
+        floor_ceiling_row.label(text = "Floor/Ceiling")
         floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
         select_method = property_column.row()
+        select_method.label(text = "Select Method")
         select_method.prop(active_curve, "select_method", expand = True)
 
         if active_curve.select_method == 'SEQUENCE':
@@ -268,11 +269,13 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
    
 
         # Segment Settings
-        settings_box.label(text = "Segment Settings: ")
+        active_segment = active_curve.segments[active_curve.active_segment_index]
+        
+        settings_box.label(text = "Segment Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
         fit_method = property_column.row()
-        active_segment = active_curve.segments[active_curve.active_segment_index]
+        fit_method.label(text = "Fit Method")
         fit_method.prop(active_segment, "fit_method", expand = True)
         property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
 
@@ -280,7 +283,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # Main Elements Settings:
         main_elements = active_curve.main_elements
 
-        settings_box.label(text = "Main: ")
+        settings_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         main_elements_column = settings_box.column(align = True)
         collect_method_row = main_elements_column.row()
@@ -294,7 +297,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # Corner Elements Settings:
         corner_elements = active_curve.corner_elements
 
-        settings_box.label(text = "Corners: ")
+        settings_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         corner_elements_column = settings_box.column(align = True)
         collect_method_row = corner_elements_column.row()
