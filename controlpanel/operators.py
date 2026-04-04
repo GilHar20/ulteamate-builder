@@ -179,22 +179,22 @@ def _calculate_floors_start_height(context, floors):
         accumulated_height += floor.total_height
     return
 
-def _combine_element_objects(self, curve, elements_collection_name, parent_collection):
+def _combine_element_objects(self, curve, element_type, parent_collection):
     """Assemble custom element collection for a floor"""
-    elements_collection = getattr(curve, elements_collection_name)
+    elements_collection = getattr(curve, element_type)
     
     if len(elements_collection.objects) == 0 and not elements_collection.existing_collection:
         self.report({'WARNING'}, "Please provide elemets!")
         return
 
-    if curve.curve_object.name + "_" + elements_collection_name not in bpy.data.collections:
-        target_collection = bpy.data.collections.new(name = curve.curve_object.name + "_" + elements_collection_name)
+    if curve.curve_object.name + "_" + element_type not in bpy.data.collections:
+        target_collection = bpy.data.collections.new(name = curve.curve_object.name + "_" + element_type)
         parent_collection.children.link(target_collection)
     else:
-        target_collection = bpy.data.collections.get(curve.curve_object.name + "_" + elements_collection_name)
+        target_collection = bpy.data.collections.get(curve.curve_object.name + "_" + element_type)
 
-    for object in target_collection.objects:
-        target_collection.objects.unlink(object)
+    for obj in target_collection.objects:
+        target_collection.objects.unlink(obj)
 
     if elements_collection.collect_method == 'OBJECTS':
         for obj in elements_collection.objects:

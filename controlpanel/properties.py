@@ -179,14 +179,14 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     sequence_offset : bpy.props.IntProperty(
         name = "Sequece Offset",
         default = 0,
-        min = 0,
+        min = -10000,
         max = 10000
     )
 
     random_index : bpy.props.IntProperty(
         name = "Random Index",
         default = 0,
-        min = 0,
+        min = -10000,
         max = 10000
     )
 

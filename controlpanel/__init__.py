@@ -2,7 +2,7 @@ import bpy
 
 
 
-from . import properties, ui, operators
+from . import properties, properties_Operators, ui, operators
 
 classes = [
     properties.BLENDERRAIL_PG_segment,
@@ -12,20 +12,20 @@ classes = [
     properties.BLENDERRAIL_PG_floor,
     properties.BLENDERRAIL_PG_building,
 
-    properties.BLENDERRAIL_OT_add_floor,
-    properties.BLENDERRAIL_OT_remove_floor,
-    properties.BLENDERRAIL_OT_reorder_floor,
-    properties.BLENDERRAIL_OT_select_floor_curves,
-    properties.BLENDERRAIL_OT_copy_floor,
+    properties_Operators.BLENDERRAIL_OT_add_floor,
+    properties_Operators.BLENDERRAIL_OT_remove_floor,
+    properties_Operators.BLENDERRAIL_OT_reorder_floor,
+    properties_Operators.BLENDERRAIL_OT_select_floor_curves,
+    properties_Operators.BLENDERRAIL_OT_copy_floor,
     
-    properties.BLENDERRAIL_OT_add_segment,
-    properties.BLENDERRAIL_OT_remove_segment,
+    properties_Operators.BLENDERRAIL_OT_add_segment,
+    properties_Operators.BLENDERRAIL_OT_remove_segment,
 
-    properties.BLENDERRAIL_OT_add_collect_object,
-    properties.BLENDERRAIL_OT_remove_collect_object,
+    properties_Operators.BLENDERRAIL_OT_add_collect_object,
+    properties_Operators.BLENDERRAIL_OT_remove_collect_object,
 
-    properties.BLENDERRAIL_OT_add_curve_object,
-    properties.BLENDERRAIL_OT_remove_curve_object,
+    properties_Operators.BLENDERRAIL_OT_add_curve_object,
+    properties_Operators.BLENDERRAIL_OT_remove_curve_object,
 
     operators.BLENDERRAIL_OT_generate_building,
     operators.BLENDERRAIL_OT_remove_building,
