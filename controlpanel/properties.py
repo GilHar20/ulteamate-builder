@@ -58,13 +58,6 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         max = 10000
     )
 
-    curve_ID : bpy.props.IntProperty(
-        name = "Curve ID",
-        default = 0,
-        min = 0,
-        max = 10000
-    )
-
     spline_ID : bpy.props.IntProperty(
         name = "Spline ID",
         default = 0,
@@ -85,6 +78,24 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         min = 0,
         max = 10000
         #update = _element_ID_update
+    )
+
+    fit_method : bpy.props.EnumProperty(
+        name = "Fit Method",
+        description = "Methos for fitting element instances on the spline",
+        items = [
+        ('ORIGINAL', "Original", "Keep original length, no scaling, bisect element on spline ends", 0),
+        ('FIT', "Fit", "Fit length of elements to the spline length, a=scale if necessary", 1),
+        ('FIXED', "Fixed", "Fit fixed number of elements, scale elements accordingly", 2),
+        ],
+        default = 'FIT'
+    )
+
+    fixed_number : bpy.props.IntProperty(
+        name = "Fixed Number",
+        default = 5,
+        min = 0,
+        max = 10000
     )
 
 
@@ -115,14 +126,6 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         update = _update_total_height
     )
 
-    offset_height : bpy.props.FloatProperty(
-        name = "Offset Height",
-        default = 0.0,
-        min = 0.0,
-        max = 100.0,
-        update = _update_total_height
-    )
-
     floor_ceiling : bpy.props.EnumProperty(
         name = "Floor Ceiling",
         description = "Select adding floor, ceiling or both",
@@ -133,6 +136,14 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         ('BOTH', "Both", "Add ceiling and floor", 3),
         ],
         default = 'BOTTOM'
+    )
+
+    inset : bpy.props.FloatProperty(
+        name = "Inset",
+        description = "Inset the curve inside or outside its normal",
+        default = -0.2,
+        min = -10.0,
+        max = 10.0
     )
 
     curve_object : bpy.props.PointerProperty(
@@ -149,6 +160,31 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
 
     active_segment_index : bpy.props.IntProperty(
         name = "Active Segment Index",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
+    select_method : bpy.props.EnumProperty(
+        name = "Select Method",
+        description = "Methos for selecting elements to instance on splines",
+        items = [
+        ('SEQUENCE', "Sequence", "Assign element for segment by order of the elements selection", 0),
+        ('RANDOM', "Random", "Randomly assign elements for each segment", 1),
+        ('CUSTOM', "Custom", "Manually select elements for each segment", 2),
+        ],
+        default = 'CUSTOM'
+    )
+
+    sequence_offset : bpy.props.IntProperty(
+        name = "Sequece Offset",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
+
+    random_index : bpy.props.IntProperty(
+        name = "Random Index",
         default = 0,
         min = 0,
         max = 10000

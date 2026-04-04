@@ -255,9 +255,26 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         property_column = settings_box.column(align = True)
         property_column.prop(active_curve, "height", text = "")
-        #property_column.prop(active_curve, "offset_height", text = "")
+        property_column.prop(active_curve, "inset", text = "")
         floor_ceiling_row = property_column.row()
         floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
+        select_method = property_column.row()
+        select_method.prop(active_curve, "select_method", expand = True)
+
+        if active_curve.select_method == 'SEQUENCE':
+            property_column.prop(active_curve, "sequence_offset", text = "Sequence Offset")
+        elif active_curve.select_method == 'RANDOM':
+            property_column.prop(active_curve, "random_index", text = "Random Index")
+   
+
+        # Segment Settings
+        settings_box.label(text = "Segment Settings: ")
+
+        property_column = settings_box.column(align = True)
+        fit_method = property_column.row()
+        active_segment = active_curve.segments[active_curve.active_segment_index]
+        fit_method.prop(active_segment, "fit_method", expand = True)
+        property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
 
 
         # Main Elements Settings:

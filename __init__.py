@@ -22,11 +22,11 @@ from . import addon_updater_ops
 
 
 
-#===================================
-    # --- Addon Updater ---
-#===================================
+# -----------------
+# Addon Preferences
+# -----------------
 @addon_updater_ops.make_annotations
-class SetupAutoPreferences(bpy.types.AddonPreferences):
+class BlenderRailPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     auto_check_update = bpy.props.BoolProperty(
@@ -100,8 +100,8 @@ class SetupAutoPreferences(bpy.types.AddonPreferences):
 #===================================
 
 def register():
-    addon_updater_ops.make_annotations(SetupAutoPreferences)  # Avoid blender 2.8 warnings
-    bpy.utils.register_class(SetupAutoPreferences)
+    addon_updater_ops.make_annotations(BlenderRailPreferences)  # Avoid blender 2.8 warnings
+    bpy.utils.register_class(BlenderRailPreferences)
     
     addon_updater_ops.register(bl_info)
 
@@ -115,7 +115,7 @@ def unregister():
     ifcimporter.unregister()
 
     addon_updater_ops.unregister()
-    bpy.utils.unregister_class(SetupAutoPreferences)
+    bpy.utils.unregister_class(BlenderRailPreferences)
 
 
 
