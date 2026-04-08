@@ -1,6 +1,7 @@
 import bpy
 import mathutils
 from bpy.app.handlers import persistent
+from ..preferences import find_node_group
 
 
 
@@ -282,7 +283,9 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_obj.modifiers.clear()
 
             curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
-            curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
+            curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
+            curve_attributes.node_group = curve_attributes_gn
+            #curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
             curve_attributes["Socket_2"] = curve.main_elements.target_collection
             curve_attributes["Socket_9"] = curve.corner_elements.target_collection
 
@@ -359,7 +362,9 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             for seg_index, segment in enumerate(curve.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
-                element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
+                element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
+                element_id.node_group = element_id_gn
+                #element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
                 element_id["Socket_2"] = segment.ID
 
                 fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % element_id.name)
@@ -413,13 +418,15 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
         cube_obj = context.view_layer.objects.active
 
-        node_group = bpy.data.node_groups.get("BLENDERRAIL_Construct_GN")
-        if node_group is None:
+        construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")[0]
+
+        #node_group = bpy.data.node_groups.get("BLENDERRAIL_Construct_GN")
+        if construct is None:
             self.report({"ERROR"}, "Node group 'BLENDERRAIL_Construct_GN' not found")
             return {"CANCELLED"}
 
         modifier = cube_obj.modifiers.new(name = "BLENDERRAIL_Construct_GN", type = "NODES")
-        modifier.node_group = node_group
+        modifier.node_group = construct
         modifier.show_expanded = False
 
         building = buildings.add()

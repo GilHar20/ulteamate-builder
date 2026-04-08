@@ -1,6 +1,6 @@
 bl_info = {
     "name": "BlenderRail",
-    "version": (0, 5, 0),
+    "version": (0, 6, 0),
     "blender": (4, 5, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > blenderrail",
@@ -17,6 +17,7 @@ import bpy
 from . import controlpanel
 from . import ifcimporter
 from . import viewportgui
+from . import preferences
 
 from . import addon_updater_ops
 
@@ -61,33 +62,22 @@ class BlenderRailPreferences(bpy.types.AddonPreferences):
         min=0,
         max=59)
 
+    asset_library_name = bpy.props.StringProperty(
+        name="Asset Library",
+        description=(
+            "Name of a library listed under Edit → Preferences → File Paths → Asset Libraries. "
+            "Its root folder is used to locate your Geometry Nodes .blend file(s)"
+        ),
+        default="",
+        maxlen=256,
+    )
+
     def draw(self, context):
         layout = self.layout
-        
-        # Update section
+
         box = layout.box()
-        box.label(text="Update Addon", icon='FILE_REFRESH')
-        
-        # Display current version
-        row = box.row()
-        row.label(text=f"Current Version: {bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}")
-        
-        # Display repository info
-        row = box.row()
-        row.label(text=f"Repository: {bl_info['git_url']}")
-        
-        row = box.row()
-        row.label(text=f"Branch: {bl_info['git_branch']}")
-        
-        # Documentation links
-        box = layout.box()
-        box.label(text="Documentation & Support", icon='HELP')
-        
-        row = box.row()
-        row.operator("wm.url_open", text="GitHub Repository", icon='URL').url = bl_info['doc_url']
-        
-        row = box.row()
-        row.operator("wm.url_open", text="Report Issues", icon='URL').url = bl_info['tracker_url']
+        box.label(text="Asset library", icon="ASSET_MANAGER")
+        box.prop(self, "asset_library_name")
 
         # Addon updater UI - this provides the update functionality
         addon_updater_ops.update_settings_ui(self, context)
@@ -102,7 +92,9 @@ class BlenderRailPreferences(bpy.types.AddonPreferences):
 def register():
     addon_updater_ops.make_annotations(BlenderRailPreferences)  # Avoid blender 2.8 warnings
     bpy.utils.register_class(BlenderRailPreferences)
-    
+
+    preferences.register()
+
     addon_updater_ops.register(bl_info)
 
     ifcimporter.register()
@@ -115,6 +107,8 @@ def unregister():
     ifcimporter.unregister()
 
     addon_updater_ops.unregister()
+
+    preferences.unregister()
     bpy.utils.unregister_class(BlenderRailPreferences)
 
 

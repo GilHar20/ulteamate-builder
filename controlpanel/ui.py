@@ -269,15 +269,17 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
    
 
         # Segment Settings
-        active_segment = active_curve.segments[active_curve.active_segment_index]
-        
-        settings_box.label(text = "Segment Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
+        if len(active_curve.segments) > 0:
+            active_segment = active_curve.segments[active_curve.active_segment_index]
+            
+            settings_box.label(text = "Segment Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        property_column = settings_box.column(align = True)
-        fit_method = property_column.row()
-        fit_method.label(text = "Fit Method")
-        fit_method.prop(active_segment, "fit_method", expand = True)
-        property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
+            property_column = settings_box.column(align = True)
+            fit_method = property_column.row()
+            fit_method.label(text = "Fit Method")
+            fit_method.prop(active_segment, "fit_method", expand = True)
+            if active_segment.fit_method == 'FIXED':
+                property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
 
 
         # Main Elements Settings:
