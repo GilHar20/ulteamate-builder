@@ -2,6 +2,8 @@ import bpy
 import gpu
 import blf
 from gpu_extras.batch import batch_for_shader
+from bpy_extras.view3d_utils import location_3d_to_region_2d
+from mathutils import Vector
 
 
 TITLE_HEIGHT = 30
@@ -58,12 +60,18 @@ def get_element_names():
     if curve is None:
         return []
 
-    if curve.main_elements.target_collection == None:
-        return None
-
     names = []
-    for obj in curve.main_elements.target_collection.objects:
-        names.append(obj.name if obj else "- empty -")
+
+    if curve.main_elements.collect_method == "OBJECTS":
+        if len(curve.main_elements.objects) == 0:
+            return[]
+        for obj in curve.main_elements.objects:
+            names.append(obj.object.name if obj else "- empty -")
+
+    if curve.main_elements.collect_method == "EXISTING":
+        for obj in curve.main_elements.existing_collection.objects:
+            names.append(obj.name if obj else "- empty -")
+    
     return names
 
 
@@ -91,6 +99,30 @@ def get_selected_segment_indices():
                     selected.append(flat_index)
                 flat_index += 1
     return selected
+
+
+def _get_curve_point_positions():
+    curve = get_active_curve()
+    if curve is None or curve.curve_object is None:
+        return []
+
+    obj = curve.curve_object
+    if obj.type != 'CURVE':
+        return []
+
+    mat = obj.matrix_world
+    curve_data = obj.data
+    positions = []
+
+    for spline in curve_data.splines:
+        if spline.type == 'BEZIER':
+            for point in spline.bezier_points:
+                positions.append(mat @ point.co)
+        else:
+            for point in spline.points:
+                positions.append(mat @ Vector(point.co[:3]))
+
+    return positions
 
 
 def set_element_id_for_selected(element_id):
@@ -141,6 +173,43 @@ def _text_dims(text, size=14):
     font_id = 0
     blf.size(font_id, size)
     return blf.dimensions(font_id, text)
+
+
+LABEL_OFFSET_Y = 18
+LABEL_SIZE = 13
+LABEL_COLOR = (0.9, 0.9, 0.9, 1.0)
+LABEL_COLOR_SELECTED = (1.0, 0.8, 0.2, 1.0)
+
+def _draw_segment_labels():
+    region = bpy.context.region
+    rv3d = bpy.context.region_data
+    if region is None or rv3d is None:
+        return
+
+    positions = _get_curve_point_positions()
+    if not positions:
+        return
+
+    selected = set(get_selected_segment_indices())
+
+    for i, world_pos in enumerate(positions):
+        screen_pos = location_3d_to_region_2d(region, rv3d, world_pos)
+        if screen_pos is None:
+            continue
+
+        label = str(i)
+        tw, th = _text_dims(label, LABEL_SIZE)
+        is_selected = i in selected
+        color = LABEL_COLOR_SELECTED if is_selected else LABEL_COLOR
+        bg = (0.15, 0.15, 0.15, 0.8) if is_selected else (0.15, 0.15, 0.15, 0.6)
+
+        pad = 4
+        rx = screen_pos.x - tw / 2 - pad
+        ry = screen_pos.y + LABEL_OFFSET_Y - pad
+        _draw_rect(rx, ry, tw + pad * 2, th + pad * 2, bg)
+        _draw_rect_outline(rx, ry, tw + pad * 2, th + pad * 2, color, 1.0)
+        _draw_text(label, screen_pos.x - tw / 2, screen_pos.y + LABEL_OFFSET_Y,
+                   LABEL_SIZE, color)
 
 
 
@@ -212,5 +281,7 @@ def draw_callback():
 
             tw, th = _text_dims(name, 13)
             _draw_text(name, bx + (bw - tw) / 2, by + (bh - th) / 2, 13)
+
+    _draw_segment_labels()
 
     gpu.state.blend_set('NONE')

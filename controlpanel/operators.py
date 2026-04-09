@@ -180,31 +180,37 @@ def _calculate_floors_start_height(context, floors):
         accumulated_height += floor.total_height
     return
 
-def _combine_element_objects(self, curve, element_type, parent_collection):
-    """Assemble custom element collection for a floor"""
-    elements_collection = getattr(curve, element_type)
+def _assign_curve_elements(self, curve_obj, element_type, parent_collection):
+    elements_collection = getattr(curve_obj, element_type)
     
-    if len(elements_collection.objects) == 0 and not elements_collection.existing_collection:
-        self.report({'WARNING'}, "Please provide elemets!")
-        return
-
-    if curve.curve_object.name + "_" + element_type not in bpy.data.collections:
-        target_collection = bpy.data.collections.new(name = curve.curve_object.name + "_" + element_type)
-        parent_collection.children.link(target_collection)
-    else:
-        target_collection = bpy.data.collections.get(curve.curve_object.name + "_" + element_type)
-
-    for obj in target_collection.objects:
-        target_collection.objects.unlink(obj)
+    collect_method = 0
+    match element_type:
+        case "main_elements":
+            collect_method = 0
+        case "corner_elements":
+            collect_method = 1
 
     if elements_collection.collect_method == 'OBJECTS':
-        for obj in elements_collection.objects:
-            target_collection.objects.link(obj.object)
-    elif elements_collection.collect_method == 'EXISTING':
-        for obj in elements_collection.existing_ollection.objects:
-            target_collection.objects.link(obj)
+        if len(elements_collection.objects) == 0:
+            self.report({'WARNING'}, "No elements assigned. Please provide elements")
+            return
 
-    elements_collection.target_collection = target_collection
+        for element in elements_collection.objects:
+            curve_elements = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+            #curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
+            #curve_elements.node_group = curve_attributes_gn
+            curve_elements.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveElements_GN')
+            curve_elements["Socket_5"] = collect_method
+            curve_elements["Socket_4"] = bpy.data.objects.get(element.object.name)
+
+    elif elements_collection.collect_method == 'COLLECTION':
+        for element in elements_collection.exiiting_collection:
+            curve_elements = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+            #curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
+            #curve_elements.node_group = curve_attributes_gn
+            curve_elements.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveElements_GN')
+            curve_elements["Socket_5"] = collect_method
+            curve_elements["Socket_4"] = bpy.data.objects.get(element.object.name)
 
     return
 
@@ -277,17 +283,15 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.targets[0].id = scene
             var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, curve.floor_ID)
 
-            _combine_element_objects(self, curve, "main_elements", parent_collection)
-            _combine_element_objects(self, curve, "corner_elements", parent_collection)
+            #_combine_element_objects(self, curve, "main_elements", parent_collection)
+            #_combine_element_objects(self, curve, "corner_elements", parent_collection)
 
             curve_obj.modifiers.clear()
 
             curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
-            curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
-            curve_attributes.node_group = curve_attributes_gn
-            #curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
-            curve_attributes["Socket_2"] = curve.main_elements.target_collection
-            curve_attributes["Socket_9"] = curve.corner_elements.target_collection
+            #curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
+            #curve_attributes.node_group = curve_attributes_gn
+            curve_attributes.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveAttributes_GN')
 
             fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_11"]' % curve_attributes.name)
             driver = fcurve.driver
@@ -360,11 +364,27 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)        
             curve_attributes.show_expanded = False
 
+            for main in curve.main_elements.objects:
+                curve_elements = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+                #curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
+                #curve_elements.node_group = curve_attributes_gn
+                curve_elements.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveElements_GN')
+                curve_elements["Socket_5"] = 0
+                curve_elements["Socket_4"] = bpy.data.objects.get(main.object.name)
+
+            for corner in curve.corner_elements.objects:
+                curve_elements = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+                #curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
+                #curve_elements.node_group = curve_attributes_gn
+                curve_elements.node_group = bpy.data.node_groups.get('BLENDERRAIL_CurveElements_GN')
+                curve_elements["Socket_5"] = 1
+                curve_elements["Socket_4"] = bpy.data.objects.get(corner.object.name)
+
             for seg_index, segment in enumerate(curve.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
-                element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
-                element_id.node_group = element_id_gn
-                #element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
+                #element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
+                #element_id.node_group = element_id_gn
+                element_id.node_group = bpy.data.node_groups.get('BLENDERRAIL_ElementID_GN')
                 element_id["Socket_2"] = segment.ID
 
                 fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % element_id.name)
@@ -418,9 +438,9 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
         cube_obj = context.view_layer.objects.active
 
-        construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")[0]
+        #construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")[0]
 
-        #node_group = bpy.data.node_groups.get("BLENDERRAIL_Construct_GN")
+        construct = bpy.data.node_groups.get("BLENDERRAIL_Construct_GN")
         if construct is None:
             self.report({"ERROR"}, "Node group 'BLENDERRAIL_Construct_GN' not found")
             return {"CANCELLED"}
