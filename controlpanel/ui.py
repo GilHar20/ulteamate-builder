@@ -151,6 +151,9 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "active_building_index",
             rows = 2
         )
+        #buildings_box.prop(active_building, "building_collection", text = "")
+        #buildings_box.prop(active_building, "floors_collection", text = "")
+        #buildings_box.prop(active_building, "elements_collection", text = "")
 
 
         collections_row = layout.row(align = True)

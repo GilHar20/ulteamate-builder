@@ -249,6 +249,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         type = BLENDERRAIL_PG_curve
     )
 
+    curves_collection : bpy.props.PointerProperty(
+        name = "Curves Collection",
+        description = "Collection to hold floor curve objects",
+        type = bpy.types.Collection
+    )
+
     active_curve_index : bpy.props.IntProperty(
         name = "Active Floor Index",
         default = 0,
@@ -274,7 +280,7 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(
         name = "Building Name",
         description = "Name of the building",
-        default = "",
+        default = "build",
         update = _update_base_object_name
     )
     
@@ -285,8 +291,20 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     )
 
     building_collection : bpy.props.PointerProperty(
-        name = "Building_collection",
-        description = "Main collection to hold flors and elements collections",
+        name = "Building Collection",
+        description = "Main collection to hold all assets for the building",
+        type = bpy.types.Collection
+    )
+
+    floors_collection : bpy.props.PointerProperty(
+        name = "Floors Collection",
+        description = "Collection to hold floors collection and their curve for the Construct node gorup",
+        type = bpy.types.Collection
+    )
+
+    elements_collection : bpy.props.PointerProperty(
+        name = "Elements Collection",
+        description = "Collection to hold ALL building's elements linked to it",
         type = bpy.types.Collection
     )
 

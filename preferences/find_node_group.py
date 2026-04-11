@@ -9,7 +9,6 @@ def _addon_preferences():
 
 
 def folder_path_for_asset_library(library_name):
-    """Return absolute folder path for an asset library."""
     name = (library_name or "").strip()
     if not name:
         raise RuntimeError(
@@ -26,7 +25,6 @@ def folder_path_for_asset_library(library_name):
 
 
 def _iter_blend_paths_in_folder(folder):
-    """Yield absolute paths to .blend files to try.    """
     folder = bpy.path.abspath(folder)
     try:
         names = os.listdir(folder)
@@ -40,41 +38,39 @@ def _iter_blend_paths_in_folder(folder):
 
 
 def link_gn_from_library(node_group_name):
-    """Link a node group from the configured Blender asset library folder."""
-
-    name = (node_group_name or "").strip()
-    if not name:
+    if not node_group_name:
         return None, "Node group name is empty"
 
-    existing = bpy.data.node_groups.get(name)
+    existing = bpy.data.node_groups.get(node_group_name)
     if existing is not None:
         return existing, None
 
     prefs = _addon_preferences()
+    lib_name = prefs.asset_library_name
     try:
-        folder = folder_path_for_asset_library(prefs.asset_library_name)
+        folder = folder_path_for_asset_library(lib_name)
     except RuntimeError as exc:
         return None, str(exc)
 
     blend_paths = list(_iter_blend_paths_in_folder(folder))
     if not blend_paths:
-        return None, "No .blend files in asset library folder: %s" % folder
+        return None, "No .blend files in asset library folder" + lib_name
 
     for blend_path in blend_paths:
-        with bpy.data.libraries.load(blend_path, link=True) as (data_from, data_to):
-            if name not in data_from.node_groups:
+        with bpy.data.libraries.load(blend_path, link = True) as (data_from, data_to):
+            if node_group_name not in data_from.node_groups:
                 continue
-            data_to.node_groups.append(name)
+            data_to.node_groups.link(node_group_name)
 
-        node_group = bpy.data.node_groups.get(name)
+        node_group = bpy.data.node_groups.get(node_group_name)
         if not node_group:
-            return None, "Failed to link node group %r from %s" % (name, blend_path)
+            return None, "Failed to link node group %r from %s" % (node_group_name, blend_path)
         return node_group, None
 
     return (
         None,
         "Node group %r not found in any .blend under %s"
-        % (name, folder),
+        % (node_group_name, folder),
     )
 
 
