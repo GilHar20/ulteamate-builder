@@ -92,7 +92,7 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
 
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
-        row.prop(item, "element_ID", text = str(index + 1) + ": " + "segment")
+        row.prop(item, "element_ID", text = str(index) + ": " + "segment")
 
 
 

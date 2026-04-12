@@ -165,7 +165,7 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
             obj = curve.curve_object
             new_obj = obj.copy()
             new_obj.data = obj.data.copy()
-            obj.users_collection[0].objects.link(new_obj)
+            #obj.users_collection[0].objects.link(new_obj)
             new_curve = new_floor.curves.add()
             new_curve.curve_object = new_obj
             new_curve.floor_ceiling = curve.floor_ceiling

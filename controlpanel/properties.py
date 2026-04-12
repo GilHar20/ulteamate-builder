@@ -320,3 +320,4 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         min = 0,
         max = 10000
     )
+    

@@ -224,6 +224,8 @@ def _assign_curve_elements(self, context, curve, element_type):
 
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
+    
+    curve_elements.show_expanded = False
 
     return
 
