@@ -176,6 +176,12 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         default = 'CUSTOM'
     )
 
+    select_per_segment : bpy.props.BoolProperty(
+        name = "Select Per Segment",
+        description = "When True, a specific element will be set for each segment. Otherwise, a segment can instance multiple different elements",
+        default = True
+    )
+
     sequence_offset : bpy.props.IntProperty(
         name = "Sequece Offset",
         default = 0,

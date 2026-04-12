@@ -264,6 +264,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         select_method = property_column.row()
         select_method.label(text = "Select Method")
         select_method.prop(active_curve, "select_method", expand = True)
+        property_column.prop(active_curve, "select_per_segment", text = "Element per Segment", toggle = True)
 
         if active_curve.select_method == 'SEQUENCE':
             property_column.prop(active_curve, "sequence_offset", text = "Sequence Offset")

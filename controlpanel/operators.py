@@ -209,6 +209,8 @@ def _assign_curve_elements(self, context, curve, element_type):
             if collection not in element.object.users_collection:
                 collection.objects.link(element.object)
 
+            curve_elements.show_expanded = False
+
     elif elements_collection.collect_method == 'COLLECTION':
         if len(elements_collection.existing_collection.objects) == 0:
             self.report({'WARNING'}, "No elements are linked into the assigned collection")
@@ -225,7 +227,7 @@ def _assign_curve_elements(self, context, curve, element_type):
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
     
-    curve_elements.show_expanded = False
+            curve_elements.show_expanded = False
 
     return
 
@@ -268,14 +270,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             floor.ID = floor_index
             building.active_floor_index = floor_index
 
-            floor_collection_name = building.name + "Floor" + str(floor.ID + 1) + "_Curves"
-            if floor_collection_name not in bpy.data.collections:
-                curves_collection = bpy.data.collections.new(name = floor_collection_name)
-                floors_collection.children.link(curves_collection)
-                floor.curves_collection = curves_collection
-            else:
-                curves_collection = bpy.data.collections.get(floor_collection_name)
-
             curve_items = [curve for curve in floor.curves if curve.curve_object is not None]
             for curve_index, curve_item in enumerate(curve_items):
                 curve_item.ID = curve_index
@@ -289,9 +283,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             _sync_segments_to_curves(curve)
 
-            curves_collection = floors[curve.floor_ID].curves_collection
-            if curves_collection not in curve_obj.users_collection:
-                curves_collection.objects.link(curve_obj)
+            if floors_collection not in curve_obj.users_collection:
+                floors_collection.objects.link(curve_obj)
 
             if curve_obj.parent != building.base_object:
                 bpy.ops.object.select_all(action='DESELECT')
@@ -325,6 +318,16 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.targets[0].id_type = 'SCENE'
             var.targets[0].id = scene
             var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)
+
+            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_14"]' % curve_attributes.name)
+            driver = fcurve.driver
+            driver.type = 'AVERAGE'
+            var = driver.variables.new()
+            var.name = 'select_per_segment'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = scene
+            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].select_per_segment' % (building_index, curve.floor_ID, curve.ID)
 
             fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_12"]' % curve_attributes.name)
             driver = fcurve.driver
