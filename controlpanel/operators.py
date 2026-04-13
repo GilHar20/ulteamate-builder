@@ -163,22 +163,36 @@ def _calculate_floors_start_height(context, floors):
         scene = context.scene
         floors = scene.buildings[scene.active_building_index].floors
     
+    all_curves = []
     accumulated_height: float = 0
-    for floor in floors:
-        curve_objects = [curve for curve in floor.curves if curve.curve_object is not None]
-        if not curve_objects:
+
+    for floor_index, floor in enumerate(floors):
+        floor.ID = floor_index
+
+        curves = [curve for curve in floor.curves if curve.curve_object is not None]
+        if not curves:
             floor.start_height = accumulated_height
             floor.total_height = 0
             continue
 
-        max_curve = max(curve_objects, key=lambda c: c.curve_object.location.z)
-        min_curve = min(curve_objects, key=lambda c: c.curve_object.location.z)
+        max_curve = max(curves, key=lambda c: c.curve_object.location.z)
+        min_curve = min(curves, key=lambda c: c.curve_object.location.z)
         z_diff = abs(max_curve.curve_object.location.z - min_curve.curve_object.location.z)
 
         floor.start_height = accumulated_height
+
+        compensate = floor.start_height - min_curve.curve_object.location.z
+        for curve_index, curve in enumerate(curves):
+            curve.curve_object.location[2] += compensate
+            curve.ID = curve_index
+            curve.floor_ID = floor.ID
+
         floor.total_height = (z_diff + max_curve.height) * floor.array
         accumulated_height += floor.total_height
-    return
+
+        all_curves.extend(curves)
+    
+    return all_curves
 
 def _assign_curve_elements(self, context, curve, element_type):
     scene = context.scene
@@ -262,10 +276,9 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         floors_collection = building.floors_collection
 
-        _calculate_floors_start_height(context, floors)
-        
-        all_curves = []
+        all_curves = _calculate_floors_start_height(context, floors)
 
+        '''
         for floor_index, floor in enumerate(floors):
             floor.ID = floor_index
             building.active_floor_index = floor_index
@@ -275,6 +288,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 curve_item.ID = curve_index
                 curve_item.floor_ID = floor.ID
             all_curves.extend(curve_items)
+        '''
 
         for curve in all_curves:
             curve_obj = curve.curve_object
@@ -286,12 +300,14 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             if floors_collection not in curve_obj.users_collection:
                 floors_collection.objects.link(curve_obj)
 
+
             if curve_obj.parent != building.base_object:
                 bpy.ops.object.select_all(action='DESELECT')
                 context.view_layer.objects.active = building.base_object
                 building.base_object.select_set(True)
                 curve_obj.select_set(True)
                 bpy.ops.object.parent_no_inverse_set(keep_transform = True)
+            '''
             curve_obj.driver_remove('location', 2)
             fcurve = curve_obj.driver_add('location', 2)
             driver = fcurve.driver
@@ -302,6 +318,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             var.targets[0].id_type = 'SCENE'
             var.targets[0].id = scene
             var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, curve.floor_ID)
+            '''
 
             curve_obj.modifiers.clear()
 

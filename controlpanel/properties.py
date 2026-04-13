@@ -255,12 +255,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         type = BLENDERRAIL_PG_curve
     )
 
-    curves_collection : bpy.props.PointerProperty(
-        name = "Curves Collection",
-        description = "Collection to hold floor curve objects",
-        type = bpy.types.Collection
-    )
-
     active_curve_index : bpy.props.IntProperty(
         name = "Active Floor Index",
         default = 0,
@@ -294,6 +288,12 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         name = "Building",
         description = "Base geometry to hold the constract modifier",
         type = bpy.types.Object
+    )
+
+    all_curves : bpy.props.CollectionProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = BLENDERRAIL_PG_collect_objects
     )
 
     building_collection : bpy.props.PointerProperty(
