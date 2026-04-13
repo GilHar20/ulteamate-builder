@@ -95,7 +95,7 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def _select_set(self, context, curve_items):
-        if self.curve_index != -1:
+        if self.curve_index > -1:
             context.view_layer.objects.active = curve_items[self.curve_index].curve_object
             curve_items[self.curve_index].curve_object.select_set(True)
             return
@@ -146,6 +146,16 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
     split : bpy.props.BoolProperty(name = "Split", default = False, options = {"HIDDEN"})
     level_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
+    def _match_segments(self, current_curve, new_curve):
+        for segment in current_curve.segments:
+            new_segment = new_curve.segments.add()
+            new_segment.spline_ID = segment.spline_ID
+            new_segment.spline_factor = segment.spline_factor
+            new_segment.element_ID = segment.element_ID
+            new_segment.fit_method = segment.fit_method
+            new_segment.fixed_number = segment.fixed_number
+        return
+
     def _copy_objects(self, current_curve, new_curve, element_type):
         elements = getattr(current_curve, element_type)
         new_elements = getattr(new_curve, element_type)
@@ -165,13 +175,19 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
             obj = curve.curve_object
             new_obj = obj.copy()
             new_obj.data = obj.data.copy()
-            #obj.users_collection[0].objects.link(new_obj)
+
             new_curve = new_floor.curves.add()
             new_curve.curve_object = new_obj
+            
             new_curve.floor_ceiling = curve.floor_ceiling
+            new_curve.select_method = curve.select_method
+            new_curve.height = curve.height
             
             self._copy_objects(curve, new_curve, "main_elements")
             self._copy_objects(curve, new_curve, "corner_elements")
+
+            self._match_segments(curve, new_curve)
+
 
     def execute(self, context):
         scene = context.scene
