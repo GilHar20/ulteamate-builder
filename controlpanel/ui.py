@@ -242,26 +242,42 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             maxrows = 10
         )
 
+
         settings_box = layout.box()
-        operators_column = settings_box.column(align = True)
-        operators_column.operator("blenderrail.viewport_panel", text = "Enter Edit", icon = 'IMGDISPLAY')
-        operators_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        operators_row = settings_box.row(align = True)
+        operators_row.scale_y = 2
+        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_column = operators_row.column(align = True)
+        refresh_column.alignment = 'RIGHT'
+        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+
 
         # Floor Settings
+        settings_box.separator()
         settings_box.label(text = "Floor Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
         property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
 
+
         # Curve Settings
+        settings_box.separator()
         settings_box.label(text = "Curve Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
         property_column.prop(active_curve, "height", text = "Height")
-        property_column.prop(active_curve, "inset", text = "Shrink/Expand")
+        property_column.prop(active_curve, "inset", text = "Shrink/Expand", )
+
         floor_ceiling_row = property_column.row()
         floor_ceiling_row.label(text = "Floor/Ceiling")
         floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
+        if active_curve.floor_ceiling != 'NONE':
+            property_column.prop(active_curve, "thickness", text = "Extrude Thickness")
+        if active_curve.floor_ceiling == 'BOTTOM' or active_curve.floor_ceiling == 'BOTH':
+            property_column.prop(active_curve, "direction_bottom", text = "Bottom Extrude Offset")
+        if active_curve.floor_ceiling == 'TOP' or active_curve.floor_ceiling == 'BOTH':
+            property_column.prop(active_curve, "direction_top", text = "Top Extrude Offset")
+
         select_method = property_column.row()
         select_method.label(text = "Select Method")
         select_method.prop(active_curve, "select_method", expand = True)
@@ -274,6 +290,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
    
 
         # Segment Settings
+        settings_box.separator()
         if len(active_curve.segments) > 0:
             active_segment = active_curve.segments[active_curve.active_segment_index]
             
@@ -288,6 +305,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         # Main Elements Settings:
+        settings_box.separator()
         main_elements = active_curve.main_elements
 
         settings_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
@@ -302,6 +320,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         # Corner Elements Settings:
+        settings_box.separator()
         corner_elements = active_curve.corner_elements
 
         settings_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
@@ -313,6 +332,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             corner_elements_column.prop(corner_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
         else:
             self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements.objects)
+
 
         # Interval Elements Settings:
         #settings_box.separator()

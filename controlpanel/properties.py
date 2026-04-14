@@ -47,8 +47,11 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
-        """While technically works, quite heavy on preformance."""
-        context.view_layer.update()
+        scene = context.scene
+        building = scene.buildings[scene.active_buidling_index]
+        floor = building.floor[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        curve.curve_object.update_tag()
         return
     
     ID : bpy.props.IntProperty(
@@ -76,8 +79,8 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         name = "Element ID",
         default = 0,
         min = 0,
-        max = 10000
-        #update = _element_ID_update
+        max = 10000,
+        update = _element_ID_update
     )
 
     fit_method : bpy.props.EnumProperty(
@@ -137,6 +140,31 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         ],
         default = 'BOTTOM'
     )
+
+    thickness : bpy.props.FloatProperty(
+        name = "Thickness",
+        description = "Thickness of the floor surface extrude",
+        default = 0.3,
+        min = 0.0,
+        max = 10.0
+    )
+
+    direction_bottom : bpy.props.FloatProperty(
+        name = "Direction Bottom",
+        description = "Direction of the curve's bottom floor exturde, 1 = up, -1 = down",
+        default = 1.0,
+        min = -1.0,
+        max = 1.0
+    )
+
+    direction_top : bpy.props.FloatProperty(
+        name = "Direction Top",
+        description = "Direction of the curve's top ceiling exturde, 1 = up, -1 = down",
+        default = -1.0,
+        min = -1.0,
+        max = 1.0
+    )
+
 
     inset : bpy.props.FloatProperty(
         name = "Inset",
