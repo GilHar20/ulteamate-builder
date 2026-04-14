@@ -48,8 +48,8 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
         scene = context.scene
-        building = scene.buildings[scene.active_buidling_index]
-        floor = building.floor[building.active_floor_index]
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         curve.curve_object.update_tag()
         return

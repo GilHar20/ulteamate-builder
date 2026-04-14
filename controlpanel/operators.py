@@ -1,5 +1,6 @@
 import bpy
 import mathutils
+from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
 from ..preferences import find_node_group
 
@@ -10,33 +11,24 @@ from ..preferences import find_node_group
 # ----------------
 
 def _match_element_id_by_factor(spline_index, factor, old_assignments):
-    """
-    Interval-based matching: find the old segment on the same curve and spline whose factor
-    is at or just below the given factor. Exact matches (within epsilon) take priority.
-    A new segment inherits from the old segment whose interval it falls within.
-    If no match, return None (caller can use segment.ID).
-    """
-    candidates = [(f, element_ID) for (s_ix, f, element_ID) in old_assignments if s_ix == spline_index]
+    candidates = [(fac, element_ID) for (spl_ix, fac, element_ID) in old_assignments if spl_ix == spline_index]
     if not candidates:
         return None
     candidates.sort(key=lambda c: c[0])
     for c in candidates:
         if round(c[0], 3) == round(factor, 3):
             return c[1]
-    best = candidates[0]
+
+    prior = None
     for c in candidates:
-        if c[0] <= factor:
-            best = c
+        if c[0] < factor:
+            prior = c
         else:
             break
-    return best[1]
+    return prior[1] if prior is not None else None
+
 
 def _spline_cumulative_lengths(count, spline):
-    """
-    Return (cumulative_lengths, total_length) for the spline.
-    cumulative_lengths[i] = length from spline start to control point i (0 at index 0).
-    total_length = full spline length.
-    """
     if count == 0:
         return ([], 0.0)
     if count == 1:
@@ -46,12 +38,23 @@ def _spline_cumulative_lengths(count, spline):
 
     if spline.type == 'BEZIER':
         pts = spline.bezier_points
-        if spline.type == 'BEZIER':
-            pts = spline.bezier_points
-            for i in range(count - 1):
-                segment_lengths.append((pts[i + 1].co - pts[i].co).length)
-            if spline.use_cyclic_u:
-                segment_lengths.append((pts[0].co - pts[-1].co).length)
+        bezier_arc_resolution = 48
+        span_pairs = [(i, i + 1) for i in range(count - 1)]
+        if spline.use_cyclic_u:
+            span_pairs.append((count - 1, 0))
+        for i_from, i_to in span_pairs:
+            p0 = pts[i_from].co
+            p1 = pts[i_from].handle_right
+            p2 = pts[i_to].handle_left
+            p3 = pts[i_to].co
+            samples = interpolate_bezier(p0, p1, p2, p3, bezier_arc_resolution)
+            if len(samples) < 2:
+                segment_lengths.append((p3 - p0).length)
+            else:
+                span_len = 0.0
+                for k in range(len(samples) - 1):
+                    span_len += (samples[k + 1] - samples[k]).length
+                segment_lengths.append(span_len)
 
     # POLY or NURBS
     else: 
@@ -76,18 +79,13 @@ def _spline_cumulative_lengths(count, spline):
 
     return (cumulative, total)
 
+
 def _sync_segments_to_curves(curve):
-    """Sync floor.segments to combined curve topology and re-match element_IDs by curve factor."""
     if not curve.curve_object:
         return
     
     curve_data = curve.curve_object.data
-    
-    old_assignments = [
-        (seg.spline_ID, seg.spline_factor, seg.element_ID)
-        for seg in curve.segments
-    ]
-
+    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID) for segment in curve.segments]
     factors = []
     total_points = 0
 
@@ -125,6 +123,7 @@ def _sync_segments_to_curves(curve):
         segment.spline_ID = spline_index
         segment.spline_factor = factor
 
+
 _rematch_in_progress = False
 
 @persistent
@@ -137,26 +136,19 @@ def on_depsgraph_update(scene, depsgraph):
     if not hasattr(scene, "buildings"):
         return
 
-    if bpy.context.mode != 'EDIT_MESH':
+    if bpy.context.mode != 'EDIT_CURVE':
         return
 
     _rematch_in_progress = True
 
-    buildings = scene.buildings
-    building_index = scene.active_building_index
-    active_building = buildings[building_index]
-    floors = active_building.floors
-    floor_index = active_building.active_floor_index
-    active_floor = floors[floor_index]
-    curves = active_floor.curves
-    curve_index = active_floor.active_curve_index
-    active_curve = curves[curve_index]
+    building = scene.buildings[scene.active_building_index]
+    floor = building.floors[building.active_floor_index]
+    curve = floor.curves[floor.active_curve_index]
 
-    try:
-        _sync_segments_to_curves(active_curve)
+    _sync_segments_to_curves(curve)
         
-    finally:
-        _rematch_in_progress = False
+    _rematch_in_progress = False
+
 
 def _calculate_floors_start_height(context, floors):
     if not floors:
@@ -193,6 +185,7 @@ def _calculate_floors_start_height(context, floors):
         all_curves.extend(curves)
     
     return all_curves
+
 
 def _assign_curve_elements(self, context, curve, element_type):
     scene = context.scene
