@@ -12,9 +12,11 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
         row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
-        layout.label(text = str(index + 1) + ": " + name, icon = row_icon)
-        layout.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
-        layout.prop(item, "base_object", text = "", placeholder = "Base Object")
+        building_row = layout.row(align= True)
+        building_row.label(text = str(index + 1) + ": " + name, icon = row_icon)
+        building_row.prop(item, "building_collection", text = "", placeholder = "Building Collection")
+        building_row.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
+        building_row.prop(item, "base_object", text = "", placeholder = "Base Object")
         select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_object.building_index = index
 

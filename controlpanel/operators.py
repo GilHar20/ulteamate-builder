@@ -501,15 +501,15 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         building_collection = bpy.data.collections.new(building.name)
         building.building_collection = building_collection
         context.scene.collection.children.link(building_collection)
-        building_collection.children.link(cube_obj)
+        building_collection.objects.link(cube_obj)
 
         floors_collection = bpy.data.collections.new(building.name + "_Floors")
         building.floors_collection = floors_collection
-        building_collection.chikdren.link(floors_collection)
+        building_collection.children.link(floors_collection)
 
         elements_collection = bpy.data.collections.new(building.name + "_Elements")
         building.elements_collection = elements_collection
-        building_collection.chikdren.link(elements_collection)
+        building_collection.children.link(elements_collection)
 
         modifier["Socket_2"] = floors_collection
 
