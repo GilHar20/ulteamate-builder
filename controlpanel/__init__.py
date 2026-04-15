@@ -2,7 +2,7 @@ import bpy
 
 
 
-from . import properties, properties_Operators, ui, operators
+from . import properties, properties_Operators, operators, ui
 
 classes = [
     properties.BLENDERRAIL_PG_segment,
@@ -16,6 +16,7 @@ classes = [
     properties_Operators.BLENDERRAIL_OT_remove_floor,
     properties_Operators.BLENDERRAIL_OT_reorder_floor,
     properties_Operators.BLENDERRAIL_OT_select_floor_curves,
+    properties_Operators.BLENDERRAIL_OT_link_floor,
     properties_Operators.BLENDERRAIL_OT_copy_floor,
     
     properties_Operators.BLENDERRAIL_OT_add_segment,

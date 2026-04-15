@@ -288,18 +288,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 building.base_object.select_set(True)
                 curve_obj.select_set(True)
                 bpy.ops.object.parent_no_inverse_set(keep_transform = True)
-            '''
-            curve_obj.driver_remove('location', 2)
-            fcurve = curve_obj.driver_add('location', 2)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'start_height'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].start_height' % (building_index, curve.floor_ID)
-            '''
 
             curve_obj.modifiers.clear()
 

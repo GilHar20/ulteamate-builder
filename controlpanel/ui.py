@@ -55,7 +55,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         for array in range(item.array - 1):
             row = column.row(align = True)
             row.separator(factor = 4.0, type = 'LINE')
-            row.label(text = str(array + 2) + " Array")
+            row.label(text = str(array + 2) + " Array", icon = 'MOD_ARRAY')
             split = row.operator("blenderrail.copy_floor", text = "", icon = 'AREA_JOIN_DOWN')
             split.current_floor_index = index
             split.split = True
@@ -176,9 +176,11 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             rows = 4,
             maxrows = 10
         )
-        floors_column = floors_row.column(align = True)
-        floors_column.operator("blenderrail.add_floor", text = "", icon = "ADD")
-        remove = floors_column.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
+        floors_column = floors_row.column()
+
+        floors_addremove = floors_column.column(align = True)
+        floors_addremove.operator("blenderrail.add_floor", text = "", icon = "ADD")
+        remove = floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
         remove.floor_index = active_building.active_floor_index
 
         if len(active_building.floors) <= 0:
@@ -189,16 +191,22 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         floor_index = active_building.active_floor_index
         active_floor = floors[floor_index]
 
-        move_down = floors_column.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW', emboss = False)
+        floors_column.separator()
+        floors_move = floors_column.column(align = True)
+        move_down = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW')
         move_down.up_down = False
         move_down.floor_index = floor_index
 
-        move_up = floors_column.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW', emboss = False)
+        move_up = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
         move_up.up_down = True
         move_up.floor_index = floor_index
 
-        new_floor = floors_column.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
-        new_floor.current_floor_index = floor_index
+        floors_column.separator()
+        floors_copy = floors_column.column(align = True)
+        link_floor = floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
+        link_floor.current_floor_index = floor_index
+        copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
+        copy_floor.current_floor_index = floor_index
 
 
         # CURVES:
@@ -216,9 +224,10 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             rows = 4,
             maxrows = 10
         )
-        curves_column = curves_row.column(align = True)
-        curves_column.operator("blenderrail.add_curve_object", text = "", icon = "ADD")
-        curves_column.operator("blenderrail.remove_curve_object", text = "", icon = "REMOVE")
+        curves_column = curves_row.column()
+        curve_addremove = curves_column.column(align = True)
+        curve_addremove.operator("blenderrail.add_curve_object", text = "", icon = "ADD")
+        curve_addremove.operator("blenderrail.remove_curve_object", text = "", icon = "REMOVE")
 
         if len(active_floor.curves) <= 0:
             curves_box.label(text = "No curves added", icon = 'INFO')
@@ -232,7 +241,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # SEGMENTS:
         segments_box = collections_row.box()
         segments_box.label(text = "Segments:")
-        segments_row = segments_box.row(align = True)
+        segments_row = segments_box.row()
         segments_row.template_list(
             "BLENDERRAIL_UL_segment_list",
             "blenderrail_segment_list",

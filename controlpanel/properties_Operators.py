@@ -136,9 +136,61 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
         return{"FINISHED"}
 
 
+class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
+    bl_idname = "blenderrail.link_floor"
+    bl_label = "Link Floor"
+    bl_description = "Create a new floor entry with all settings linked to the original"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
+
+    current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
+    floor_attributes = ["array", "total_height", "start_height", "active_curve_index"]
+    curve_attributes = ["height",
+                        "floor_ceiling", "thickness", "direction_bottom", "direction_top", "inset",
+                        "select_method", "sequence_offset", "random_index"]
+
+    def _link_attribute_driver(self, context, new_item, attr_name, path):
+        scene = context.scene
+        building_index = scene.active_building_index
+
+        fcurve = new_item.driver_add(attr_name)
+        driver = fcurve.driver
+        driver.type = 'AVERAGE'
+        var = driver.variables.new()
+        var.name = attr_name
+        var.type = 'SINGLE_PROP'
+        var.targets[0].id_type = 'SCENE'
+        var.targets[0].id = scene
+        var.targets[0].data_path = path
+
+        return
+
+    def execute(self, context):
+        scene = context.scene
+        building_index = scene.active_building_index
+        floors = scene.buildings[scene.active_building_index].floors
+        current_floor = floors[self.current_floor_index]
+        current_floor_index = self.current_floor_index
+
+        floors.add()
+        floors.move(len(floors) - 1, self.current_floor_index + 1)
+        new_floor = floors[self.current_floor_index + 1]
+
+        for attr in self.floor_attributes:
+            path = 'buildings[%d].floors[%d].%s' % (building_index, current_floor_index, attr)
+            self._link_attribute_driver(context, new_floor, attr, path)
+        
+        for curve_index in range(len(current_floor.curves)):
+            new_curve = new_floor.curves.add()
+            for attr in self.curve_attributes:
+                path = 'buildings[%d].floors[%d].curves[%d].%s' % (building_index, current_floor_index, curve_index, attr)
+                self._link_attribute_driver(context, new_curve, attr, path)
+
+        return{"FINISHED"}
+
+
 class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
     bl_idname = "blenderrail.copy_floor"
-    bl_label = "CopyFloor"
+    bl_label = "Copy Floor"
     bl_description = "Copy the floor with all its settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
     
