@@ -1,4 +1,5 @@
 import bpy
+import uuid
 
 
 
@@ -147,10 +148,21 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
     curve_attributes = ["height",
                         "floor_ceiling", "thickness", "direction_bottom", "direction_top", "inset",
                         "select_method", "sequence_offset", "random_index"]
+    segment_attributes = ["element_ID", "fit_method", "fixed_number"]
 
+    def _copy_objects(self, current_curve, new_curve, element_type):
+        elements = getattr(current_curve, element_type)
+        new_elements = getattr(new_curve, element_type)
+
+        if len(elements.objects) == 0:
+            return
+        for obj in elements.objects:
+            new_obj = new_elements.objects.add()
+            new_obj.object = obj.object
+        return
+    
     def _link_attribute_driver(self, context, new_item, attr_name, path):
         scene = context.scene
-        building_index = scene.active_building_index
 
         fcurve = new_item.driver_add(attr_name)
         driver = fcurve.driver
@@ -161,7 +173,6 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         var.targets[0].id_type = 'SCENE'
         var.targets[0].id = scene
         var.targets[0].data_path = path
-
         return
 
     def execute(self, context):
@@ -179,11 +190,26 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             path = 'buildings[%d].floors[%d].%s' % (building_index, current_floor_index, attr)
             self._link_attribute_driver(context, new_floor, attr, path)
         
-        for curve_index in range(len(current_floor.curves)):
+        for curve_index, curve in enumerate(current_floor.curves):
+            obj = curve.curve_object
+            new_obj = obj.copy()
             new_curve = new_floor.curves.add()
+            new_curve.curve_object = new_obj
+
             for attr in self.curve_attributes:
                 path = 'buildings[%d].floors[%d].curves[%d].%s' % (building_index, current_floor_index, curve_index, attr)
                 self._link_attribute_driver(context, new_curve, attr, path)
+
+            for segment_index, segment in enumerate(curve.segments):
+                new_segment = new_curve.segments.add()
+                for attr in self.segment_attributes:
+                    path = 'buildings[%d].floors[%d].curves[%d].segments[%d].%s' % (building_index, current_floor_index, curve_index, segment_index, attr)
+                    self._link_attribute_driver(context, new_segment, attr, path)
+            
+            self._copy_objects(curve, new_curve, "main_elements")
+            self._copy_objects(curve, new_curve, "corner_elements")
+
+        #bpy.ops.blenderrail.evaluate_building()
 
         return{"FINISHED"}
 

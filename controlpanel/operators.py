@@ -3,6 +3,7 @@ import mathutils
 from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
 from ..preferences import find_node_group
+import uuid
 
 
 
@@ -269,6 +270,9 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         floors_collection = building.floors_collection
 
+        for floor in floors:
+            if floor.uid == "":
+                floor.uid = uuid.uuid4().hex
         all_curves = _calculate_floors_start_height(context, floors)
 
         for curve in all_curves:

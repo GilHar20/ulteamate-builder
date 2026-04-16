@@ -37,7 +37,6 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         type = bpy.types.Collection
     )
 
-
     target_collection : bpy.props.PointerProperty(
         name = "Target Collection",
         description = "Collection of elements to instance along the curve splines",
@@ -243,10 +242,20 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         return
 
     ID : bpy.props.IntProperty(
-        name = "Building ID",
+        name = "Floor ID",
         default = 0,
         min = 0,
         max = 10000
+    )
+
+    uid : bpy.props.StringProperty(
+        name = "Floor uuid",
+        default = "",
+    )
+
+    source_uid : bpy.props.StringProperty(
+        name = "Source Floor uuid",
+        default = "",
     )
 
     array : bpy.props.IntProperty(
