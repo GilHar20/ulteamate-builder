@@ -168,9 +168,12 @@ def _calculate_floors_start_height(context, floors):
             floor.total_height = 0
             continue
 
-        max_curve = max(curves, key=lambda c: c.curve_object.location.z)
         min_curve = min(curves, key=lambda c: c.curve_object.location.z)
-        z_diff = abs(max_curve.curve_object.location.z - min_curve.curve_object.location.z)
+        min_curve_position = min_curve.curve_object.location.z
+        max_curve = max(curves, key=lambda c: c.curve_object.location.z + c.height)
+        max_curve_position = max_curve.curve_object.location.z
+        max_curve_height = max_curve.height
+        z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
 
         floor.start_height = accumulated_height
 
@@ -180,7 +183,7 @@ def _calculate_floors_start_height(context, floors):
             curve.ID = curve_index
             curve.floor_ID = floor.ID
 
-        floor.total_height = (z_diff + max_curve.height) * floor.array
+        floor.total_height = z_diff * floor.array
         accumulated_height += floor.total_height
 
         all_curves.extend(curves)
@@ -270,9 +273,11 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         floors_collection = building.floors_collection
 
+        # TEMP CODE TO BE REMOVED:
         for floor in floors:
             if floor.uid == "":
                 floor.uid = uuid.uuid4().hex
+
         all_curves = _calculate_floors_start_height(context, floors)
 
         for curve in all_curves:

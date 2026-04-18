@@ -255,6 +255,10 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         settings_box = layout.box()
+        if active_floor.source_uid != "":
+            settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
+            return
+
         operators_row = settings_box.row(align = True)
         operators_row.scale_y = 2
         operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
@@ -292,7 +296,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         select_method = property_column.row()
         select_method.label(text = "Select Method")
         select_method.prop(active_curve, "select_method", expand = True)
-        property_column.prop(active_curve, "select_per_segment", text = "Element per Segment", toggle = True)
+        if active_curve.select_method != 'CUSTOM':
+            property_column.prop(active_curve, "select_per_segment", text = "Element per Segment", toggle = True)
 
         if active_curve.select_method == 'SEQUENCE':
             property_column.prop(active_curve, "sequence_offset", text = "Sequence Offset")

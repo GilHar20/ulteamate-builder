@@ -22,7 +22,8 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
         if len(floors) == 0:
             floors.add()
         else:
-            floors.add()
+            new_floor = floors.add()
+            new_floor.uid = uuid.uuid4().hex
             floors.move(len(floors) - 1, active_floor_index + 1)
             building.active_floor_index = active_floor_index + 1
 
@@ -185,6 +186,8 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         floors.add()
         floors.move(len(floors) - 1, self.current_floor_index + 1)
         new_floor = floors[self.current_floor_index + 1]
+        new_floor.uid = uuid.uuid4().hex
+        new_floor.source_uid = current_floor.uid
 
         for attr in self.floor_attributes:
             path = 'buildings[%d].floors[%d].%s' % (building_index, current_floor_index, attr)
@@ -275,6 +278,7 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
         floors.add()
         floors.move(len(floors) - 1, self.current_floor_index + 1)
         new_floor = floors[self.current_floor_index + 1]
+        new_floor.uid = uuid.uuid4().hex
 
         new_floor.total_height = current_floor.total_height
         new_floor.start_height = current_floor.start_height
