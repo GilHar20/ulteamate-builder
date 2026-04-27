@@ -112,16 +112,24 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
 
-    def draw_collect_objects(self, layout, elements_type, objects):
+    def draw_collect_objects(self, layout, element_type, objects):
         row = layout.row()
-        col = row.column(align=True)
-        for obj in objects:
-            col.prop(obj, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
+        objects_column = row.column(align = True)
+        for index, obj in enumerate(objects):
+            object_row = objects_column.row(align = True)
+            object_row.prop(obj, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
+            select_object = object_row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
+            select_object.element_type = element_type
+            select_object.index = index
+            scale_object = object_row.operator("blenderrail.scale_collect_object", text = "", icon = 'CON_SIZELIMIT')
+            scale_object.element_type = element_type
+            scale_object.index = index
+        
         buttons = row.column(align=True)
         add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
-        add_object.element_type = elements_type
+        add_object.element_type = element_type
         remove_object = buttons.operator("blenderrail.remove_collect_object", text = "", icon = 'REMOVE')
-        remove_object.element_type = elements_type
+        remove_object.element_type = element_type
 
 
     def draw(self, context):
@@ -180,8 +188,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         floors_addremove = floors_column.column(align = True)
         floors_addremove.operator("blenderrail.add_floor", text = "", icon = "ADD")
-        remove = floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
-        remove.floor_index = active_building.active_floor_index
+        floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
 
         if len(active_building.floors) <= 0:
             floors_box.label(text = "No floors added", icon = 'INFO')
@@ -203,8 +210,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         floors_column.separator()
         floors_copy = floors_column.column(align = True)
-        link_floor = floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
-        link_floor.current_floor_index = floor_index
+        floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.current_floor_index = floor_index
 
@@ -255,7 +261,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         settings_box = layout.box()
-        if active_floor.source_uid != "":
+        if active_floor.is_linked == True:
             settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
             return
 

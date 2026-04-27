@@ -1,5 +1,5 @@
 import bpy
-import uuid
+from ..preferences import find_node_group
 
 
 
@@ -23,9 +23,12 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
             floors.add()
         else:
             new_floor = floors.add()
-            new_floor.uid = uuid.uuid4().hex
             floors.move(len(floors) - 1, active_floor_index + 1)
             building.active_floor_index = active_floor_index + 1
+
+            new_floor.ID = building.active_floor_index
+            new_floor.curves_collection = bpy.data.collections.new(building.name + "_Floor" + str(new_floor.ID))
+            building.floors_collection.children.link(new_floor.curves_collection)
 
         return {"FINISHED"}
 
@@ -36,21 +39,28 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     bl_description = "Delete the active floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
-    floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
-        floor_index = self.floor_index
+        floor = floors[building.active_floor_index]
+        floor_index = building.active_floor_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors to remove")
             building.active_floor_index = 0
             return {"CANCELLED"}
 
-        floors.remove(floor_index)
+        bpy.data.collections.remove(floor.curves_collection)
+        floors.remove(building.active_floor_index)
+
         building.active_floor_index = min(floor_index, max(0, len(floors) - 1))
+
+        for index, floor in enumerate(floors):
+            floor.ID = index
+            floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
+
         return {"FINISHED"}
 
 
@@ -81,9 +91,20 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
         
         if self.up_down == True:
             floors.move(self.floor_index, self.floor_index + 1)
+            moved_floor = floors[self.floor_index + 1]
+            pushed_floor = floors[self.floor_index]
+            moved_floor.ID += 1
+            moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
+            pushed_floor.ID -= 1
+            moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
         else:
             floors.move(self.floor_index, self.floor_index - 1)
-
+            moved_floor = floors[self.floor_index - 1]
+            pushed_floor = floors[self.floor_index]
+            moved_floor.ID -= 1
+            moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
+            pushed_floor.ID += 1
+            moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
         return {"FINISHED"}
 
 
@@ -144,75 +165,41 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
     bl_description = "Create a new floor entry with all settings linked to the original"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
 
-    current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
-    floor_attributes = ["array", "total_height", "start_height", "active_curve_index"]
-    curve_attributes = ["height",
-                        "floor_ceiling", "thickness", "direction_bottom", "direction_top", "inset",
-                        "select_method", "sequence_offset", "random_index"]
-    segment_attributes = ["element_ID", "fit_method", "fixed_number"]
-
-    def _copy_objects(self, current_curve, new_curve, element_type):
-        elements = getattr(current_curve, element_type)
-        new_elements = getattr(new_curve, element_type)
-
-        if len(elements.objects) == 0:
-            return
-        for obj in elements.objects:
-            new_obj = new_elements.objects.add()
-            new_obj.object = obj.object
-        return
-    
-    def _link_attribute_driver(self, context, new_item, attr_name, path):
-        scene = context.scene
-
-        fcurve = new_item.driver_add(attr_name)
-        driver = fcurve.driver
-        driver.type = 'AVERAGE'
-        var = driver.variables.new()
-        var.name = attr_name
-        var.type = 'SINGLE_PROP'
-        var.targets[0].id_type = 'SCENE'
-        var.targets[0].id = scene
-        var.targets[0].data_path = path
-        return
 
     def execute(self, context):
         scene = context.scene
-        building_index = scene.active_building_index
-        floors = scene.buildings[scene.active_building_index].floors
-        current_floor = floors[self.current_floor_index]
-        current_floor_index = self.current_floor_index
-
-        floors.add()
-        floors.move(len(floors) - 1, self.current_floor_index + 1)
-        new_floor = floors[self.current_floor_index + 1]
-        new_floor.uid = uuid.uuid4().hex
-        new_floor.source_uid = current_floor.uid
-
-        for attr in self.floor_attributes:
-            path = 'buildings[%d].floors[%d].%s' % (building_index, current_floor_index, attr)
-            self._link_attribute_driver(context, new_floor, attr, path)
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
         
-        for curve_index, curve in enumerate(current_floor.curves):
-            obj = curve.curve_object
-            new_obj = obj.copy()
-            new_curve = new_floor.curves.add()
-            new_curve.curve_object = new_obj
+        floor = floors[building.active_floor_index]
+        bpy.ops.blenderrail.add_floor()
+        new_floor = floors[building.active_floor_index]
+        new_floor.is_linked = True
+        bpy.ops.blenderrail.add_curve_object()
+        new_curve = new_floor.curves[0]
 
-            for attr in self.curve_attributes:
-                path = 'buildings[%d].floors[%d].curves[%d].%s' % (building_index, current_floor_index, curve_index, attr)
-                self._link_attribute_driver(context, new_curve, attr, path)
+        bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
+        bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
+        bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
+        curve_obj = context.view_layer.objects.active
+        new_floor.curves_collection.objects.link(curve_obj)
+        context.scene.collection.objects.unlink(curve_obj)
 
-            for segment_index, segment in enumerate(curve.segments):
-                new_segment = new_curve.segments.add()
-                for attr in self.segment_attributes:
-                    path = 'buildings[%d].floors[%d].curves[%d].segments[%d].%s' % (building_index, current_floor_index, curve_index, segment_index, attr)
-                    self._link_attribute_driver(context, new_segment, attr, path)
-            
-            self._copy_objects(curve, new_curve, "main_elements")
-            self._copy_objects(curve, new_curve, "corner_elements")
+        curve_obj.location = building.base_object.location
+        bpy.ops.object.select_all(action='DESELECT')
+        context.view_layer.objects.active = building.base_object
+        building.base_object.select_set(True)
+        curve_obj.select_set(True)
+        bpy.ops.object.parent_no_inverse_set(keep_transform = True)
 
-        #bpy.ops.blenderrail.evaluate_building()
+        new_curve.curve_object = curve_obj
+        curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_LinkFloor_GN", type = "NODES")
+        curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")[0]
+        curve_attributes.node_group = curve_attributes_gn
+        curve_attributes["Socket_2"] = floor.curves_collection
+        curve_attributes.show_expanded - False
+
+        bpy.ops.blenderrail.evaluate_building()
 
         return{"FINISHED"}
 
@@ -278,7 +265,6 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
         floors.add()
         floors.move(len(floors) - 1, self.current_floor_index + 1)
         new_floor = floors[self.current_floor_index + 1]
-        new_floor.uid = uuid.uuid4().hex
 
         new_floor.total_height = current_floor.total_height
         new_floor.start_height = current_floor.start_height
@@ -319,10 +305,11 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
             return {"CANCELLED"}
 
         if len(curves) == 0:
-            curves.add()
+            new_curve = curves.add()
             floor.active_curve_index = 0
         else:
-            curves.add()
+            new_curve = curves.add()
+            floor.active_curve_index = len(floor.curves) - 1
 
         return {"FINISHED"}
 
@@ -350,6 +337,7 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
             floor.active_curve_index = 0
             return {"CANCELLED"}
 
+        floor.curves_collection.objects.link(curves[(len(curves) - 1)].curve_object)
         curves.remove(len(curves) - 1)
         floor.active_curve_index -= 1
 
@@ -441,6 +429,8 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
 
         collection.objects.add()
 
+        bpy.ops.blenderrail.evaluate_building()
+
         return {"FINISHED"}
 
 
@@ -473,4 +463,52 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
         if target_collection is not None:
             target_collection.objects.unlink(obj)
 
+        bpy.ops.blenderrail.evaluate_building()
+
         return {"FINISHED"}
+    
+
+class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.select_collect_object"
+    bl_label = "Select Collect Object"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+ 
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        main_elements = curve.main_elements 
+        corner_elements = curve.corner_elements
+        element = None
+
+
+        if self.element_type == "main_elements":
+            element = main_elements.objects[self.index].object
+        if self.element_type == "corner_elements":
+            element = corner_elements.objects[self.index].object
+        if element == None:
+            self.report({"ERROR"}, "No object provided")
+            return{"CANCELLED"}
+
+        bpy.ops.object.select_all(action='DESELECT')
+        context.view_layer.objects.active = element
+        element.select_set(True)
+
+        return{"FINISHED"}
+
+
+class BLENDERRAIL_OT_scale_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.scale_collect_object"
+    bl_label = "Control Collect Object scaling"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+
+    def execute(self, context):
+        self.report({"INFO"}, "Not yet implemented")
+        return{"FINISHED"}

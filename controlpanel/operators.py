@@ -3,7 +3,6 @@ import mathutils
 from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
 from ..preferences import find_node_group
-import uuid
 
 
 
@@ -109,6 +108,10 @@ def _sync_segments_to_curves(curve):
 
     current = len(curve.segments)
     delta = total_points - current
+
+    if delta == 0:
+        return
+    
     if delta > 0:
         for _ in range(delta):
             curve.segments.add()
@@ -189,6 +192,21 @@ def _calculate_floors_start_height(context, floors):
         all_curves.extend(curves)
     
     return all_curves
+
+
+def _set_attribute_driver(self, context, item, attribute, path, var_name):
+    scene = context.scene
+
+    fcurve = item.driver_add(attribute)
+    driver = fcurve.driver
+    driver.type = 'AVERAGE'
+    var = driver.variables.new()
+    var.name = var_name
+    var.type = 'SINGLE_PROP'
+    var.targets[0].id_type = 'SCENE'
+    var.targets[0].id = scene
+    var.targets[0].data_path = path
+    return
 
 
 def _assign_curve_elements(self, context, curve, element_type):
@@ -273,10 +291,11 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         floors_collection = building.floors_collection
 
-        # TEMP CODE TO BE REMOVED:
+        # TEMP CODE TO BE REMOVED
         for floor in floors:
-            if floor.uid == "":
-                floor.uid = uuid.uuid4().hex
+            if floor.curves_collection == None:
+                floor.curves_collection = bpy.data.collections.new(building.name + "_" + str(floor.ID))
+                building.floors_collection.children.link(floor.curves_collection)
 
         all_curves = _calculate_floors_start_height(context, floors)
 
@@ -284,11 +303,20 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_obj = curve.curve_object
             if curve_obj is None:
                 continue
+            if floors[curve.floor_ID].is_linked == True:
+                continue
+
+            # TEMP CODE TO BE REMOVED
+            floor = floors[curve.floor_ID]
+            target = floor.curves_collection
+            # Copy first, then unlink (don't mutate while iterating original collection list)
+            for col in list(curve_obj.users_collection):
+                if col != target:
+                    col.objects.unlink(curve_obj)
+            if target not in curve_obj.users_collection:
+                target.objects.link(curve_obj)
 
             _sync_segments_to_curves(curve)
-
-            if floors_collection not in curve_obj.users_collection:
-                floors_collection.objects.link(curve_obj)
 
 
             if curve_obj.parent != building.base_object:
@@ -303,161 +331,75 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
             curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
             curve_attributes.node_group = curve_attributes_gn
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_11"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'select_method'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_14"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'select_per_segment'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].select_per_segment' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_12"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'sequence_offset'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].sequence_offset' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_13"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'random_index'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].random_index' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'array'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)     
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'height'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_10"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'inset'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].inset' % (building_index, curve.floor_ID, curve.ID)
-
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_5"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'floor_ceiling'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)        
             curve_attributes.show_expanded = False
 
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_15"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'thickness'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].thickness' % (building_index, curve.floor_ID, curve.ID)        
-            curve_attributes.show_expanded = False
+            attribute = 'modifiers["%s"]["Socket_11"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "select_method")
 
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_16"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'direction_bottom'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].direction_bottom' % (building_index, curve.floor_ID, curve.ID)        
-            curve_attributes.show_expanded = False
+            attribute = 'modifiers["%s"]["Socket_14"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].select_per_segment' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "select_per_segment")
+            
+            attribute = 'modifiers["%s"]["Socket_12"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].sequence_offset' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "sequence_offset")
 
-            fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_17"]' % curve_attributes.name)
-            driver = fcurve.driver
-            driver.type = 'AVERAGE'
-            var = driver.variables.new()
-            var.name = 'direction_top'
-            var.type = 'SINGLE_PROP'
-            var.targets[0].id_type = 'SCENE'
-            var.targets[0].id = scene
-            var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].direction_top' % (building_index, curve.floor_ID, curve.ID)        
-            curve_attributes.show_expanded = False
+            attribute = 'modifiers["%s"]["Socket_13"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].random_index' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "random_index")
+
+            attribute = 'modifiers["%s"]["Socket_3"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
+
+            attribute = 'modifiers["%s"]["Socket_4"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "height")
+
+            attribute = 'modifiers["%s"]["Socket_10"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].inset' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "inset")
+
+            attribute = 'modifiers["%s"]["Socket_5"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)      
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_ceiling")
+
+            attribute = 'modifiers["%s"]["Socket_15"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].thickness' % (building_index, curve.floor_ID, curve.ID)          
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "thickness")
+
+            attribute = 'modifiers["%s"]["Socket_16"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].direction_bottom' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_bottom")
+
+            attribute = 'modifiers["%s"]["Socket_17"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].curves[%d].direction_top' % (building_index, curve.floor_ID, curve.ID) 
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_top")
+
 
             _assign_curve_elements(self, context, curve, "main_elements")
             _assign_curve_elements(self, context, curve, "corner_elements")
+
 
             for seg_index, segment in enumerate(curve.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
                 element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
-
                 element_id["Socket_2"] = segment.ID
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_4"]' % element_id.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = "fit_method"
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, seg_index)
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_5"]' % element_id.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = "fixed_number"
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, seg_index)
-
-                fcurve = curve_obj.driver_add('modifiers["%s"]["Socket_3"]' % element_id.name)
-                driver = fcurve.driver
-                driver.type = 'AVERAGE'
-                var = driver.variables.new()
-                var.name = "element_ID"
-                var.type = 'SINGLE_PROP'
-                var.targets[0].id_type = 'SCENE'
-                var.targets[0].id = scene
-                var.targets[0].data_path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, seg_index)
                 element_id.show_expanded = False
+
+                attribute = 'modifiers["%s"]["Socket_4"]' % element_id.name
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                _set_attribute_driver(self, context, curve_obj, attribute, path, "fit_method")
+
+                attribute = 'modifiers["%s"]["Socket_5"]' % element_id.name
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                _set_attribute_driver(self, context, curve_obj, attribute, path, "fixed_number")
+
+                attribute = 'modifiers["%s"]["Socket_3"]' % element_id.name
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                _set_attribute_driver(self, context, curve_obj, attribute, path, "element_ID")
 
         building.active_floor_index = old_active_floor
 
@@ -511,7 +453,10 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         modifier["Socket_2"] = floors_collection
 
         bpy.ops.blenderrail.add_floor()
-        bpy.ops.blenderrail.add_curve_object()
+        floor = building.floors[0]
+
+        curve = bpy.ops.blenderrail.add_curve_object()
+        floor.curves_collection.objects.link(curve)
 
         bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
         bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')

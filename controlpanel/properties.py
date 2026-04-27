@@ -105,6 +105,28 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
         operators._calculate_floors_start_height(context, None)
         return
+    
+    def _update_curve_collection(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curves_collection = floor.curves_collection
+
+        prev_name = self.get("_prev_curve_object_name", "")
+        prev_obj = bpy.data.objects.get(prev_name) if prev_name else None
+        new_obj = self.curve_object
+        
+        if prev_obj and prev_obj != new_obj:
+            if curves_collection in prev_obj.users_collection:
+                curves_collection.objects.unlink(prev_obj)
+
+        if new_obj:
+            if curves_collection not in new_obj.users_collection:
+                curves_collection.objects.link(new_obj)
+
+
+        self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
+        return
 
     ID : bpy.props.IntProperty(
         name = "Segment ID",
@@ -176,7 +198,8 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     curve_object : bpy.props.PointerProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = bpy.types.Object
+        type = bpy.types.Object,
+        update = _update_curve_collection
     )
 
     segments : bpy.props.CollectionProperty(
@@ -248,14 +271,10 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000
     )
 
-    uid : bpy.props.StringProperty(
-        name = "Floor uuid",
-        default = "",
-    )
-
-    source_uid : bpy.props.StringProperty(
-        name = "Source Floor uuid",
-        default = "",
+    is_linked : bpy.props.BoolProperty(
+        name = "Floor Linked",
+        description = "True if floor is lo=inked from another floor",
+        default = False
     )
 
     array : bpy.props.IntProperty(
@@ -290,6 +309,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         name = "Input curve object",
         description = "Input curve geometry",
         type = BLENDERRAIL_PG_curve
+    )
+
+    curves_collection : bpy.props.PointerProperty(
+        name = "Curves Collection",
+        description = "Collection to store all floor's curves",
+        type = bpy.types.Collection
     )
 
     active_curve_index : bpy.props.IntProperty(
