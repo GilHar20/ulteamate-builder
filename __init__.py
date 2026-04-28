@@ -1,6 +1,6 @@
 bl_info = {
     "name": "BlenderRail",
-    "version": (0, 6, 0),
+    "version": (0, 7, 0),
     "blender": (4, 5, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > blenderrail",
@@ -14,7 +14,7 @@ bl_info = {
 }
 
 import bpy
-from . import controlpanel
+from . import main
 from . import viewportgui
 from . import preferences
 
@@ -96,12 +96,12 @@ def register():
 
     addon_updater_ops.register(bl_info)
 
-    controlpanel.register()
+    main.register()
     viewportgui.register()
 
 def unregister():
     viewportgui.unregister()
-    controlpanel.unregister()
+    main.unregister()
 
     addon_updater_ops.unregister()
 
