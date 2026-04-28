@@ -13,6 +13,18 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
+    host_curve : bpy.props.PointerProperty(
+        name = "Host Curve",
+        description = "Curve object of the curve PropertyGroup that holds the modifier referencing this object",
+        type = bpy.types.Object
+    )
+
+    is_stretched : bpy.props.BoolProperty(
+        name = "Is Stretched",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        default = False
+    )
+
 
 class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
     collect_method : bpy.props.EnumProperty(
@@ -273,7 +285,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
 
     is_linked : bpy.props.BoolProperty(
         name = "Floor Linked",
-        description = "True if floor is lo=inked from another floor",
+        description = "True if floor is linked to another floor",
         default = False
     )
 

@@ -21,7 +21,6 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
         select_object.building_index = index
 
 
-
 class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
     """UIList for displaying displaying floors per building"""
     
@@ -29,12 +28,17 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         active_floor_index = building.active_floor_index
-        icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
 
         column = layout.column()
-        first_row = column.row(align = True)
 
-        first_row.label(text = str(index + 1) + ": " + str(len(item.curves)) + "curves", icon = icon)
+        if item.is_linked == True:
+            first_row = column.row(align = True)
+            first_row.label(text = "Floor #" + str(item.ID) + ", " + item.curves_collection.name, icon = 'LINKED')
+            return
+
+        icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
+        first_row = column.row(align = True)
+        first_row.label(text = "Floor #" + str(item.ID) + ", " + item.curves_collection.name, icon = icon)
 
         op_row = first_row.row(align = True)
         op_row.alignment = 'RIGHT'
@@ -172,6 +176,13 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         # FLOORS:
         floors_box = collections_row.box()
 
+        operators_row = floors_box.row(align = True)
+        operators_row.scale_y = 2
+        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_column = operators_row.column(align = True)
+        refresh_column.alignment = 'RIGHT'
+        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+
         floors_box.label(text = "Floors:")
         floors_row = floors_box.row(align = True)
         floors_row.template_list(
@@ -214,6 +225,12 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.current_floor_index = floor_index
 
+
+        if active_floor.is_linked == True:
+            settings_box = layout.box()
+            settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
+            return
+        
 
         # CURVES:
         curves_box = collections_row.box()
@@ -261,17 +278,6 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         settings_box = layout.box()
-        if active_floor.is_linked == True:
-            settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
-            return
-
-        operators_row = settings_box.row(align = True)
-        operators_row.scale_y = 2
-        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
-        refresh_column = operators_row.column(align = True)
-        refresh_column.alignment = 'RIGHT'
-        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-
 
         # Floor Settings
         settings_box.separator()

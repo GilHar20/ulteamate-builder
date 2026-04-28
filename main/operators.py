@@ -163,7 +163,7 @@ def _calculate_floors_start_height(context, floors):
     accumulated_height: float = 0
 
     for floor_index, floor in enumerate(floors):
-        floor.ID = floor_index
+        #floor.ID = floor_index
 
         curves = [curve for curve in floor.curves if curve.curve_object is not None]
         if not curves:
@@ -228,6 +228,9 @@ def _assign_curve_elements(self, context, curve, element_type):
             return
 
         for element in elements_collection.objects:
+            if not element.object:
+                continue
+
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
@@ -238,6 +241,9 @@ def _assign_curve_elements(self, context, curve, element_type):
             if collection not in element.object.users_collection:
                 collection.objects.link(element.object)
 
+            # TEMO CODE TO BE REMOVED
+            element.host_curve = curve.curve_object
+
             curve_elements.show_expanded = False
 
     elif elements_collection.collect_method == 'COLLECTION':
@@ -246,6 +252,8 @@ def _assign_curve_elements(self, context, curve, element_type):
             return
         
         for element in elements_collection.exiiting_collection:
+            if not element.object:
+                continue
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
@@ -255,7 +263,10 @@ def _assign_curve_elements(self, context, curve, element_type):
 
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
-    
+
+            # TEMO CODE TO BE REMOVED
+            element.host_curve = curve.curve_object
+
             curve_elements.show_expanded = False
 
     return
