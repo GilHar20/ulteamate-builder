@@ -171,20 +171,22 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         #buildings_box.prop(active_building, "elements_collection", text = "")
 
 
-        collections_row = layout.row(align = True)
-        
-        # FLOORS:
-        floors_box = collections_row.box()
-
-        operators_row = floors_box.row(align = True)
+        collections_box = layout.box()
+        operators_row = collections_box.row(align = True)
         operators_row.scale_y = 2
         operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
         refresh_column = operators_row.column(align = True)
         refresh_column.alignment = 'RIGHT'
         refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        
+        collections_row = collections_box.row(align = True)
+        
+        # FLOORS:
+        collections_row.separator()
 
-        floors_box.label(text = "Floors:")
-        floors_row = floors_box.row(align = True)
+        floors_column = collections_row.column()
+        floors_column.label(text = "Floors:")
+        floors_row = floors_column.row(align = True)
         floors_row.template_list(
             "BLENDERRAIL_UL_floor_list",
             "blenderrail_floor_list",
@@ -202,7 +204,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
 
         if len(active_building.floors) <= 0:
-            floors_box.label(text = "No floors added", icon = 'INFO')
+            floors_column.label(text = "No floors added", icon = 'INFO')
             return
 
         floors = active_building.floors
@@ -233,10 +235,11 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         
 
         # CURVES:
-        curves_box = collections_row.box()
+        collections_row.separator()
 
-        curves_box.label(text = "Curves:")
-        curves_row = curves_box.row(align = True)
+        curves_column = collections_row.column()
+        curves_column.label(text = "Curves:")
+        curves_row = curves_column.row(align = True)
         curves_row.template_list(
             "BLENDERRAIL_UL_curve_list",
             "blenderrail_curve_list",
@@ -253,7 +256,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         curve_addremove.operator("blenderrail.remove_curve_object", text = "", icon = "REMOVE")
 
         if len(active_floor.curves) <= 0:
-            curves_box.label(text = "No curves added", icon = 'INFO')
+            curves_column.label(text = "No curves added", icon = 'INFO')
             return
         
         curves = active_floor.curves
@@ -262,9 +265,11 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         # SEGMENTS:
-        segments_box = collections_row.box()
-        segments_box.label(text = "Segments:")
-        segments_row = segments_box.row()
+        collections_row.separator()
+
+        segments_column = collections_row.column()
+        segments_column.label(text = "Segments:")
+        segments_row = segments_column.row()
         segments_row.template_list(
             "BLENDERRAIL_UL_segment_list",
             "blenderrail_segment_list",
