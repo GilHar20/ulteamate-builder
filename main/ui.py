@@ -291,7 +291,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         property_column = settings_box.column(align = True)
         property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
         stack_floor = property_column.operator("blenderrail.stack_curve_object", text = "Stack Floor", icon = 'TRIA_DOWN_BAR')
-        stack_floor.property_to_stack = 'FLOOR'
+        stack_floor.property_to_stack = 'ALL'
 
 
         # Curve Settings

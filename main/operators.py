@@ -173,23 +173,29 @@ def _calculate_floors_start_height(context, floors, stacked):
         max_curve = max(curves, key=lambda c: c.curve_object.location.z + c.height)
         max_curve_position = max_curve.curve_object.location.z
         max_curve_height = max_curve.height
-        z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
 
         floor.start_height = accumulated_height
         compensate = floor.start_height - min_curve_position
 
         for index, curve in enumerate(curves):
             sorted_index = curves_sorted.index(curve)
-            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else None
-            prev_curve_height = curve.curve_object.location.z if prev_curve == None else prev_curve.curve_object.location.z + prev_curve.height
+            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else curve
+            z_diff = curve.curve_object.location.z - prev_curve.curve_object.location.z
+            prev_floor = floors[floor_index - 1] if floor_index > 0 else floor
 
-            curve.curve_object.location.z = prev_curve_height if stacked == True else curve.curve_object.location.z + compensate
+            if z_diff < 0.1:
+                curve.curve_object.location.z = prev_curve.curve_object.location.z
+            
+            elif stacked == True:
+                curve.curve_object.location.z = accumulated_height #prev_curve.curve_object.location.z + prev_curve.height
+            
+            else:
+                curve.curve_object.location.z = accumulated_height #curve.curve_object.location.z + compensate
 
             curve.ID = index
             curve.floor_ID = floor.ID
         
-
-
+        z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
         floor.total_height = z_diff * floor.array
         accumulated_height += floor.total_height
 
