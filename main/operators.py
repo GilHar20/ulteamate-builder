@@ -154,11 +154,7 @@ def on_depsgraph_update(scene, depsgraph):
     _rematch_in_progress = False
 
 
-def _calculate_floors_start_height(context, floors):
-    if not floors:
-        scene = context.scene
-        floors = scene.buildings[scene.active_building_index].floors
-    
+def _calculate_floors_start_height(context, floors, stacked):
     all_curves = []
     accumulated_height: float = 0
 
@@ -170,6 +166,7 @@ def _calculate_floors_start_height(context, floors):
             floor.start_height = accumulated_height
             floor.total_height = 0
             continue
+        curves_sorted = sorted(curves, key=lambda c: c.curve_object.location.z)
 
         min_curve = min(curves, key=lambda c: c.curve_object.location.z)
         min_curve_position = min_curve.curve_object.location.z
@@ -179,12 +176,19 @@ def _calculate_floors_start_height(context, floors):
         z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
 
         floor.start_height = accumulated_height
+        compensate = floor.start_height - min_curve_position
 
-        compensate = floor.start_height - min_curve.curve_object.location.z
-        for curve_index, curve in enumerate(curves):
-            curve.curve_object.location[2] += compensate
-            curve.ID = curve_index
+        for index, curve in enumerate(curves):
+            sorted_index = curves_sorted.index(curve)
+            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else None
+            prev_curve_height = curve.curve_object.location.z if prev_curve == None else prev_curve.curve_object.location.z + prev_curve.height
+
+            curve.curve_object.location.z = prev_curve_height if stacked == True else curve.curve_object.location.z + compensate
+
+            curve.ID = index
             curve.floor_ID = floor.ID
+        
+
 
         floor.total_height = z_diff * floor.array
         accumulated_height += floor.total_height
@@ -230,6 +234,9 @@ def _assign_curve_elements(self, context, curve, element_type):
         for element in elements_collection.objects:
             if not element.object:
                 continue
+            
+            # TEMP CODE TO BE REMOVED
+            element.element_type = element_type
 
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
@@ -237,12 +244,10 @@ def _assign_curve_elements(self, context, curve, element_type):
             
             curve_elements["Socket_5"] = collect_method
             curve_elements["Socket_4"] = bpy.data.objects.get(element.object.name)
+            curve_elements["Socket_6"] = element.up_stretched
 
             if collection not in element.object.users_collection:
                 collection.objects.link(element.object)
-
-            # TEMO CODE TO BE REMOVED
-            element.host_curve = curve.curve_object
 
             curve_elements.show_expanded = False
 
@@ -254,6 +259,10 @@ def _assign_curve_elements(self, context, curve, element_type):
         for element in elements_collection.exiiting_collection:
             if not element.object:
                 continue
+
+            # TEMP CODE TO BE REMOVED
+            element.element_type = element_type
+
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
@@ -308,7 +317,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 floor.curves_collection = bpy.data.collections.new(building.name + "_" + str(floor.ID))
                 building.floors_collection.children.link(floor.curves_collection)
 
-        all_curves = _calculate_floors_start_height(context, floors)
+        all_curves = _calculate_floors_start_height(context, floors, False)
 
         for curve in all_curves:
             curve_obj = curve.curve_object

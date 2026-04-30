@@ -304,7 +304,7 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
 
 
 # ------------------------------
-# Operators: add / remove curves
+# Operators: Curves Operators
 # ------------------------------
 
 class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
@@ -365,9 +365,53 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
         return {"FINISHED"}
     
 
+class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.stack_curve_object"
+    bl_label = "Stack Curve Object"
+    bl_description = "Snap the curve object the the lower closest curve object height"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    property_to_stack : bpy.props.EnumProperty(
+        name = "property_to_stack",
+        description = "Select what curves to stack",
+        items = [
+        ('ALL', "All", "All floors", 0),
+        ('FLOOR', "Floor", "Current floor", 1),
+        ('CURVE', "Curve", "Current curve", 2),
+        ],
+        default = 'ALL'
+    )
+
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+
+        if self.property_to_stack == 'ALL':
+            operators._calculate_floors_start_height(context, floors, True)
+
+        if self.property_to_stack == 'FLOOR':
+            floors = [floor]
+            operators._calculate_floors_start_height(context, floors, True)
+
+        if self.property_to_stack == 'CURVE':
+            curves = [curve for curve in floor.curves if curve.curve_object is not None]
+            curves_sorted = sorted(curves, key=lambda c: c.curve_object.location.z)
+            sorted_index = curves_sorted.index(curve)
+            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else None
+            prev_curve_height = prev_curve.curve_object.location.z + prev_curve.height
+            curve.curve_object.location.z = prev_curve_height
+            operators._calculate_floors_start_height(context, floors, False)
+
+        return{"FINISHED"}
+    
+
 
 # --------------------------------
-# Operators: add / remove segments
+# Operators: segments Operators
 # --------------------------------
 
 class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
@@ -431,7 +475,7 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
 
 
 # --------------------------------------
-# Operators: add / remove collect object
+# Operators: Collect Object Operators
 # --------------------------------------
 
 class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
@@ -450,6 +494,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
 
         new_element = collection.objects.add()
         new_element.host_curve = curve.curve_object
+        new_element.element_type = self.element_type
 
         #bpy.ops.blenderrail.evaluate_building()
 
@@ -523,17 +568,4 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         context.view_layer.objects.active = element
         element.select_set(True)
 
-        return{"FINISHED"}
-
-
-class BLENDERRAIL_OT_scale_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.scale_collect_object"
-    bl_label = "Control Collect Object scaling"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
-    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
-    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
-
-    def execute(self, context):
-        self.report({"INFO"}, "Not yet implemented")
         return{"FINISHED"}

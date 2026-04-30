@@ -7,10 +7,61 @@ from . import operators
 # Property groups: Segment
 # ------------------------
 
-class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):   
+class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
+    def _remove_curve_element(self, host_curve, modifier, prev_obj):
+        if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+            return
+        if modifier["Socket_4"] == prev_obj:
+            host_curve.modifiers.remove(modifier)
+        return    
+
+    def _remove_self_from_curve(self, context):
+        prev_name = self.get("_prev_curve_object_name", "")
+        prev_obj = bpy.data.objects.get(prev_name) if prev_name else None
+        new_obj = self.object
+        host_curve = self.host_curve
+
+        if prev_obj != None:
+            for modifier in host_curve.modifiers:
+                self._remove_curve_element(host_curve, modifier, prev_obj)
+
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        if new_obj != None:
+            operators._assign_curve_elements(self, context, curve, self.element_type)
+
+        self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
+        bpy.ops.object.select_all(action='DESELECT')
+        context.view_layer.objects.active = host_curve
+        host_curve.select_set(True)
+
+        return
+    
+    def _up_stretch_element(self, context):
+        host_curve = self.host_curve
+        obj = self.object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            if modifier["Socket_4"] == obj:
+                modifier["Socket_6"] = self.up_stretched
+                host_curve.update_tag()
+                return    
+
+
     object : bpy.props.PointerProperty(
         name = "Element Object",
-        type = bpy.types.Object
+        description = "Pointer to object used for this element",
+        type = bpy.types.Object,
+        update = _remove_self_from_curve
+    )
+
+    element_type : bpy.props.StringProperty(
+        name = "Element Type",
+        description = "What type of element is object used for",
+        default = ""
     )
 
     host_curve : bpy.props.PointerProperty(
@@ -19,10 +70,11 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
-    is_stretched : bpy.props.BoolProperty(
+    up_stretched : bpy.props.BoolProperty(
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        default = False
+        default = False,
+        update = _up_stretch_element
     )
 
 
@@ -31,8 +83,8 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         name = "Collect Method",
         description = "Method of assigning elements to the Target Collection of the floor",
         items = [
-        ('OBJECTS', "Objects", "Select objects and create a collection", 0),
-        ('EXISTING', "Existing", "Choose existing Target Collection", 1),
+        ('OBJECTS', "Separate Objects", "Select objects and create a collection", 0),
+        ('EXISTING', "Existing Collection", "Choose existing Target Collection", 1),
         ],
         default = 'OBJECTS'
     )
@@ -46,12 +98,6 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
     existing_collection : bpy.props.PointerProperty(
         name = "Existing Collection",
         description = "Collection of objects to insert into the Tartget Collection",
-        type = bpy.types.Collection
-    )
-
-    target_collection : bpy.props.PointerProperty(
-        name = "Target Collection",
-        description = "Collection of elements to instance along the curve splines",
         type = bpy.types.Collection
     )
 
@@ -115,7 +161,10 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
 
 class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
-        operators._calculate_floors_start_height(context, None)
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        operators._calculate_floors_start_height(context, floors, False)
         return
     
     def _update_curve_collection(self, context):
@@ -273,7 +322,10 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
 
 class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
-        operators._calculate_floors_start_height(context, None)
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        operators._calculate_floors_start_height(context, floors, False)
         return
 
     ID : bpy.props.IntProperty(

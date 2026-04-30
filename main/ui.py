@@ -30,15 +30,16 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         active_floor_index = building.active_floor_index
 
         column = layout.column()
+        floor_label = "#" + str(item.ID) + ", " + item.curves_collection.name
 
         if item.is_linked == True:
             first_row = column.row(align = True)
-            first_row.label(text = "Floor #" + str(item.ID) + ", " + item.curves_collection.name, icon = 'LINKED')
+            first_row.label(text = floor_label, icon = 'LINKED')
             return
 
         icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
         first_row = column.row(align = True)
-        first_row.label(text = "Floor #" + str(item.ID) + ", " + item.curves_collection.name, icon = icon)
+        first_row.label(text = floor_label, icon = icon)
 
         op_row = first_row.row(align = True)
         op_row.alignment = 'RIGHT'
@@ -116,18 +117,17 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
 
-    def draw_collect_objects(self, layout, element_type, objects):
+    def draw_collect_objects(self, layout, element_type, elements):
         row = layout.row()
         objects_column = row.column(align = True)
-        for index, obj in enumerate(objects):
+        for index, element in enumerate(elements):
             object_row = objects_column.row(align = True)
-            object_row.prop(obj, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
+            object_row.prop(element, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
+
             select_object = object_row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
             select_object.element_type = element_type
             select_object.index = index
-            scale_object = object_row.operator("blenderrail.scale_collect_object", text = "", icon = 'CON_SIZELIMIT')
-            scale_object.element_type = element_type
-            scale_object.index = index
+            object_row.prop(element, "up_stretched", text = "", toggle = -1, icon = 'CON_SIZELIMIT')
         
         buttons = row.column(align=True)
         add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
@@ -290,6 +290,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         property_column = settings_box.column(align = True)
         property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
+        stack_floor = property_column.operator("blenderrail.stack_curve_object", text = "Stack Floor", icon = 'TRIA_DOWN_BAR')
+        stack_floor.property_to_stack = 'FLOOR'
 
 
         # Curve Settings

@@ -24,12 +24,11 @@ classes = [
 
     properties_Operators.BLENDERRAIL_OT_add_curve_object,
     properties_Operators.BLENDERRAIL_OT_remove_curve_object,
+    properties_Operators.BLENDERRAIL_OT_stack_curve_object,
 
     properties_Operators.BLENDERRAIL_OT_add_collect_object,
     properties_Operators.BLENDERRAIL_OT_remove_collect_object,
     properties_Operators.BLENDERRAIL_OT_select_collect_object,
-    properties_Operators.BLENDERRAIL_OT_scale_collect_object,
-
 
     operators.BLENDERRAIL_OT_generate_building,
     operators.BLENDERRAIL_OT_remove_building,
