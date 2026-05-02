@@ -172,13 +172,6 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         collections_box = layout.box()
-        operators_row = collections_box.row(align = True)
-        operators_row.scale_y = 2
-        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
-        refresh_column = operators_row.column(align = True)
-        refresh_column.alignment = 'RIGHT'
-        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-        
         collections_row = collections_box.row(align = True)
         
         # FLOORS:
@@ -281,18 +274,39 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             maxrows = 10
         )
 
+        operators_row = collections_box.row(align = True)
+        operators_row.scale_y = 2
+        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_column = operators_row.column(align = True)
+        refresh_column.alignment = 'RIGHT'
+        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+
 
         settings_box = layout.box()
 
+
         # Floor Settings
-        settings_box.separator()
         settings_box.label(text = "Floor Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
-        property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
-        stack_floor = property_column.operator("blenderrail.stack_curve_object", text = "Stack Floor", icon = 'TRIA_DOWN_BAR')
-        stack_floor.property_to_stack = 'ALL'
+        data_row = property_column.row(align = True)
+        data_row.label(text = "Collection:   " + active_floor.curves_collection.name, icon = 'OUTLINER_COLLECTION')
+        data_row.label(text = "Curves:   " + str(len(active_floor.curves)) + "# Curves", icon = 'CURVE_DATA')
 
+        property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
+        stack_row = property_column.row(align = True)
+        stack_floors = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors", icon = 'TRIA_DOWN_BAR')
+        stack_floors.property_to_stack = 'FLOORS'
+        stack_curves = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors & Curves", icon = 'TRIA_DOWN_BAR')
+        stack_curves.property_to_stack = 'CURVES'
+        stack_row2 = property_column.row(align = True)
+        stack_floor = stack_row2.operator("blenderrail.stack_curve_object", text = "Stack current Floor", icon = 'TRIA_DOWN_BAR')
+        stack_floor.property_to_stack = 'CURRENTFLOOR'
+        stack_curve = stack_row2.operator("blenderrail.stack_curve_object", text = "Snap current Curve", icon = 'TRIA_DOWN_BAR')
+        stack_curve.property_to_stack = 'CURRENTCURVE'
+        flatten = property_column.operator("blenderrail.stack_curve_object", text = "Snap current Curve", icon = 'TRIA_DOWN_BAR')
+        flatten.property_to_stack = 'FLATTENFLOOR'
+        
 
         # Curve Settings
         settings_box.separator()

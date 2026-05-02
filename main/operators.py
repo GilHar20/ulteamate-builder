@@ -177,21 +177,16 @@ def _calculate_floors_start_height(context, floors, stacked):
         floor.start_height = accumulated_height
         compensate = floor.start_height - min_curve_position
 
-        for index, curve in enumerate(curves):
-            sorted_index = curves_sorted.index(curve)
-            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else curve
+        for index, curve in enumerate(curves_sorted):
+            prev_curve = curves_sorted[index - 1] if index > 0 else curve
             z_diff = curve.curve_object.location.z - prev_curve.curve_object.location.z
-            prev_floor = floors[floor_index - 1] if floor_index > 0 else floor
-
-            if z_diff < 0.1:
-                curve.curve_object.location.z = prev_curve.curve_object.location.z
             
-            elif stacked == True:
-                curve.curve_object.location.z = accumulated_height #prev_curve.curve_object.location.z + prev_curve.height
-            
-            else:
-                curve.curve_object.location.z = accumulated_height #curve.curve_object.location.z + compensate
+            curve.curve_object.location.z += compensate
+            if stacked == False or index == 0 or z_diff < 0.1:
+                continue
+            curve.curve_object.location.z = prev_curve.curve_object.location.z + prev_curve.height
 
+        for index, curve in enumerate(curves):
             curve.ID = index
             curve.floor_ID = floor.ID
         

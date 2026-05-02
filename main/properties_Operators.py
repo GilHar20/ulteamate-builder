@@ -375,36 +375,58 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         name = "property_to_stack",
         description = "Select what curves to stack",
         items = [
-        ('ALL', "All", "All floors", 0),
-        ('FLOOR', "Floor", "Current floor", 1),
-        ('CURVE', "Curve", "Current curve", 2),
+        ('FLOORS', "Floors", "All floors", 0),
+        ('CURVES', "Curves", "All floors and curves", 1),
+        ('CURRENTFLOOR', "Currnet floor", "Current floor", 2),
+        ('CURRENTCURVE', "Cuurnet curve", "Current curve", 3),
+        ('FLATTENFLOOR', "Flatten floor", "Flatten current floor", 4),
         ],
-        default = 'ALL'
+        default = 'FLOORS'
     )
 
+    def _set_cruve_location_z(self, context, curve, curves_sorted):
+        sorted_index = curves_sorted.index(curve)
+        if sorted_index == 0:
+            self.report({"INFO"}, "This is the lowest curve in the floor")
+            return({"CANCELLED"})
+        sorted_index = curves_sorted.index(curve)
+        prev_curve = curves_sorted[sorted_index - 1]
+        z_diff = curve.curve_object.location.z - prev_curve.curve_object.location.z
+        if curve.curve_object.location.z < prev_curve.curve_object.location.z + prev_curve.height:
+            curve.curve_object.location.z  = prev_curve.curve_object.location.z
+        else:
+            curve.curve_object.location.z = prev_curve.curve_object.location.z + prev_curve.height
+        return
 
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
         floor = floors[building.active_floor_index]
+        curves = floor.curves
         curve = floor.curves[floor.active_curve_index]
+        curves_sorted = sorted(curves, key=lambda c: c.curve_object.location.z)
 
-        if self.property_to_stack == 'ALL':
-            operators._calculate_floors_start_height(context, floors, True)
-
-        if self.property_to_stack == 'FLOOR':
-            floors = [floor]
-            operators._calculate_floors_start_height(context, floors, True)
-
-        if self.property_to_stack == 'CURVE':
-            curves = [curve for curve in floor.curves if curve.curve_object is not None]
-            curves_sorted = sorted(curves, key=lambda c: c.curve_object.location.z)
-            sorted_index = curves_sorted.index(curve)
-            prev_curve = curves_sorted[sorted_index - 1] if sorted_index > 0 else None
-            prev_curve_height = prev_curve.curve_object.location.z + prev_curve.height
-            curve.curve_object.location.z = prev_curve_height
+        if self.property_to_stack == 'FLOORS':
             operators._calculate_floors_start_height(context, floors, False)
+
+        if self.property_to_stack == 'CURVES':
+            operators._calculate_floors_start_height(context, floors, True)
+
+        if self.property_to_stack == 'CURRENTFLOOR':
+            for curve in curves:
+                self._set_cruve_location_z(context, curve, curves_sorted)
+        
+        if self.property_to_stack == 'CURRENTCURVE':
+            self._set_cruve_location_z(context, curve, curves_sorted)
+
+        if self.property_to_stack == 'FLATTENFLOOR':
+            for curve in curves:
+                curve.curve_object.location.z = floor.start_height
+
+        curves_sorted = sorted(curves, key=lambda c: c.curve_object.location.z)
+        z_diff = curves_sorted[len(curves_sorted) - 1].curve_object.location.z - curves_sorted[0].curve_object.location.z
+        floor.total_height = z_diff * floor.array
 
         return{"FINISHED"}
     
