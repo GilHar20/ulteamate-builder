@@ -301,7 +301,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         stack_curves.property_to_stack = 'CURVES'
         stack_row2 = property_column.row(align = True)
         stack_floor = stack_row2.operator("blenderrail.stack_curve_object", text = "Stack current Floor", icon = 'TRIA_DOWN_BAR')
-        stack_floor.property_to_stack = 'CURRENTFLOOR'
+        stack_floor.property_to_stack = 'CURRENTFLOORCURVES'
         stack_curve = stack_row2.operator("blenderrail.stack_curve_object", text = "Snap current Curve", icon = 'TRIA_DOWN_BAR')
         stack_curve.property_to_stack = 'CURRENTCURVE'
         flatten = property_column.operator("blenderrail.stack_curve_object", text = "Snap current Curve", icon = 'TRIA_DOWN_BAR')

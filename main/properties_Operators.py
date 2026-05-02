@@ -377,7 +377,7 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         items = [
         ('FLOORS', "Floors", "All floors", 0),
         ('CURVES', "Curves", "All floors and curves", 1),
-        ('CURRENTFLOOR', "Currnet floor", "Current floor", 2),
+        ('CURRENTFLOORCURVES', "Current floor curves", "Current floor curves", 2),
         ('CURRENTCURVE', "Cuurnet curve", "Current curve", 3),
         ('FLATTENFLOOR', "Flatten floor", "Flatten current floor", 4),
         ],
@@ -413,7 +413,7 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         if self.property_to_stack == 'CURVES':
             operators._calculate_floors_start_height(context, floors, True)
 
-        if self.property_to_stack == 'CURRENTFLOOR':
+        if self.property_to_stack == 'CURRENTFLOORCURVES':
             for curve in curves:
                 self._set_cruve_location_z(context, curve, curves_sorted)
         
