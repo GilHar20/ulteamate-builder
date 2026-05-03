@@ -368,7 +368,7 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
 class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
     bl_idname = "blenderrail.stack_curve_object"
     bl_label = "Stack Curve Object"
-    bl_description = "Snap the curve object the the lower closest curve object height"
+    bl_description = "Set height (location z value)"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     property_to_stack : bpy.props.EnumProperty(
@@ -429,6 +429,26 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         floor.total_height = z_diff * floor.array
 
         return{"FINISHED"}
+    
+    @classmethod    
+    def description(cls, context, properties):
+        description = "Set height (location z value)"
+
+        property_to_stack = properties.property_to_stack
+
+        match property_to_stack:
+            case 'FLOORS':
+                description += " of all floors"
+            case 'CURVES':
+                description += " of all floors and their respective curves"
+            case 'CURRENTFLOORCURVES':
+                description += " of the current floor curves"
+            case 'CURRENTCURVE':
+                description += " of the current active curve"
+            case 'FLATTENFLOOR':
+                description += " of all floor curves to the floor start height"
+
+        return description
     
 
 
