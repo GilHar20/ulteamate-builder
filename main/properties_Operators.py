@@ -332,6 +332,8 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
         else:
             new_curve = curves.add()
             floor.active_curve_index = len(floor.curves) - 1
+        
+        building.all_curves.add().object = new_curve.curve_object
 
         return {"FINISHED"}
 

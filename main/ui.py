@@ -169,6 +169,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         #buildings_box.prop(active_building, "building_collection", text = "")
         #buildings_box.prop(active_building, "floors_collection", text = "")
         #buildings_box.prop(active_building, "elements_collection", text = "")
+        buildings_box.label(text = "number of curves in the building: " +str(len(active_building.all_curves)))
 
 
         collections_box = layout.box()

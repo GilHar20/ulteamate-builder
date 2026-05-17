@@ -462,7 +462,10 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         building.building_collection = building_collection
         context.scene.collection.children.link(building_collection)
         building_collection.objects.link(cube_obj)
-        context.scene.collection.objects.unlink(cube_obj)
+        for parent in cube_obj.users_collection:
+            if parent != building_collection:
+                parent.objects.unlink(cube_obj)
+
 
         floors_collection = bpy.data.collections.new(building.name + "_Floors")
         context.scene.collection.children.link(floors_collection)
@@ -493,8 +496,11 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
         curve_obj = context.view_layer.objects.active
         floor.curves_collection.objects.link(curve_obj)
+        for parent in curve_obj.users_collection:
+            if parent != floor.curves_collection:
+                parent.objects.unlink(curve_obj)
+
         floor.curves[0].curve_object = curve_obj
-        context.scene.collection.objects.unlink(curve_obj)
 
         #bpy.ops.blenderrail.evaluate_building()
 
