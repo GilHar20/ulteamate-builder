@@ -205,6 +205,7 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
             curve_obj = context.view_layer.objects.active
             new_floor.curves_collection.objects.link(curve_obj)
+            context.scene.collection.objects.unlink(curve_obj)
 
             bpy.ops.object.select_all(action='DESELECT')
             context.view_layer.objects.active = building.base_object
@@ -220,7 +221,7 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             curve_attributes["Socket_2"] = curve.curve_object
             curve_attributes.show_expanded = False
 
-        operators._calculate_floors_start_height(context, floors)
+        operators._calculate_floors_start_height(context, floors, False)
         #bpy.ops.blenderrail.evaluate_building()
 
         return{"FINISHED"}

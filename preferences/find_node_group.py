@@ -54,13 +54,13 @@ def link_gn_from_library(node_group_name):
 
     blend_paths = list(_iter_blend_paths_in_folder(folder))
     if not blend_paths:
-        return None, "No .blend files in asset library folder" + lib_name
+        return None, "No .blend files in asset library folder %r (%s)" % (lib_name, folder)
 
     for blend_path in blend_paths:
         with bpy.data.libraries.load(blend_path, link = True) as (data_from, data_to):
             if node_group_name not in data_from.node_groups:
                 continue
-            data_to.node_groups.link(node_group_name)
+            data_to.node_groups = [node_group_name]
 
         node_group = bpy.data.node_groups.get(node_group_name)
         if not node_group:

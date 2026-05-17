@@ -67,8 +67,7 @@ class BlenderRailPreferences(bpy.types.AddonPreferences):
             "Name of a library listed under Edit → Preferences → File Paths → Asset Libraries. "
             "Its root folder is used to locate your Geometry Nodes .blend file(s)"
         ),
-        default="",
-        maxlen=256,
+        default="GeometryNodesModifiers"
     )
 
     def draw(self, context):

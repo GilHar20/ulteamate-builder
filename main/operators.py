@@ -439,14 +439,14 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         scene = context.scene
         buildings = scene.buildings
 
-        bpy.ops.mesh.primitive_cube_add(size = 2, enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
-        cube_obj = context.view_layer.objects.active
-
         construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")[0]
 
         if construct is None:
             self.report({"ERROR"}, "Node group 'BLENDERRAIL_Construct_GN' not found")
             return {"CANCELLED"}
+        
+        bpy.ops.mesh.primitive_cube_add(size = 2, enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
+        cube_obj = context.view_layer.objects.active
 
         modifier = cube_obj.modifiers.new(name = "BLENDERRAIL_Construct_GN", type = "NODES")
         modifier.node_group = construct
@@ -462,30 +462,41 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         building.building_collection = building_collection
         context.scene.collection.children.link(building_collection)
         building_collection.objects.link(cube_obj)
+        context.scene.collection.objects.unlink(cube_obj)
 
         floors_collection = bpy.data.collections.new(building.name + "_Floors")
+        context.scene.collection.children.link(floors_collection)
         building.floors_collection = floors_collection
         building_collection.children.link(floors_collection)
+        context.scene.collection.children.unlink(floors_collection)
 
         elements_collection = bpy.data.collections.new(building.name + "_Elements")
+        context.scene.collection.children.link(elements_collection)
         building.elements_collection = elements_collection
         building_collection.children.link(elements_collection)
+        context.scene.collection.children.unlink(elements_collection)
 
         modifier["Socket_2"] = floors_collection
 
         bpy.ops.blenderrail.add_floor()
         floor = building.floors[0]
+        curves_collection = bpy.data.collections.new("Floor_" + str(floor.ID) + "_Curves")
+        context.scene.collection.children.link(curves_collection)
+        floor.curves_collection = curves_collection
+        floors_collection.children.link(curves_collection)
+        context.scene.collection.children.unlink(curves_collection)
 
-        curve = bpy.ops.blenderrail.add_curve_object()
-        floor.curves_collection.objects.link(curve)
+        bpy.ops.blenderrail.add_curve_object()
 
         bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
         bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
         bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
         curve_obj = context.view_layer.objects.active
-        building.floors[0].curves[0].curve_object = curve_obj
+        floor.curves_collection.objects.link(curve_obj)
+        floor.curves[0].curve_object = curve_obj
+        context.scene.collection.objects.unlink(curve_obj)
 
-        bpy.ops.blenderrail.evaluate_building()
+        #bpy.ops.blenderrail.evaluate_building()
 
         return {"FINISHED"}
 
