@@ -83,7 +83,7 @@ def _spline_cumulative_lengths(count, spline):
 def _sync_segments_to_curves(curve):
     if not curve.curve_object:
         return
-    
+
     curve_data = curve.curve_object.data
     old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID) for segment in curve.segments]
     factors = []
@@ -110,6 +110,8 @@ def _sync_segments_to_curves(curve):
     delta = total_points - current
 
     if delta == 0:
+        if curve.active_segment_index > len(curve.segments) - 1:
+            curve.active_segment_index = len(curve.segments) - 1
         return
     
     if delta > 0:
@@ -126,6 +128,11 @@ def _sync_segments_to_curves(curve):
         segment.element_ID = matched if matched else 0
         segment.spline_ID = spline_index
         segment.spline_factor = factor
+
+    if curve.active_segment_index > len(curve.segments) - 1:
+        curve.active_segment_index = len(curve.segments) - 1
+
+    return
 
 
 _rematch_in_progress = False
@@ -252,6 +259,10 @@ def _assign_curve_elements(self, context, curve, element_type):
 
             curve_elements.show_expanded = False
 
+            # TEMP CODE TO BE REMOVED
+            if element.host_curve == None:
+                element.host_curve = curve.curve_object
+
     elif elements_collection.collect_method == 'COLLECTION':
         if len(elements_collection.existing_collection.objects) == 0:
             self.report({'WARNING'}, "No elements are linked into the assigned collection")
@@ -279,6 +290,10 @@ def _assign_curve_elements(self, context, curve, element_type):
 
             curve_elements.show_expanded = False
 
+            # TEMP CODE TO BE REMOVED
+            if element.host_curve == None:
+                element.host_curve = curve.curve_object
+    
     return
 
 
@@ -327,6 +342,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             if floors[curve.floor_ID].is_linked == True:
                 continue
 
+
             # TEMP CODE TO BE REMOVED
             floor = floors[curve.floor_ID]
             target = floor.curves_collection
@@ -337,8 +353,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             if target not in curve_obj.users_collection:
                 target.objects.link(curve_obj)
 
-            _sync_segments_to_curves(curve)
 
+            _sync_segments_to_curves(curve)
 
             if curve_obj.parent != building.base_object:
                 bpy.ops.object.select_all(action='DESELECT')

@@ -188,6 +188,10 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
 
         self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
         return
+    
+    def _clamp_active_segment_index(self, context):
+        if self.active_segment_index > len(self.segments) - 1:
+            self.active_segment_index = len(self.segments) - 1
 
     ID : bpy.props.IntProperty(
         name = "Segment ID",
@@ -273,7 +277,8 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         name = "Active Segment Index",
         default = 0,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _clamp_active_segment_index
     )
 
     select_method : bpy.props.EnumProperty(
@@ -341,6 +346,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         default = False
     )
 
+    visibility : bpy.props.BoolProperty(
+        name = "Floor Visibility",
+        description = "Turn floor visibility on and off",
+        default = True
+    )
+
     array : bpy.props.IntProperty(
         name = "Floor Array",
         default = 1,
@@ -387,7 +398,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         min = 0,
         max = 10000
     )
-
 
 
 class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):

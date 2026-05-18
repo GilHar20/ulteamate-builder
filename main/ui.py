@@ -11,11 +11,16 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
-        row_icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
-        building_row = layout.row(align= True)
-        building_row.label(text = str(index + 1) + ": " + name, icon = row_icon)
+        icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
+        
+        column = layout.column(align = True)
+
+        name_row = column.row(align = True)
+        name_row.label(text = str(index + 1) + ": " + name, icon = icon)
+        name_row.prop(item, "name", text = "", placeholder = "Building Name", icon = 'FILE_FONT')
+
+        building_row = column.row(align = True)
         building_row.prop(item, "building_collection", text = "", placeholder = "Building Collection")
-        building_row.prop(item, "name", icon = 'FILE_FONT', text = "", placeholder = "Building Name")
         building_row.prop(item, "base_object", text = "", placeholder = "Base Object")
         select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_object.building_index = index
@@ -100,7 +105,7 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
 
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
-        row.prop(item, "element_ID", text = str(index) + ": " + "segment")
+        row.prop(item, "element_ID", text = str(index))
 
 
 
@@ -110,11 +115,10 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
 
 class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
     bl_label = "BlenderRail"
-    bl_idname = "VIEW3D_PT_blenderrail_tree"
+    bl_idname = "VIEW3D_PT_blenderrail"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "BlenderRail"
-    bl_options = {"DEFAULT_CLOSED"}
 
 
     def draw_collect_objects(self, layout, element_type, elements):
@@ -166,6 +170,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             "active_building_index",
             rows = 2
         )
+        # TEMP CODE TO BE REMOVED
         #buildings_box.prop(active_building, "building_collection", text = "")
         #buildings_box.prop(active_building, "floors_collection", text = "")
         #buildings_box.prop(active_building, "elements_collection", text = "")
@@ -173,12 +178,12 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         collections_box = layout.box()
-        collections_row = collections_box.row(align = True)
+        collections_column = collections_box.column(align = True)
         
         # FLOORS:
-        collections_row.separator()
+        collections_column.separator()
 
-        floors_column = collections_row.column()
+        floors_column = collections_column.column()
         floors_column.label(text = "Floors:")
         floors_row = floors_column.row(align = True)
         floors_row.template_list(
@@ -191,6 +196,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             rows = 4,
             maxrows = 10
         )
+
         floors_column = floors_row.column()
 
         floors_addremove = floors_column.column(align = True)
@@ -221,17 +227,10 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.current_floor_index = floor_index
 
-
-        if active_floor.is_linked == True:
-            settings_box = layout.box()
-            settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
-            return
-        
-
         # CURVES:
-        collections_row.separator()
+        collections_column.separator()
 
-        curves_column = collections_row.column()
+        curves_column = collections_column.column()
         curves_column.label(text = "Curves:")
         curves_row = curves_column.row(align = True)
         curves_row.template_list(
@@ -244,6 +243,12 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             rows = 4,
             maxrows = 10
         )
+
+        if active_floor.is_linked == True:
+            settings_box = layout.box()
+            settings_box.label(text = "Floor is linked to another floor", icon = "INFO")
+            return
+
         curves_column = curves_row.column()
         curve_addremove = curves_column.column(align = True)
         curve_addremove.operator("blenderrail.add_curve_object", text = "", icon = "ADD")
@@ -259,9 +264,9 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
 
         # SEGMENTS:
-        collections_row.separator()
+        collections_column.separator()
 
-        segments_column = collections_row.column()
+        segments_column = collections_column.column()
         segments_column.label(text = "Segments:")
         segments_row = segments_column.row()
         segments_row.template_list(
@@ -272,7 +277,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             active_curve,
             "active_segment_index",
             rows = 4,
-            maxrows = 10
+            maxrows = 10,
+            columns = 5
         )
 
         operators_row = collections_box.row(align = True)
@@ -291,6 +297,7 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         property_column = settings_box.column(align = True)
         data_row = property_column.row(align = True)
+        data_row.prop(active_floor, "curves_collection", text = "", icon = 'OUTLINER_COLLECTION')
         data_row.label(text = "Collection:   " + active_floor.curves_collection.name, icon = 'OUTLINER_COLLECTION')
         data_row.label(text = "Curves:   " + str(len(active_floor.curves)) + "# Curves", icon = 'CURVE_DATA')
 

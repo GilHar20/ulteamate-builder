@@ -222,7 +222,6 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             curve_attributes.show_expanded = False
 
         operators._calculate_floors_start_height(context, floors, False)
-        #bpy.ops.blenderrail.evaluate_building()
 
         return{"FINISHED"}
 
@@ -298,6 +297,7 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
 
         self._copy_curve(current_floor, new_floor)
 
+        # Replace with operators._calculate_floors_start_height(context, floors, False) ???
         bpy.ops.blenderrail.evaluate_building()
         
         return{"FINISHED"}
@@ -351,6 +351,7 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
+        active_curve_index = floor.active_curve_index
 
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors")
@@ -361,9 +362,11 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
             floor.active_curve_index = 0
             return {"CANCELLED"}
 
-        floor.curves_collection.objects.link(curves[(len(curves) - 1)].curve_object)
-        curves.remove(len(curves) - 1)
-        floor.active_curve_index -= 1
+        floor.curves_collection.objects.unlink(curves[active_curve_index].curve_object)
+        building.floors_collection.objects.link(curves[active_curve_index].curve_object)
+
+        curves.remove(floor.active_curve_index)
+        floor.active_curve_index = min(active_curve_index, max(0, len(curves) - 1))
 
         return {"FINISHED"}
     
@@ -467,23 +470,22 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        floor_index = building.active_floor_index
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.activw_curve_index]
+        curves = floor.curves
         segment_index = building.active_segment_index
 
-        if len(floors) == 0:
+        if len(curves) == 0:
             self.report({"WARNING"}, "No floors added")
             return {"CANCELLED"}
-        
-        floor = floors[floor_index]
 
-        if len(floor.segments) == 0:
+        if len(curve.segments) == 0:
             floor.segments.add()
 
         else:
-            floor.segments.add()
-            floor.segments.move(len(floor.segments) - 1, segment_index + 1)
-            building.active_segment_index = segment_index + 1
+            curve.segments.add()
+            curve.segments.move(len(floor.segments) - 1, segment_index + 1)
+            curve.active_segment_index = segment_index + 1
 
         return {"FINISHED"}
 
@@ -496,25 +498,27 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        floor_index = building.active_floor_index
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        curves = floor.curves
         segment_index = building.active_segment_index
 
-        if len(floors) == 0:
+        if len(curves) == 0:
             self.report({"WARNING"}, "No floors")
             return {"CANCELLED"}
         
-        segments = floors[floor_index].segments
+        segments = curve.segments
+
         if len(segments) == 0:
             self.report({"WARNING"}, "Active floor has no segments")
             return {"CANCELLED"}
         
         if segment_index < 0 or segment_index >= len(segments):
-            building.active_segment_index = max(0, len(segments) - 1)
-            segment_index = building.active_segment_index
+            curve.active_segment_index = max(0, len(segments) - 1)
+            segment_index = curve.active_segment_index
 
         segments.remove(segment_index)
-        building.active_segment_index = min(segment_index, max(0, len(segments) - 1))
+        curve.active_segment_index = min(segment_index, max(0, len(segments) - 1))
         return {"FINISHED"}
     
 
@@ -540,8 +544,6 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         new_element = collection.objects.add()
         new_element.host_curve = curve.curve_object
         new_element.element_type = self.element_type
-
-        #bpy.ops.blenderrail.evaluate_building()
 
         return {"FINISHED"}
 
@@ -577,8 +579,6 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
             self._remove_curve_element(context, host_curve, modifier, object)
 
         collection.objects.remove(len(collection.objects) - 1)
-
-        #bpy.ops.blenderrail.evaluate_building()
 
         return {"FINISHED"}
     
