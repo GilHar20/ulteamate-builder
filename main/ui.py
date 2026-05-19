@@ -3,7 +3,7 @@ import bpy
 
 
 # -----------------------
-# Buildings/Floors UIList
+# UILists:
 # -----------------------
 
 class BLENDERRAIL_UL_building_list(bpy.types.UIList):
@@ -48,20 +48,25 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
 
         op_row = first_row.row(align = True)
         op_row.alignment = 'RIGHT'
-        select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-        select_curve.floor_index = index
-        select_curve.curve_index = -1
-        if item.array > 2:
+
+        if item.array < 2:
+            select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_curve.floor_index = index
+            select_curve.curve_index = -1
+
+        if item.array >= 2:
             icon = 'DISCLOSURE_TRI_DOWN' if item.show_array else 'DISCLOSURE_TRI_RIGHT'
             op_row.prop(item, "show_array", text = "", icon = icon, emboss = False)
-
-        if item.array == 1:
-            return
-        elif item.array >= 2 and item.show_array == False:
+            select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_curve.floor_index = index
+            select_curve.curve_index = -1
+        
+        if item.show_array == False:
             row = column.row(align = True)
             row.separator(factor = 4.0, type = 'LINE')
             row.label(text = str(item.array - 1) + " Arrayed")
             return
+        
         for array in range(item.array - 1):
             row = column.row(align = True)
             row.separator(factor = 4.0, type = 'LINE')
@@ -108,12 +113,12 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
         row.prop(item, "element_ID", text = str(index))
 
 
-
+        
 # ----------
 # Main Panel
 # ----------
 
-class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
+class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
     bl_label = "BlenderRail"
     bl_idname = "VIEW3D_PT_blenderrail"
     bl_space_type = "VIEW_3D"
@@ -268,7 +273,8 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
 
         segments_column = collections_column.column()
         segments_column.label(text = "Segments:")
-        segments_row = segments_column.row()
+        segments_row = segments_column.row(align = True)
+        '''
         segments_row.template_list(
             "BLENDERRAIL_UL_segment_list",
             "blenderrail_segment_list",
@@ -280,6 +286,18 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             maxrows = 10,
             columns = 5
         )
+        '''
+
+        segments = active_curve.segments
+        segments_row.prop(scene, "show_segments_grid", text = "Show Segments Grid", icon = 'VIEW_ORTHO')
+        if scene.show_segments_grid == True and len(segments) > 0:
+            segments_row.prop(scene, "segments_grid_columns", text = "Columns", icon = 'GRIP_V')
+            grid = segments_column.grid_flow(row_major = True, columns = scene.segments_grid_columns, align = True)
+            for segment_index, segment in enumerate(segments):
+                segment_settings = grid.operator("blenderrail.segment_settings", text = str(segment_index), icon = 'PARTICLE_PATH')
+                segment_settings.active_index = segment_index
+
+        collections_column.separator(factor = 2.0)
 
         operators_row = collections_box.row(align = True)
         operators_row.scale_y = 2
@@ -326,9 +344,9 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         property_column.prop(active_curve, "height", text = "Height")
         property_column.prop(active_curve, "inset", text = "Shrink/Expand", )
 
-        floor_ceiling_row = property_column.row()
+        floor_ceiling_row = property_column.row(align = True)
         floor_ceiling_row.label(text = "Floor/Ceiling")
-        floor_ceiling_row.prop(active_curve, "floor_ceiling", expand = True)
+        floor_ceiling_row.prop(active_curve, "floor_ceiling", text = "")
         if active_curve.floor_ceiling != 'NONE':
             property_column.prop(active_curve, "thickness", text = "Extrude Thickness")
         if active_curve.floor_ceiling == 'BOTTOM' or active_curve.floor_ceiling == 'BOTH':
@@ -336,9 +354,9 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
         if active_curve.floor_ceiling == 'TOP' or active_curve.floor_ceiling == 'BOTH':
             property_column.prop(active_curve, "direction_top", text = "Top Extrude Offset")
 
-        select_method = property_column.row()
+        select_method = property_column.row(align = True)
         select_method.label(text = "Select Method")
-        select_method.prop(active_curve, "select_method", expand = True)
+        select_method.prop(active_curve, "select_method", text = "")
         if active_curve.select_method != 'CUSTOM':
             property_column.prop(active_curve, "select_per_segment", text = "Element per Segment", toggle = True)
 
@@ -356,9 +374,9 @@ class BLENDERRAIL_PT_controlpanel(bpy.types.Panel):
             settings_box.label(text = "Segment Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
             property_column = settings_box.column(align = True)
-            fit_method = property_column.row()
+            fit_method = property_column.row(align = True)
             fit_method.label(text = "Fit Method")
-            fit_method.prop(active_segment, "fit_method", expand = True)
+            fit_method.prop(active_segment, "fit_method", text = "")
             if active_segment.fit_method == 'FIXED':
                 property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
 

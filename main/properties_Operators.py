@@ -473,7 +473,7 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.activw_curve_index]
         curves = floor.curves
-        segment_index = building.active_segment_index
+        segment_index = curve.active_segment_index
 
         if len(curves) == 0:
             self.report({"WARNING"}, "No floors added")
@@ -501,7 +501,7 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         curves = floor.curves
-        segment_index = building.active_segment_index
+        segment_index = curve.active_segment_index
 
         if len(curves) == 0:
             self.report({"WARNING"}, "No floors")
@@ -521,6 +521,44 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
         curve.active_segment_index = min(segment_index, max(0, len(segments) - 1))
         return {"FINISHED"}
     
+
+class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
+    bl_idname = "blenderrail.segment_settings"
+    bl_label = "Segment Settings"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    active_index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
+    element_ID : bpy.props.IntProperty(default = 0, min = 0, max = 10000)
+    fit_method : bpy.props.EnumProperty(
+        items = [
+        ('ORIGINAL', "Original", "Keep original length, no scaling, bisect element on spline ends", 0),
+        ('FIT', "Fit", "Fit length of elements to the spline length, a=scale if necessary", 1),
+        ('FIXED', "Fixed", "Fit fixed number of elements, scale elements accordingly", 2),
+        ],
+        default = 'FIT'
+    )
+    fixed_number : bpy.props.IntProperty(default = 5, min = 0, max = 10000)
+
+    def execute(self, context):
+        '''This executes NOTHING. Sole purpose of this operator is to expose the active segment's properties in a pop-up dialog :)'''
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+    
+    def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        segment = curve.segments[self.active_index]
+
+        layout = self.layout
+        layout.prop(segment, "element_ID", text = "Element ID")
+        layout.prop(segment, "fit_method", expand = True)
+        if segment.fit_method == 'FIXED':
+            layout.prop(segment, "fixed_number", text = "Fixed Number")
+
 
 
 # --------------------------------------

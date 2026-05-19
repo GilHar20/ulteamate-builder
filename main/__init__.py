@@ -21,6 +21,7 @@ classes = [
     
     properties_Operators.BLENDERRAIL_OT_add_segment,
     properties_Operators.BLENDERRAIL_OT_remove_segment,
+    properties_Operators.BLENDERRAIL_OT_segment_settings,
 
     properties_Operators.BLENDERRAIL_OT_add_curve_object,
     properties_Operators.BLENDERRAIL_OT_remove_curve_object,
@@ -39,7 +40,7 @@ classes = [
     ui.BLENDERRAIL_UL_floor_list,
     ui.BLENDERRAIL_UL_curve_list,
     ui.BLENDERRAIL_UL_segment_list,
-    ui.BLENDERRAIL_PT_controlpanel
+    ui.BLENDERRAIL_PT_control_panel
 ]
 
 
@@ -52,6 +53,8 @@ def register():
     bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.BLENDERRAIL_PG_building)
 
     bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
+    bpy.types.Scene.show_segments_grid = bpy.props.BoolProperty(default = False)
+    bpy.types.Scene.segments_grid_columns = bpy.props.IntProperty(default = 4, min = 1, max = 10)
 
     bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
 
@@ -65,6 +68,10 @@ def unregister():
         delattr(bpy.types.Scene, 'buildings')
     if hasattr(bpy.types.Scene, 'active_building_index'):
         delattr(bpy.types.Scene, 'active_building_index')
+    if hasattr(bpy.types.Scene, 'show_segments_grid'):
+        delattr(bpy.types.Scene, 'show_segments_grid')
+    if hasattr(bpy.types.Scene, 'segments_grid_columns'):
+        delattr(bpy.types.Scene, 'segments_grid_columns')
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
