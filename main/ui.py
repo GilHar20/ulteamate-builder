@@ -53,6 +53,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
             select_curve.curve_index = -1
+            return
 
         if item.array >= 2:
             icon = 'DISCLOSURE_TRI_DOWN' if item.show_array else 'DISCLOSURE_TRI_RIGHT'
