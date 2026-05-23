@@ -12,11 +12,9 @@ classes = [
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    thumbnail_render.register()
 
 
 def unregister():
     operators.BLENDERRAIL_OT_viewport_panel.shutdown()
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    thumbnail_render.unregister()

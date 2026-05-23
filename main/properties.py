@@ -25,12 +25,14 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
             for modifier in host_curve.modifiers:
                 self._remove_curve_element(host_curve, modifier, prev_obj)
 
+        if prev_obj == None:
+            operators._assign_curve_elements(self, context, curve, self.element_type)
+
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        if new_obj != None:
-            operators._assign_curve_elements(self, context, curve, self.element_type)
+
 
         self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
         bpy.ops.object.select_all(action='DESELECT')
@@ -130,6 +132,11 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         default = 0.0,
         min = 0.0,
         max = 1.0
+    )
+
+    spline_length : bpy.props.FloatProperty(
+        name = "Curve Length",
+        default = 0.0
     )
 
     element_ID : bpy.props.IntProperty(

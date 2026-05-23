@@ -17,26 +17,20 @@ class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
         cls = type(self)
 
         scene = context.scene
-        buildings = scene.buildings
-        building_index = scene.active_building_index
-        active_building = buildings[building_index]
-        floors = active_building.floors
-        floor_index = active_building.active_floor_index
-        active_floor = floors[floor_index]
-        curves = active_floor.curves
-        curve_index = active_floor.active_curve_index
-        active_curve = curves[curve_index]
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
 
         if cls.is_running():
             cls._remove(context)
             return {'FINISHED'}
 
         #floor = draw.get_active_floor()
-        if active_floor is None or active_floor.curves is None:
+        if floor is None or floor.curves is None:
             self.report({'WARNING'}, "Active floor has no curve assigned")
             return {'CANCELLED'}
 
-        curve_obj = active_curve.curve_object
+        curve_obj = curve.curve_object
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = curve_obj
@@ -55,7 +49,7 @@ class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
             return {'FINISHED'}
 
         state = draw.panel_state
-        mx, my = event.mouse_region_x, event.mouse_region_y
+        mouse_x, mouse_y = event.mouse_region_x, event.mouse_region_y
         names = draw.get_element_names()
         count = len(names)
 
@@ -63,34 +57,34 @@ class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
             context.area.tag_redraw()
 
             if state['dragging']:
-                ox, oy = state['drag_offset']
-                state['x'] = mx - ox
-                state['y'] = my - oy
+                offset_x, offset_y = state['drag_offset']
+                state['x'] = mouse_x - offset_x
+                state['y'] = mouse_y - offset_y
                 return {'RUNNING_MODAL'}
 
             state['hover_index'] = -1
             for i in range(count):
-                if draw.point_in_rect(mx, my, draw.button_rect(i)):
+                if draw.point_in_rect(mouse_x, mouse_y, draw.button_rect(i)):
                     state['hover_index'] = i
                     break
 
-            if draw.point_in_rect(mx, my, draw.full_rect(count)):
+            if draw.point_in_rect(mouse_x, mouse_y, draw.full_rect(count)):
                 return {'RUNNING_MODAL'}
             return {'PASS_THROUGH'}
 
         if event.type == 'LEFTMOUSE':
             if event.value == 'PRESS':
-                if draw.point_in_rect(mx, my, draw.title_rect()):
+                if draw.point_in_rect(mouse_x, mouse_y, draw.title_rect()):
                     state['dragging'] = True
-                    state['drag_offset'] = (mx - state['x'], my - state['y'])
+                    state['drag_offset'] = (mouse_x - state['x'], mouse_y - state['y'])
                     return {'RUNNING_MODAL'}
 
                 for i in range(count):
-                    if draw.point_in_rect(mx, my, draw.button_rect(i)):
+                    if draw.point_in_rect(mouse_x, mouse_y, draw.button_rect(i)):
                         draw.set_element_id_for_selected(i)
                         return {'RUNNING_MODAL'}
 
-                if not draw.point_in_rect(mx, my, draw.full_rect(count)):
+                if not draw.point_in_rect(mouse_x, mouse_y, draw.full_rect(count)):
                     return {'PASS_THROUGH'}
                 return {'RUNNING_MODAL'}
 

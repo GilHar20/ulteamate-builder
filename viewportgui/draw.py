@@ -4,6 +4,7 @@ import blf
 from gpu_extras.batch import batch_for_shader
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from mathutils import Vector
+import math
 
 
 TITLE_HEIGHT = 30
@@ -29,30 +30,11 @@ panel_state = {
 
 def get_active_curve():
     scene = bpy.context.scene
-    if not hasattr(scene, 'buildings') or len(scene.buildings) == 0:
-        return None
-
-    idx = scene.active_building_index
-    if idx < 0 or idx >= len(scene.buildings):
-        return None
-
-    building = scene.buildings[idx]
-    if len(building.floors) == 0:
-        return None
-
-    floor_idx = building.active_floor_index
-    if floor_idx < 0 or floor_idx >= len(building.floors):
-        return None
-
-    floor = building.floors[floor_idx]
-    if len(floor.curves) == 0:
-        return None
-        
-    curve_idx = floor.active_curve_index
-    if curve_idx < 0 or curve_idx >= len(floor.curves):
-        return None
+    building = scene.buildings[scene.active_building_index]
+    floor = building.floors[building.active_floor_index]
+    curve = floor.curves[floor.active_curve_index]
     
-    return floor.curves[curve_idx]
+    return curve
 
 
 def get_element_names():
@@ -104,26 +86,21 @@ def get_selected_segment_indices():
     return selected
 
 
-def _get_curve_point_positions():
+def _get_curve_segments_positions():
     curve = get_active_curve()
-    if curve is None or curve.curve_object is None:
-        return []
+    curve_object = curve.curve_object
 
-    obj = curve.curve_object
-    if obj.type != 'CURVE':
-        return []
-
-    mat = obj.matrix_world
-    curve_data = obj.data
+    matrix = curve_object.matrix_world
+    curve_data = curve_object.data
     positions = []
 
     for spline in curve_data.splines:
         if spline.type == 'BEZIER':
             for point in spline.bezier_points:
-                positions.append(mat @ point.co)
+                positions.append(matrix @ point.co)
         else:
             for point in spline.points:
-                positions.append(mat @ Vector(point.co[:3]))
+                positions.append(matrix @ Vector(point.co[0], point.co[1], point.co[2]))
 
     return positions
 
@@ -145,10 +122,29 @@ def set_element_id_for_selected(element_id):
 # Low-level draw primitives
 # --------------------------
 
-def _draw_rect(x, y, w, h, color):
+def _draw_rect(x, y, w, h, color, radius=5, corner_segments=8):
     shader = gpu.shader.from_builtin('UNIFORM_COLOR')
-    verts = ((x, y), (x + w, y), (x + w, y + h), (x, y + h))
-    indices = ((0, 1, 2), (0, 2, 3))
+    clamped_radius = max(0.0, min(radius, w * 0.5, h * 0.5))
+
+    if clamped_radius <= 0.0:
+        perimeter = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+
+    else:
+        arcs = (
+            (x +     clamped_radius, y +     clamped_radius,       math.pi, 1.5 * math.pi),  # bottom-left
+            (x + w - clamped_radius, y +     clamped_radius, 1.5 * math.pi, 2.0 * math.pi),  # bottom-right
+            (x + w - clamped_radius, y + h - clamped_radius, 0.0,           0.5 * math.pi),  # top-right
+            (x +     clamped_radius, y + h - clamped_radius, 0.5 * math.pi,       math.pi),  # top-left
+        )
+        perimeter = []
+        for cx, cy, a0, a1 in arcs:
+            for i in range(corner_segments + 1):
+                t = i / corner_segments
+                a = a0 + (a1 - a0) * t
+                perimeter.append((cx + math.cos(a) * clamped_radius, cy + math.sin(a) * clamped_radius))
+    center = (x + w * 0.5, y + h * 0.5)
+    verts = [center] + perimeter + [perimeter[0]]
+    indices = [(0, i, i + 1) for i in range(1, len(verts) - 1)]
     batch = batch_for_shader(shader, 'TRIS', {"pos": verts}, indices=indices)
     shader.uniform_float("color", color)
     batch.draw(shader)
@@ -189,7 +185,7 @@ def _draw_segment_labels():
     if region is None or rv3d is None:
         return
 
-    positions = _get_curve_point_positions()
+    positions = _get_curve_segments_positions()
     if not positions:
         return
 
@@ -229,10 +225,10 @@ def _total_height(count):
 
 
 def button_rect(i):
-    s = panel_state
-    bx = s['x'] + PADDING
-    by = s['y'] - TITLE_HEIGHT - PADDING - (i + 1) * (BUTTON_HEIGHT + BUTTON_GAP) + BUTTON_GAP
-    return (bx, by, PANEL_WIDTH - PADDING * 2, BUTTON_HEIGHT)
+    state = panel_state
+    button_x = state['x'] + PADDING
+    button_y = state['y'] - TITLE_HEIGHT - PADDING - (i + 1) * (BUTTON_HEIGHT + BUTTON_GAP) + BUTTON_GAP
+    return (button_x, button_y, PANEL_WIDTH - PADDING * 2, BUTTON_HEIGHT)
 
 
 def title_rect():
@@ -241,14 +237,16 @@ def title_rect():
 
 
 def full_rect(count):
-    s = panel_state
-    h = _total_height(count)
-    return (s['x'], s['y'] - h, PANEL_WIDTH, h)
+    state = panel_state
+    height = _total_height(count)
+    return (state['x'], state['y'] - height, PANEL_WIDTH, height)
 
 
-def point_in_rect(mx, my, rect):
-    rx, ry, rw, rh = rect
-    return rx <= mx <= rx + rw and ry <= my <= ry + rh
+def point_in_rect(mouse_x, mouse_y, rectangle):
+    rectangle_x, rectangle_y, rectangle_w, rectangle_h = rectangle
+    width_position = rectangle_x <= mouse_x <= rectangle_x + rectangle_w
+    height_position = rectangle_y <= mouse_y <= rectangle_y + rectangle_h
+    return True if width_position and height_position else False
 
 
 
@@ -267,7 +265,7 @@ def draw_callback():
     _draw_rect(px, py - h, PANEL_WIDTH, h, (0.1, 0.1, 0.2, 0.5))
     _draw_rect_outline(px, py - h, PANEL_WIDTH, h, (0.4, 0.4, 0.4, 0.8))
 
-    _draw_rect(px, py - TITLE_HEIGHT, PANEL_WIDTH, TITLE_HEIGHT, (0.28, 0.28, 0.28, 0.95))
+    _draw_rect(px, py - TITLE_HEIGHT, PANEL_WIDTH, TITLE_HEIGHT, (0.28, 0.28, 0.28, 1.0))
     _draw_text("Elements", px + PADDING, py - TITLE_HEIGHT + 9, 14, (0.85, 0.85, 0.85, 1))
 
     if not names:

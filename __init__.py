@@ -88,24 +88,27 @@ class BlenderRailPreferences(bpy.types.AddonPreferences):
 #===================================
 
 def register():
+    '''
     addon_updater_ops.make_annotations(BlenderRailPreferences)  # Avoid blender 2.8 warnings
     bpy.utils.register_class(BlenderRailPreferences)
-
     preferences.register()
-
+    '''
+    
     addon_updater_ops.register(bl_info)
 
     main.register()
     viewportgui.register()
 
+
 def unregister():
     viewportgui.unregister()
     main.unregister()
 
+    '''
     addon_updater_ops.unregister()
-
     preferences.unregister()
     bpy.utils.unregister_class(BlenderRailPreferences)
+    '''
 
 
 

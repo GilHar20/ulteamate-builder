@@ -56,7 +56,6 @@ def _spline_cumulative_lengths(count, spline):
                     span_len += (samples[k + 1] - samples[k]).length
                 segment_lengths.append(span_len)
 
-    # POLY or NURBS
     else: 
         pts = spline.points
         for i in range(count - 1):
@@ -71,7 +70,6 @@ def _spline_cumulative_lengths(count, spline):
     total = sum(segment_lengths)
     cumulative = [0.0]
 
-    # For open curves, last point is at total length; for closed, we have n segments, no extra append
     for L in segment_lengths[:-1]:
         cumulative.append(cumulative[-1] + L)
     if not spline.use_cyclic_u:
@@ -103,8 +101,9 @@ def _sync_segments_to_curves(curve):
             if total <= 0 or point_index >= len(cumulative):
                 factor = 0.0
             else:
+                length = cumulative[point_index]
                 factor = cumulative[point_index] / total
-            factors.append((spline_index, factor))
+            factors.append((spline_index, factor, length))
 
     current = len(curve.segments)
     delta = total_points - current
@@ -123,11 +122,12 @@ def _sync_segments_to_curves(curve):
 
     for seg_index, segment in enumerate(curve.segments):
         segment.ID = seg_index
-        spline_index, factor = factors[seg_index]
+        spline_index, factor, length = factors[seg_index]
         matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
         segment.element_ID = matched if matched else 0
         segment.spline_ID = spline_index
         segment.spline_factor = factor
+        segment.spline_length = length
 
     if curve.active_segment_index > len(curve.segments) - 1:
         curve.active_segment_index = len(curve.segments) - 1
@@ -242,9 +242,6 @@ def _assign_curve_elements(self, context, curve, element_type):
         for element in elements_collection.objects:
             if not element.object:
                 continue
-            
-            # TEMP CODE TO BE REMOVED
-            element.element_type = element_type
 
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
@@ -260,6 +257,8 @@ def _assign_curve_elements(self, context, curve, element_type):
             curve_elements.show_expanded = False
 
             # TEMP CODE TO BE REMOVED
+            element.element_type = element_type
+            element.host_curve = curve.curve_object
             if element.host_curve == None:
                 element.host_curve = curve.curve_object
 
@@ -272,9 +271,6 @@ def _assign_curve_elements(self, context, curve, element_type):
             if not element.object:
                 continue
 
-            # TEMP CODE TO BE REMOVED
-            element.element_type = element_type
-
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
@@ -285,12 +281,11 @@ def _assign_curve_elements(self, context, curve, element_type):
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
 
-            # TEMO CODE TO BE REMOVED
-            element.host_curve = curve.curve_object
-
             curve_elements.show_expanded = False
 
-            # TEMP CODE TO BE REMOVED
+            # TEMO CODE TO BE REMOVED
+            element.element_type = element_type
+            element.host_curve = curve.curve_object
             if element.host_curve == None:
                 element.host_curve = curve.curve_object
     
@@ -324,14 +319,14 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
-
-        floors_collection = building.floors_collection
+        
 
         # TEMP CODE TO BE REMOVED
         for floor in floors:
             if floor.curves_collection == None:
                 floor.curves_collection = bpy.data.collections.new(building.name + "_" + str(floor.ID))
                 building.floors_collection.children.link(floor.curves_collection)
+
 
         all_curves = _calculate_floors_start_height(context, floors, False)
 
@@ -346,10 +341,9 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             # TEMP CODE TO BE REMOVED
             floor = floors[curve.floor_ID]
             target = floor.curves_collection
-            # Copy first, then unlink (don't mutate while iterating original collection list)
-            for col in list(curve_obj.users_collection):
-                if col != target:
-                    col.objects.unlink(curve_obj)
+            for collection in list(curve_obj.users_collection):
+                if collection != target:
+                    collection.objects.unlink(curve_obj)
             if target not in curve_obj.users_collection:
                 target.objects.link(curve_obj)
 
