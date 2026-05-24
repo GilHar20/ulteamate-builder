@@ -301,7 +301,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
     bl_idname = "blenderrail.evaluate_building"
     bl_label = "Evaluate building"
     bl_description = "For each floor: set segments, assign its curve with the required modifiers and link elements"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
 
     def execute(self, context):
@@ -363,6 +363,10 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
             curve_attributes.node_group = curve_attributes_gn
             curve_attributes.show_expanded = False
+
+            attribute = 'modifiers["%s"]["Socket_18"]' % curve_attributes.name
+            path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, curve.floor_ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_visibility")
 
             attribute = 'modifiers["%s"]["Socket_11"]' % curve_attributes.name
             path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)

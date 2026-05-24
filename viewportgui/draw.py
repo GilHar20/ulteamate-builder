@@ -100,7 +100,7 @@ def _get_curve_segments_positions():
                 positions.append(matrix @ point.co)
         else:
             for point in spline.points:
-                positions.append(matrix @ Vector(point.co[0], point.co[1], point.co[2]))
+                positions.append(matrix @ Vector(point.co[:3]))
 
     return positions
 

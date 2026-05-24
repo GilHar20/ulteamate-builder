@@ -21,18 +21,17 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         new_obj = self.object
         host_curve = self.host_curve
 
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+
         if prev_obj != None:
             for modifier in host_curve.modifiers:
                 self._remove_curve_element(host_curve, modifier, prev_obj)
 
         if prev_obj == None:
             operators._assign_curve_elements(self, context, curve, self.element_type)
-
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
-
 
         self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
         bpy.ops.object.select_all(action='DESELECT')
@@ -353,7 +352,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         default = False
     )
 
-    visibility : bpy.props.BoolProperty(
+    floor_visibility : bpy.props.BoolProperty(
         name = "Floor Visibility",
         description = "Turn floor visibility on and off",
         default = True

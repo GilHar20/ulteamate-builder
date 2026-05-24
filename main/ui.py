@@ -35,24 +35,26 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         active_floor_index = building.active_floor_index
 
         column = layout.column()
+
+        label_row = column.row(align = True)
+
         floor_label = "#" + str(item.ID) + ", " + item.curves_collection.name
+        icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
+        label_row.label(text = floor_label, icon = icon)
 
         if item.is_linked == True:
-            first_row = column.row(align = True)
-            first_row.label(text = floor_label, icon = 'LINKED')
+            label_row.label(text = floor_label, icon = 'LINKED')
             return
-
-        icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
-        first_row = column.row(align = True)
-        first_row.label(text = floor_label, icon = icon)
-
-        op_row = first_row.row(align = True)
+        
+        op_row = label_row.row(align = True)
         op_row.alignment = 'RIGHT'
 
         if item.array < 2:
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
             select_curve.curve_index = -1
+            visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
+            op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
             return
 
         if item.array >= 2:
@@ -61,13 +63,15 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
             select_curve.curve_index = -1
+            visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
+            op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
         
         if item.show_array == False:
             row = column.row(align = True)
             row.separator(factor = 4.0, type = 'LINE')
             row.label(text = str(item.array - 1) + " Arrayed")
             return
-        
+
         for array in range(item.array - 1):
             row = column.row(align = True)
             row.separator(factor = 4.0, type = 'LINE')
@@ -367,6 +371,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             property_column.prop(active_curve, "random_index", text = "Random Index")
    
 
+        '''
         # Segment Settings
         settings_box.separator()
         if len(active_curve.segments) > 0:
@@ -380,6 +385,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             fit_method.prop(active_segment, "fit_method", text = "")
             if active_segment.fit_method == 'FIXED':
                 property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
+        '''
 
 
         # Main Elements Settings:
