@@ -34,6 +34,8 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         building = scene.buildings[scene.active_building_index]
         active_floor_index = building.active_floor_index
 
+        self.use_filter_sort_reverse = True
+
         column = layout.column()
 
         label_row = column.row(align = True)
@@ -118,14 +120,14 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
         row.prop(item, "element_ID", text = str(index))
 
 
-        
+
 # ----------
 # Main Panel
 # ----------
 
 class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
     bl_label = "BlenderRail"
-    bl_idname = "VIEW3D_PT_blenderrail"
+    bl_idname = "VIEW3D_PT_blenderrail_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "BlenderRail"
@@ -301,6 +303,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             for segment_index, segment in enumerate(segments):
                 segment_settings = grid.operator("blenderrail.segment_settings", text = str(segment_index), icon = 'PARTICLE_PATH')
                 segment_settings.active_index = segment_index
+
 
         collections_column.separator(factor = 2.0)
 

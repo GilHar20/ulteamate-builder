@@ -554,6 +554,7 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
         segment = curve.segments[self.active_index]
 
         layout = self.layout
+        layout.label(text = str(self.active_index))
         layout.prop(segment, "element_ID", text = "Element ID")
         layout.prop(segment, "fit_method", expand = True)
         if segment.fit_method == 'FIXED':

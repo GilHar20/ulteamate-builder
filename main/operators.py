@@ -11,21 +11,21 @@ from ..preferences import find_node_group
 # ----------------
 
 def _match_element_id_by_factor(spline_index, factor, old_assignments):
-    candidates = [(fac, element_ID) for (spl_ix, fac, element_ID) in old_assignments if spl_ix == spline_index]
+    candidates = [(fac, elem_ID, fit, fixed) for (spl_ix, fac, elem_ID, fit, fixed) in old_assignments if spl_ix == spline_index]
     if not candidates:
         return None
-    candidates.sort(key=lambda c: c[0])
-    for c in candidates:
-        if round(c[0], 3) == round(factor, 3):
-            return c[1]
+    candidates.sort(key = lambda cand: cand[0])
+    for cand in candidates:
+        if round(cand[0], 3) == round(factor, 3):
+            return cand[1], cand[2], cand[3]
 
     prior = None
-    for c in candidates:
-        if c[0] < factor:
-            prior = c
+    for cand in candidates:
+        if cand[0] < factor:
+            prior = cand
         else:
             break
-    return prior[1] if prior is not None else None
+    return prior[1], cand[2], cand[3] if prior is not None else None
 
 
 def _spline_cumulative_lengths(count, spline):
@@ -37,19 +37,19 @@ def _spline_cumulative_lengths(count, spline):
     segment_lengths = []
 
     if spline.type == 'BEZIER':
-        pts = spline.bezier_points
+        points = spline.bezier_points
         bezier_arc_resolution = 48
         span_pairs = [(i, i + 1) for i in range(count - 1)]
         if spline.use_cyclic_u:
             span_pairs.append((count - 1, 0))
         for i_from, i_to in span_pairs:
-            p0 = pts[i_from].co
-            p1 = pts[i_from].handle_right
-            p2 = pts[i_to].handle_left
-            p3 = pts[i_to].co
-            samples = interpolate_bezier(p0, p1, p2, p3, bezier_arc_resolution)
+            point0 = points[i_from].co
+            point1 = points[i_from].handle_right
+            point2 = points[i_to].handle_left
+            point3 = points[i_to].co
+            samples = interpolate_bezier(point0, point1, point2, point3, bezier_arc_resolution)
             if len(samples) < 2:
-                segment_lengths.append((p3 - p0).length)
+                segment_lengths.append((point3 - point0).length)
             else:
                 span_len = 0.0
                 for k in range(len(samples) - 1):
@@ -57,21 +57,21 @@ def _spline_cumulative_lengths(count, spline):
                 segment_lengths.append(span_len)
 
     else: 
-        pts = spline.points
+        points = spline.points
         for i in range(count - 1):
-            p0 = mathutils.Vector((pts[i].co[0], pts[i].co[1], pts[i].co[2]))
-            p1 = mathutils.Vector((pts[i + 1].co[0], pts[i + 1].co[1], pts[i + 1].co[2]))
-            segment_lengths.append((p1 - p0).length)
+            point0 = mathutils.Vector((points[i].co[0], points[i].co[1], points[i].co[2]))
+            point1 = mathutils.Vector((points[i + 1].co[0], points[i + 1].co[1], points[i + 1].co[2]))
+            segment_lengths.append((point1 - point0).length)
         if spline.use_cyclic_u:
-            p0 = mathutils.Vector((pts[-1].co[0], pts[-1].co[1], pts[-1].co[2]))
-            p1 = mathutils.Vector((pts[0].co[0], pts[0].co[1], pts[0].co[2]))
-            segment_lengths.append((p1 - p0).length)
+            point0 = mathutils.Vector((points[-1].co[0], points[-1].co[1], points[-1].co[2]))
+            point1 = mathutils.Vector((points[0].co[0], points[0].co[1], points[0].co[2]))
+            segment_lengths.append((point1 - point0).length)
 
     total = sum(segment_lengths)
     cumulative = [0.0]
 
-    for L in segment_lengths[:-1]:
-        cumulative.append(cumulative[-1] + L)
+    for length in segment_lengths[:-1]:
+        cumulative.append(cumulative[-1] + length)
     if not spline.use_cyclic_u:
         cumulative.append(total)
 
@@ -83,7 +83,7 @@ def _sync_segments_to_curves(curve):
         return
 
     curve_data = curve.curve_object.data
-    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID) for segment in curve.segments]
+    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID, segment.fit_method) for segment in curve.segments]
     factors = []
     total_points = 0
 
@@ -123,8 +123,10 @@ def _sync_segments_to_curves(curve):
     for seg_index, segment in enumerate(curve.segments):
         segment.ID = seg_index
         spline_index, factor, length = factors[seg_index]
-        matched = _match_element_id_by_factor(spline_index, factor, old_assignments)
-        segment.element_ID = matched if matched else 0
+        element_ID, fit_method, fixed_number = _match_element_id_by_factor(spline_index, factor, old_assignments)
+        segment.element_ID = element_ID if element_ID else 0
+        segment.fit_method = fit_method if fit_method else 0
+        segment.fixed_number = fixed_number if fixed_number else 0
         segment.spline_ID = spline_index
         segment.spline_factor = factor
         segment.spline_length = length

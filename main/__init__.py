@@ -54,7 +54,7 @@ def register():
 
     bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
     bpy.types.Scene.show_segments_grid = bpy.props.BoolProperty(default = False)
-    bpy.types.Scene.segments_grid_columns = bpy.props.IntProperty(default = 4, min = 1, max = 10)
+    bpy.types.Scene.segments_grid_columns = bpy.props.IntProperty(default = 6, min = 1, max = 10)
 
     bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
 
