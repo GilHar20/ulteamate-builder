@@ -11,7 +11,7 @@ from ..preferences import find_node_group
 # ----------------
 
 def _match_element_id_by_factor(spline_index, factor, old_assignments):
-    candidates = [(fac, elem_ID, fit, fixed) for (spl_ix, fac, elem_ID, fit, fixed) in old_assignments if spl_ix == spline_index]
+    candidates = [(spl_id, fac, elem_ID, fit, fixed) for (spl_id, fac, elem_ID, fit, fixed) in old_assignments if spl_id == spline_index]
     if not candidates:
         return None
     candidates.sort(key = lambda cand: cand[0])
@@ -25,7 +25,7 @@ def _match_element_id_by_factor(spline_index, factor, old_assignments):
             prior = cand
         else:
             break
-    return prior[1], cand[2], cand[3] if prior is not None else None
+    return prior[2], cand[3], cand[4] if prior is not None else None
 
 
 def _spline_cumulative_lengths(count, spline):
@@ -83,7 +83,7 @@ def _sync_segments_to_curves(curve):
         return
 
     curve_data = curve.curve_object.data
-    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID, segment.fit_method) for segment in curve.segments]
+    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID, segment.fit_method, segment.fixed_number) for segment in curve.segments]
     factors = []
     total_points = 0
 
@@ -125,8 +125,8 @@ def _sync_segments_to_curves(curve):
         spline_index, factor, length = factors[seg_index]
         element_ID, fit_method, fixed_number = _match_element_id_by_factor(spline_index, factor, old_assignments)
         segment.element_ID = element_ID if element_ID else 0
-        segment.fit_method = fit_method if fit_method else 0
-        segment.fixed_number = fixed_number if fixed_number else 0
+        segment.fit_method = fit_method if fit_method else 'FIT'
+        segment.fixed_number = fixed_number if fixed_number else 1
         segment.spline_ID = spline_index
         segment.spline_factor = factor
         segment.spline_length = length
