@@ -13,19 +13,21 @@ from ..preferences import find_node_group
 def _match_element_id_by_factor(spline_index, factor, old_assignments):
     candidates = [(spl_id, fac, elem_ID, fit, fixed) for (spl_id, fac, elem_ID, fit, fixed) in old_assignments if spl_id == spline_index]
     if not candidates:
-        return None
-    candidates.sort(key = lambda cand: cand[0])
+        return (0, 'FIT', 1)
+    candidates.sort(key = lambda cand: cand[1])
     for cand in candidates:
-        if round(cand[0], 3) == round(factor, 3):
-            return cand[1], cand[2], cand[3]
+        if round(cand[1], 3) == round(factor, 3):
+            return cand[2], cand[3], cand[4]
 
     prior = None
     for cand in candidates:
-        if cand[0] < factor:
+        if cand[1] < factor:
             prior = cand
         else:
             break
-    return prior[2], cand[3], cand[4] if prior is not None else None
+    if prior is None:
+        return 0, 'FIT', 1
+    return prior[2], prior[3], prior[4]
 
 
 def _spline_cumulative_lengths(count, spline):

@@ -10,18 +10,12 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     """UIList for displaying buildings"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        name = item.name if item.name else (item.base_object.name if item.base_object else "- no base object -")
         icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
         
-        column = layout.column(align = True)
+        row = layout.row(align = True)
+        row.label(text = "", icon = icon)
+        row.prop(item, "name", text = "", placeholder = "Building Name", icon = 'FILE_FONT')
 
-        name_row = column.row(align = True)
-        name_row.label(text = str(index + 1) + ": " + name, icon = icon)
-        name_row.prop(item, "name", text = "", placeholder = "Building Name", icon = 'FILE_FONT')
-
-        building_row = column.row(align = True)
-        building_row.prop(item, "building_collection", text = "", placeholder = "Building Collection")
-        building_row.prop(item, "base_object", text = "", placeholder = "Base Object")
         select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_object.building_index = index
 
@@ -33,21 +27,32 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         active_floor_index = building.active_floor_index
-
         self.use_filter_sort_reverse = True
 
-        column = layout.column()
+        if item.is_linked == True:
+            label_row = layout.row(align = True)
 
+            icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
+            label_row.label(text = "", icon = icon)
+            label_row.label(text = "------------------", icon = 'LINKED')
+
+            op_row = layout.row(align = True)
+            op_row.alignment = 'RIGHT'
+
+            select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+            select_curve.floor_index = index
+            select_curve.curve_index = -1
+            visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
+            op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
+            return
+
+        column = layout.column()
         label_row = column.row(align = True)
 
-        floor_label = "#" + str(item.ID) + ", " + item.curves_collection.name
         icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
-        label_row.label(text = floor_label, icon = icon)
+        label_row.label(text = "", icon = icon)
+        label_row.prop(item, "name", text = "", placeholder = "Floor Name")
 
-        if item.is_linked == True:
-            label_row.label(text = floor_label, icon = 'LINKED')
-            return
-        
         op_row = label_row.row(align = True)
         op_row.alignment = 'RIGHT'
 
@@ -182,11 +187,12 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             "active_building_index",
             rows = 2
         )
-        # TEMP CODE TO BE REMOVED
-        #buildings_box.prop(active_building, "building_collection", text = "")
-        #buildings_box.prop(active_building, "floors_collection", text = "")
-        #buildings_box.prop(active_building, "elements_collection", text = "")
-        buildings_box.label(text = "number of curves in the building: " +str(len(active_building.all_curves)))
+        building_setting = buildings_box.column(align = True)
+        building_setting.prop(active_building, "base_object", text = "", placeholder = "Base Object")
+        building_setting.prop(active_building, "building_collection", text = "", placeholder = "Building Collection")
+        building_setting.prop(active_building, "floors_collection", text = "", placeholder = "Floors Collection")
+        building_setting.prop(active_building, "elements_collection", text = "", placeholder = "Elements Collection")
+        building_setting.label(text = "number of curves in the building: " +str(len(active_building.all_curves)))
 
 
         collections_box = layout.box()
@@ -322,10 +328,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         settings_box.label(text = "Floor Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         property_column = settings_box.column(align = True)
-        data_row = property_column.row(align = True)
-        data_row.prop(active_floor, "curves_collection", text = "", icon = 'OUTLINER_COLLECTION')
-        data_row.label(text = "Collection:   " + active_floor.curves_collection.name, icon = 'OUTLINER_COLLECTION')
-        data_row.label(text = "Curves:   " + str(len(active_floor.curves)) + "# Curves", icon = 'CURVE_DATA')
+        property_column.prop(active_floor, "curves_collection", text = "", icon = 'OUTLINER_COLLECTION')
 
         property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
         

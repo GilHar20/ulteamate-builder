@@ -182,11 +182,13 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        buildings = scene.buildings
+        building_index = scene.active_building_index
+        building = buildings[building_index]
         floors = building.floors
-        
         floor_index = building.active_floor_index
         floor = floors[floor_index]
+
         if floor.is_linked == True:
             self.report({"ERROR"}, "Cannot link an already linked floor! Please select original floor")
             return{"FINISHED"}
@@ -204,8 +206,11 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
 
             bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
             curve_obj = context.view_layer.objects.active
+            context.scene.collection.objects.link(curve_obj)
             new_floor.curves_collection.objects.link(curve_obj)
-            context.scene.collection.objects.unlink(curve_obj)
+            for parent in curve_obj.users_collection:
+                if parent != new_floor.curves_collection:
+                    parent.objects.unlink(curve_obj)
 
             bpy.ops.object.select_all(action='DESELECT')
             context.view_layer.objects.active = building.base_object

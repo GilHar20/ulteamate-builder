@@ -34,10 +34,6 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
             operators._assign_curve_elements(self, context, curve, self.element_type)
 
         self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
-        bpy.ops.object.select_all(action='DESELECT')
-        context.view_layer.objects.active = host_curve
-        host_curve.select_set(True)
-
         return
     
     def _up_stretch_element(self, context):
@@ -111,6 +107,11 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         curve = floor.curves[floor.active_curve_index]
         curve.curve_object.update_tag()
         return
+
+    def _clamp_fixed_number(self, context):
+        if self.fixed_number < 1:
+            self.fixed_number = 1
+        return
     
     ID : bpy.props.IntProperty(
         name = "Segment ID",
@@ -161,7 +162,8 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
         name = "Fixed Number",
         default = 5,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _clamp_fixed_number
     )
 
 
@@ -200,7 +202,7 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
             self.active_segment_index = len(self.segments) - 1
 
     ID : bpy.props.IntProperty(
-        name = "Segment ID",
+        name = "Curve ID",
         default = 0,
         min = 0,
         max = 10000
@@ -344,6 +346,18 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000
+    )
+
+    name : bpy.props.StringProperty(
+        name = "Floor Name",
+        description = "Name of the floor",
+        default = "Floor",
+    )
+
+    source_floor : bpy.props.StringProperty(
+        name = "Source Floor",
+        description = "Name of the source floor",
+        default = "",
     )
 
     is_linked : bpy.props.BoolProperty(
