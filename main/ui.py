@@ -10,7 +10,9 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     """UIList for displaying buildings"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        icon = 'CHECKBOX_HLT' if item.base_object else 'CHECKBOX_DEHLT'
+        scene = context.scene
+        active_building_index = scene.active_building_index
+        icon = 'CHECKBOX_HLT' if active_building_index == index else 'CHECKBOX_DEHLT'
         
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
