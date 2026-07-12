@@ -16,7 +16,7 @@ bl_info = {
 import bpy
 from . import main
 from . import viewportgui
-from . import preferences
+from . import utilities
 
 from . import addon_updater_ops
 
@@ -91,11 +91,11 @@ def register():
     '''
     addon_updater_ops.make_annotations(BlenderRailPreferences)  # Avoid blender 2.8 warnings
     bpy.utils.register_class(BlenderRailPreferences)
-    preferences.register()
     '''
     
     addon_updater_ops.register(bl_info)
 
+    utilities.register()
     main.register()
     viewportgui.register()
 
@@ -103,10 +103,10 @@ def register():
 def unregister():
     viewportgui.unregister()
     main.unregister()
+    utilities.unregister()
 
     '''
     addon_updater_ops.unregister()
-    preferences.unregister()
     bpy.utils.unregister_class(BlenderRailPreferences)
     '''
 

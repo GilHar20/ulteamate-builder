@@ -1,6 +1,6 @@
 import bpy
 from . import operators
-from ..preferences import find_node_group
+from ..utilities import find_node_group
 
 
 
@@ -223,7 +223,7 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_LinkFloor_GN", type = "NODES")
             curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")[0]
             curve_attributes.node_group = curve_attributes_gn
-            curve_attributes["Socket_2"] = curve.curve_object
+            gn_sockets._set_socket_value(curve_attributes, "Socket_2", curve.curve_object)
             curve_attributes.show_expanded = False
 
         operators._calculate_floors_start_height(context, floors, False)
@@ -601,8 +601,8 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
 
     def _remove_curve_element(self, context, host_curve, modifier, object):
         if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-            return
-        if modifier["Socket_4"] == object:
+            return 
+        if gn_sockets._get_socket_value(modifier, "Socket_4") == object:
             host_curve.modifiers.remove(modifier)
         return
 

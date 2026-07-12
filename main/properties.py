@@ -1,5 +1,6 @@
 import bpy
 from . import operators
+from ..utilities import gn_sockets
 
 
 
@@ -11,7 +12,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
     def _remove_curve_element(self, host_curve, modifier, prev_obj):
         if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
             return
-        if modifier["Socket_4"] == prev_obj:
+        if gn_sockets._get_socket_value(modifier, "Socket_4") == prev_obj:
             host_curve.modifiers.remove(modifier)
         return    
 
@@ -42,8 +43,8 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         for modifier in host_curve.modifiers:
             if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
                 continue
-            if modifier["Socket_4"] == obj:
-                modifier["Socket_6"] = self.up_stretched
+            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
+                gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
                 host_curve.update_tag()
                 return    
 
@@ -74,8 +75,48 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         update = _up_stretch_element
     )
 
+    forward_axis : bpy.props.EnumProperty(
+        name = "Forward Axis",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        items = [
+        ('X', "X", "X", 0),
+        ('Y', "Y", "Y", 1),
+        ('Z', "Z", "Z", 2),
+        ('-X', "-X", "-X", 3),
+        ('-Y', "-Y", "-Y", 4),
+        ('-Z', "-Z", "-Z", 5),],
+        default = 'X',
+    )
+
+    side_axis : bpy.props.EnumProperty(
+        name = "Side Axis",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        items = [
+        ('X', "X", "X", 0),
+        ('Y', "Y", "Y", 1),
+        ('Z', "Z", "Z", 2),
+        ('-X', "-X", "-X", 3),
+        ('-Y', "-Y", "-Y", 4),
+        ('-Z', "-Z", "-Z", 5),],
+        default = '-Y',
+    )
+
 
 class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
+    def _up_stretch_element(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        host_curve = curve.curve_object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
+            host_curve.update_tag()
+            return    
+
+    
     collect_method : bpy.props.EnumProperty(
         name = "Collect Method",
         description = "Method of assigning elements to the Target Collection of the floor",
@@ -97,6 +138,40 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         description = "Collection of objects to insert into the Tartget Collection",
         type = bpy.types.Collection
     )
+
+    up_stretched : bpy.props.BoolProperty(
+        name = "Is Stretched",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        default = False,
+        update = _up_stretch_element
+    )
+
+    forward_axis : bpy.props.EnumProperty(
+        name = "Forward Axis",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        items = [
+        ('X', "X", "X", 0),
+        ('Y', "Y", "Y", 1),
+        ('Z', "Z", "Z", 2),
+        ('-X', "-X", "-X", 3),
+        ('-Y', "-Y", "-Y", 4),
+        ('-Z', "-Z", "-Z", 5),],
+        default = 'X',
+    )
+
+    side_axis : bpy.props.EnumProperty(
+        name = "Side Axis",
+        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
+        items = [
+        ('X', "X", "X", 0),
+        ('Y', "Y", "Y", 1),
+        ('Z', "Z", "Z", 2),
+        ('-X', "-X", "-X", 3),
+        ('-Y', "-Y", "-Y", 4),
+        ('-Z', "-Z", "-Z", 5),],
+        default = '-Y',
+    )
+
 
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   

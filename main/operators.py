@@ -2,7 +2,7 @@ import bpy
 import mathutils
 from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
-from ..preferences import find_node_group
+from ..utilities import find_node_group, gn_sockets
 
 
 
@@ -231,12 +231,12 @@ def _assign_curve_elements(self, context, curve, element_type):
     collection = building.elements_collection
     elements_collection = getattr(curve, element_type)
     
-    collect_method = 0
+    collect_type = 0
     match element_type:
         case "main_elements":
-            collect_method = 0
+            collect_type = 'Main'
         case "corner_elements":
-            collect_method = 1
+            collect_type = 'Corner'
 
     if elements_collection.collect_method == 'OBJECTS':
         if len(elements_collection.objects) == 0:
@@ -251,9 +251,11 @@ def _assign_curve_elements(self, context, curve, element_type):
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
             
-            curve_elements["Socket_5"] = collect_method
-            curve_elements["Socket_4"] = bpy.data.objects.get(element.object.name)
-            curve_elements["Socket_6"] = element.up_stretched
+            gn_sockets._set_socket_value(curve_elements, "Socket_5", collect_type)
+            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
+            gn_sockets._set_socket_value(curve_elements, "Socket_6", element.up_stretched)
+            gn_sockets._set_socket_value(curve_elements, "Socket_7", element.forward_axis)
+            gn_sockets._set_socket_value(curve_elements, "Socket_8", element.side_axis)
 
             if collection not in element.object.users_collection:
                 collection.objects.link(element.object)
@@ -279,8 +281,11 @@ def _assign_curve_elements(self, context, curve, element_type):
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
             
-            curve_elements["Socket_5"] = collect_method
-            curve_elements["Socket_4"] = bpy.data.objects.get(element.object.name)
+            gn_sockets._set_socket_value(curve_elements, "Socket_5", collect_type)
+            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
+            gn_sockets._set_socket_value(curve_elements, "Socket_6", elements_collection.up_stretched)
+            gn_sockets._set_socket_value(curve_elements, "Socket_7", elements_collection.forward_axis)
+            gn_sockets._set_socket_value(curve_elements, "Socket_8", elements_collection.side_axis)
 
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
@@ -368,51 +373,51 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             curve_attributes.node_group = curve_attributes_gn
             curve_attributes.show_expanded = False
 
-            attribute = 'modifiers["%s"]["Socket_18"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_18")
             path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, curve.floor_ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_visibility")
 
-            attribute = 'modifiers["%s"]["Socket_11"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_11")
             path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "select_method")
 
-            attribute = 'modifiers["%s"]["Socket_14"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_14")
             path = 'buildings[%d].floors[%d].curves[%d].select_per_segment' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "select_per_segment")
             
-            attribute = 'modifiers["%s"]["Socket_12"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_12")
             path = 'buildings[%d].floors[%d].curves[%d].sequence_offset' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "sequence_offset")
 
-            attribute = 'modifiers["%s"]["Socket_13"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_13")
             path = 'buildings[%d].floors[%d].curves[%d].random_index' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "random_index")
 
-            attribute = 'modifiers["%s"]["Socket_3"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_3")
             path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
 
-            attribute = 'modifiers["%s"]["Socket_4"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
             path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "height")
 
-            attribute = 'modifiers["%s"]["Socket_10"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_10")
             path = 'buildings[%d].floors[%d].curves[%d].inset' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "inset")
 
-            attribute = 'modifiers["%s"]["Socket_5"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_5")
             path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)      
             _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_ceiling")
 
-            attribute = 'modifiers["%s"]["Socket_15"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_15")
             path = 'buildings[%d].floors[%d].curves[%d].thickness' % (building_index, curve.floor_ID, curve.ID)          
             _set_attribute_driver(self, context, curve_obj, attribute, path, "thickness")
 
-            attribute = 'modifiers["%s"]["Socket_16"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_16")
             path = 'buildings[%d].floors[%d].curves[%d].direction_bottom' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_bottom")
 
-            attribute = 'modifiers["%s"]["Socket_17"]' % curve_attributes.name
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_17")
             path = 'buildings[%d].floors[%d].curves[%d].direction_top' % (building_index, curve.floor_ID, curve.ID) 
             _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_top")
 
@@ -425,18 +430,18 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
                 element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
-                element_id["Socket_2"] = segment.ID
+                gn_sockets._set_socket_value(element_id, "Socket_2", segment.ID)
                 element_id.show_expanded = False
 
-                attribute = 'modifiers["%s"]["Socket_4"]' % element_id.name
+                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_4")
                 path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, seg_index)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "fit_method")
 
-                attribute = 'modifiers["%s"]["Socket_5"]' % element_id.name
+                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_5")
                 path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, seg_index)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "fixed_number")
 
-                attribute = 'modifiers["%s"]["Socket_3"]' % element_id.name
+                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_3")
                 path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, seg_index)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "element_ID")
 
@@ -497,7 +502,7 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         building_collection.children.link(elements_collection)
         context.scene.collection.children.unlink(elements_collection)
 
-        modifier["Socket_2"] = floors_collection
+        gn_sockets._set_socket_value(modifier, "Socket_2", floors_collection)
 
         bpy.ops.blenderrail.add_floor()
         floor = building.floors[0]
