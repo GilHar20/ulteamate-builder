@@ -30,7 +30,8 @@ classes = [
     properties_Operators.BLENDERRAIL_OT_add_collect_object,
     properties_Operators.BLENDERRAIL_OT_remove_collect_object,
     properties_Operators.BLENDERRAIL_OT_select_collect_object,
-
+    properties_Operators.BLENDERRAIL_OT_collect_object_settings,
+    
     operators.BLENDERRAIL_OT_generate_building,
     operators.BLENDERRAIL_OT_remove_building,
     operators.BLENDERRAIL_OT_select_base_object,

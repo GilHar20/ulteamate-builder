@@ -173,7 +173,6 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
     )
 
 
-
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
         scene = context.scene

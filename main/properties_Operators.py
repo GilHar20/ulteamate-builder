@@ -658,3 +658,73 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         element.select_set(True)
 
         return{"FINISHED"}
+
+class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
+    bl_idname = "blenderrail.collect_object_settings"
+    bl_label = "Collect Object Settings"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+ 
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    collect_method : bpy.props.BoolProperty(default = False, options = {"HIDDEN"})
+    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+
+    def execute(self, context):
+        '''This executes NOTHING. Sole purpose of this operator is to expose the active element's properties in a pop-up dialog :)'''
+        return{"FINISHED"}
+
+    def invoke(self, context, event):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+
+        method = "Objects" if not self.collect_method else "Existing Collection"
+
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type + ", " + method
+        return context.window_manager.invoke_props_dialog(self, title = title)
+    
+    def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        main_elements = curve.main_elements 
+        corner_elements = curve.corner_elements
+        element = None
+
+        if self.element_type == "main_elements":
+            element = main_elements.objects[self.index]
+        if self.element_type == "corner_elements":
+            element = corner_elements.objects[self.index]
+        if element == None:
+            self.report({"ERROR"}, "No object provided")
+            return{"CANCELLED"}
+
+        if self.element_type == "main_elements" and self.collect_method == True:
+            element = main_elements
+        if self.element_type == "corner_elements" and self.collect_method == True:
+            element = corner_elements
+        if element == None:
+            self.report({"ERROR"}, "No object provided")
+            return{"CANCELLED"}
+        
+
+        layout = self.layout
+        
+        if self. collect_method == True:
+            layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
+            axes_olumn = layout.column(align = True)
+            forward_row = axes_olumn.row()
+            side_row = axes_olumn.row()
+            forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
+
+        else:
+            layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
+            axes_olumn = layout.column(align = True)
+            forward_row = axes_olumn.row()
+            side_row = axes_olumn.row()
+            forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
+        
+        return{"FINISHED"}

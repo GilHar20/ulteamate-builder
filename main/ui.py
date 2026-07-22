@@ -150,12 +150,11 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             select_object = object_row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
             select_object.element_type = element_type
             select_object.index = index
-            object_row.prop(element, "up_stretched", text = "", toggle = -1, icon = 'CON_SIZELIMIT')
-            axes_row = object_row.row(align = True)
-            axes_row.alignment = 'RIGHT'
-            axes_row.scale_x = 0.75
-            axes_row.prop(element, "forward_axis", text = "")
-            axes_row.prop(element, "side_axis", text = "")
+
+            settings = object_row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
+            settings.element_type = element_type
+            settings.collect_method = False
+            settings.index = index
         
         buttons = row.column(align=True)
         add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
@@ -413,12 +412,9 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         if main_elements.collect_method == 'EXISTING':
             existing_collection_row = main_elements_column.row(align = True)
             existing_collection_row.prop(main_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-            existing_collection_row.prop(main_elements, "up_stretched", text = "", icon = 'CON_SIZELIMIT')
-            axes_row = existing_collection_row.row(align = True)
-            axes_row.alignment = 'RIGHT'
-            axes_row.scale_x = 0.75
-            axes_row.prop(main_elements, "forward_axis", text = "")
-            axes_row.prop(main_elements, "side_axis", text = "")
+            settings = existing_collection_row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
+            settings.element_type = "main_elements"
+            settings.collect_method = True
         else:
             self.draw_collect_objects(main_elements_column, "main_elements", main_elements.objects)
 
@@ -435,12 +431,9 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         if corner_elements.collect_method == 'EXISTING':
             existing_collection_row = corner_elements_column.row(align = True)
             existing_collection_row.prop(corner_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-            existing_collection_row.prop(corner_elements, "up_stretched", text = "", icon = 'CON_SIZELIMIT')
-            axes_row = existing_collection_row.row(align = True)
-            axes_row.alignment = 'RIGHT'
-            axes_row.scale_x = 0.75
-            axes_row.prop(corner_elements, "forward_axis", text = "")
-            axes_row.prop(corner_elements, "side_axis", text = "")
+            settings = existing_collection_row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
+            settings.element_type = "corner_elements"
+            settings.collect_method = True
         else:
             self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements.objects)
 
