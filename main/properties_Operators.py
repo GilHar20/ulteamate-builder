@@ -636,6 +636,10 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
     index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def execute(self, context):
+        if bpy.context.mode != 'OBJECT':
+            self.report({'INFO'}, "You must leave edit mode to select objects")
+            return{"FINISHED"}
+
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
@@ -643,7 +647,6 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         main_elements = curve.main_elements 
         corner_elements = curve.corner_elements
         element = None
-
 
         if self.element_type == "main_elements":
             element = main_elements.objects[self.index].object
@@ -658,6 +661,7 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         element.select_set(True)
 
         return{"FINISHED"}
+
 
 class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
     bl_idname = "blenderrail.collect_object_settings"
@@ -713,18 +717,24 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         
         if self. collect_method == True:
             layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
-            axes_olumn = layout.column(align = True)
-            forward_row = axes_olumn.row()
-            side_row = axes_olumn.row()
+            axes_column = layout.column(align = True)
+            forward_row = axes_column.row()
+            forward_row.label(text = "Forward Axis")
             forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            side_row = axes_column.row()
+            side_row.label(text = "Side Axis")
             side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
 
         else:
             layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
-            axes_olumn = layout.column(align = True)
-            forward_row = axes_olumn.row()
-            side_row = axes_olumn.row()
+            axes_column = layout.column(align = True)
+
+            forward_row = axes_column.row()
+            forward_row.label(text = "Forward Axis")
             forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            side_row = axes_column.row()
+            side_row.label(text = "Side Axis")
             side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
+
         
         return{"FINISHED"}

@@ -46,6 +46,28 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
             if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
                 gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
                 host_curve.update_tag()
+                return
+
+    def _forward_axis_element(self, context):
+        host_curve = self.host_curve
+        obj = self.object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
+                gn_sockets._set_socket_value(modifier, "Socket_7", self.forward_axis)
+                host_curve.update_tag()
+                return    
+
+    def _side_axis_element(self, context):
+        host_curve = self.host_curve
+        obj = self.object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
+                gn_sockets._set_socket_value(modifier, "Socket_8", self.side_axis)
+                host_curve.update_tag()
                 return    
 
 
@@ -86,6 +108,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         ('-Y', "-Y", "-Y", 4),
         ('-Z', "-Z", "-Z", 5),],
         default = 'X',
+        update = _forward_axis_element
     )
 
     side_axis : bpy.props.EnumProperty(
@@ -99,6 +122,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         ('-Y', "-Y", "-Y", 4),
         ('-Z', "-Z", "-Z", 5),],
         default = '-Y',
+        update = _side_axis_element
     )
 
 

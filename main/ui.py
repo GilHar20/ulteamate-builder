@@ -50,9 +50,9 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
 
         column = layout.column()
         label_row = column.row(align = True)
-
         icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
         label_row.label(text = "", icon = icon)
+        label_row.label(text = str(index))
         label_row.prop(item, "name", text = "", placeholder = "Floor Name")
 
         op_row = label_row.row(align = True)
