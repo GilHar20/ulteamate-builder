@@ -2,41 +2,11 @@ import bpy
 from . import operators
 from ..utilities import gn_sockets
 
-
-
 # ------------------------
 # Property groups: Segment
 # ------------------------
 
 class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
-    def _remove_curve_element(self, host_curve, modifier, prev_obj):
-        if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-            return
-        if gn_sockets._get_socket_value(modifier, "Socket_4") == prev_obj:
-            host_curve.modifiers.remove(modifier)
-        return    
-
-    def _remove_self_from_curve(self, context):
-        prev_name = self.get("_prev_curve_object_name", "")
-        prev_obj = bpy.data.objects.get(prev_name) if prev_name else None
-        new_obj = self.object
-        host_curve = self.host_curve
-
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
-
-        if prev_obj != None:
-            for modifier in host_curve.modifiers:
-                self._remove_curve_element(host_curve, modifier, prev_obj)
-
-        if prev_obj == None:
-            operators._assign_curve_elements(self, context, curve, self.element_type)
-
-        self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
-        return
-    
     def _up_stretch_element(self, context):
         host_curve = self.host_curve
         obj = self.object
@@ -74,8 +44,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
     object : bpy.props.PointerProperty(
         name = "Element Object",
         description = "Pointer to object used for this element",
-        type = bpy.types.Object,
-        update = _remove_self_from_curve
+        type = bpy.types.Object
     )
 
     element_type : bpy.props.StringProperty(
@@ -140,7 +109,10 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
             host_curve.update_tag()
             return    
 
-    
+    def _clamp_active_element_index(self, context):
+        if self.active_element_index > len(self.objects) - 1:
+            self.active_element_index = len(self.objects) - 1
+
     collect_method : bpy.props.EnumProperty(
         name = "Collect Method",
         description = "Method of assigning elements to the Target Collection of the floor",
@@ -161,6 +133,14 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         name = "Existing Collection",
         description = "Collection of objects to insert into the Tartget Collection",
         type = bpy.types.Collection
+    )
+
+    active_element_index : bpy.props.IntProperty(
+        name = "Active Element Index",
+        default = 0,
+        min = 0,
+        max = 10000,
+        update = _clamp_active_element_index
     )
 
     up_stretched : bpy.props.BoolProperty(
@@ -444,12 +424,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000
-    )
-
-    name : bpy.props.StringProperty(
-        name = "Floor Name",
-        description = "Name of the floor",
-        default = "Floor",
     )
 
     source_floor : bpy.props.StringProperty(

@@ -230,13 +230,6 @@ def _assign_curve_elements(self, context, curve, element_type):
     building = scene.buildings[scene.active_building_index]
     collection = building.elements_collection
     elements_collection = getattr(curve, element_type)
-    
-    collect_type = 0
-    match element_type:
-        case "main_elements":
-            collect_type = 'Main'
-        case "corner_elements":
-            collect_type = 'Corner'
 
     if elements_collection.collect_method == 'OBJECTS':
         if len(elements_collection.objects) == 0:
@@ -251,7 +244,7 @@ def _assign_curve_elements(self, context, curve, element_type):
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
             
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", collect_type)
+            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
             gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
             gn_sockets._set_socket_value(curve_elements, "Socket_6", element.up_stretched)
             gn_sockets._set_socket_value(curve_elements, "Socket_7", element.forward_axis)
@@ -281,7 +274,7 @@ def _assign_curve_elements(self, context, curve, element_type):
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
             
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", collect_type)
+            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
             gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
             gn_sockets._set_socket_value(curve_elements, "Socket_6", elements_collection.up_stretched)
             gn_sockets._set_socket_value(curve_elements, "Socket_7", elements_collection.forward_axis)
@@ -524,8 +517,6 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
                 parent.objects.unlink(curve_obj)
 
         floor.curves[0].curve_object = curve_obj
-
-        #bpy.ops.blenderrail.evaluate_building()
 
         return {"FINISHED"}
 

@@ -41,6 +41,7 @@ classes = [
     ui.BLENDERRAIL_UL_floor_list,
     ui.BLENDERRAIL_UL_curve_list,
     ui.BLENDERRAIL_UL_segment_list,
+    ui.BLENDERRAIL_UL_element_list,
     ui.BLENDERRAIL_PT_control_panel
 ]
 
@@ -59,6 +60,12 @@ def register():
 
     bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
 
+    bpy.types.WindowManager.blenderrail_add_collect_object = bpy.props.PointerProperty(
+        type = bpy.types.Object,
+        name = "Element Object",
+        description = "Temporary object picker for Add Element dialog",
+    )
+
 
 
 def unregister():
@@ -73,6 +80,9 @@ def unregister():
         delattr(bpy.types.Scene, 'show_segments_grid')
     if hasattr(bpy.types.Scene, 'segments_grid_columns'):
         delattr(bpy.types.Scene, 'segments_grid_columns')
+
+    if hasattr(bpy.types.WindowManager, "blenderrail_add_collect_object"):
+        del bpy.types.WindowManager.blenderrail_add_collect_object
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

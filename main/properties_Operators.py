@@ -1,6 +1,6 @@
 import bpy
 from . import operators
-from ..utilities import find_node_group
+from ..utilities import find_node_group, gn_sockets
 
 
 
@@ -577,8 +577,48 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    active_index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
 
+    def _add_curve_element(self, curve, collection_objects, element_type):
+        assigned_modifiers = [modifier for modifier in curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == element_type]
+        assigned_objects = [gn_sockets._get_socket_value(modifier, "Socket_4") for modifier in assigned_modifiers]
+
+        if len(assigned_modifiers) == 0:
+            new_modifier = curve.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj)
+            gn_sockets._set_socket_value(new_modifier, "Socket_5", element_type)
+            return
+
+        bpy.ops.object.select_all(action='DESELECT')
+        curve.select_set(True)
+        bpy.context.view_layer.objects.active = curve
+
+        for object_index, collect_object in enumerate(collection_objects):
+            obj = collect_object.object
+            if obj is None or obj in assigned_objects:
+                continue
+            else:
+                last_modifier = assigned_modifiers[object_index - 1 if object_index >= 0 else 0]
+                source_index = curve.modifiers.find(last_modifier.name)
+                bpy.ops.object.modifier_copy(modifier = last_modifier.name)
+                new_modifier = curve.modifiers[source_index + 1]
+            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj)
+            gn_sockets._set_socket_value(new_modifier, "Socket_5", element_type)
+            self.report({"INFO"}, last_modifier.name)
+            break
+        return
+
+    
     def execute(self, context):
+        wm = context.window_manager
+        element = wm.blenderrail_add_collect_object
+        if element is None:
+            self.report({"WARNING"}, "No object provided, Element not added")
+            return {"CANCELLED"}
+        if element.type != 'MESH':
+            self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
+            return {"CANCELLED"}
+
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
@@ -586,10 +626,24 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         collection = getattr(curve, self.element_type)
 
         new_element = collection.objects.add()
+        new_element.object = element
         new_element.host_curve = curve.curve_object
         new_element.element_type = self.element_type
+        collection.objects.move(len(collection.objects) - 1, collection.active_element_index + 1)
+
+        wm.blenderrail_add_collect_object = None
+        self._add_curve_element(curve.curve_object, collection.objects, self.element_type)
+        curve.curve_object.update_tag()
 
         return {"FINISHED"}
+
+    def invoke(self, context, event):
+        title = "Add Element"
+        return context.window_manager.invoke_props_dialog(self, title = title)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
 
 
 class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
@@ -599,11 +653,14 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
 
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
-    def _remove_curve_element(self, context, host_curve, modifier, object):
-        if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-            return 
-        if gn_sockets._get_socket_value(modifier, "Socket_4") == object:
-            host_curve.modifiers.remove(modifier)
+    def _remove_curve_element(self, context, host_curve, assigned_modifiers, current_object):
+        for modifier_index, modifier in enumerate(assigned_modifiers):
+            socket_obj = gn_sockets._get_socket_value(modifier, "Socket_4")
+            if socket_obj == current_object:
+                self.report({"INFO"}, "Removed modifier: " + modifier.name + " for object: " + current_object.name)
+                host_curve.modifiers.remove(modifier)
+                return
+        self.report({"WARNING"}, "No matching modifier found for the object to remove")
         return
 
     def execute(self, context):
@@ -612,17 +669,19 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
-
+        
         if len(collection.objects) == 0:
             self.report({"INFO"}, "No objects to remove")
             return {"CANCELLED"}
 
-        object = collection.objects[len(collection.objects) - 1].object
-        host_curve = collection.objects[len(collection.objects) - 1].host_curve
-        for modifier in host_curve.modifiers:
-            self._remove_curve_element(context, host_curve, modifier, object)
+        host_curve = collection.objects[collection.active_element_index].host_curve
+        assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
+        current_object = collection.objects[collection.active_element_index].object
 
-        collection.objects.remove(len(collection.objects) - 1)
+        self._remove_curve_element(context, host_curve, assigned_modifiers, current_object)
+
+        collection.objects.remove(collection.active_element_index)
+        collection.active_element_index = min(collection.active_element_index, max(0, len(collection.objects) - 1))
 
         return {"FINISHED"}
     

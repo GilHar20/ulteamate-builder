@@ -52,8 +52,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         label_row = column.row(align = True)
         icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
         label_row.label(text = "", icon = icon)
-        label_row.label(text = str(index))
-        label_row.prop(item, "name", text = "", placeholder = "Floor Name")
+        label_row.label(text = "Floor #" + str(index))
 
         op_row = label_row.row(align = True)
         op_row.alignment = 'RIGHT'
@@ -127,6 +126,33 @@ class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
         row.prop(item, "element_ID", text = str(index))
 
 
+class BLENDERRAIL_UL_element_list(bpy.types.UIList):
+    """UIList for displaying displaying segments per curve"""
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        elements_collection = getattr(curve, item.element_type)
+        active_element_index = elements_collection.active_element_index
+
+        icon = 'CHECKBOX_HLT' if active_element_index == index else 'CHECKBOX_DEHLT'
+
+        row = layout.row(align = True)
+        row.label(text = "", icon = icon)
+        row.label(text = item.object.name, icon = 'OBJECT_DATA')
+
+        select_object = row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
+        select_object.element_type = item.element_type
+        select_object.index = index
+
+        settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
+        settings.element_type = item.element_type
+        settings.collect_method = False
+        settings.index = index
+
+
 
 # -----------------------
 # Main Panel
@@ -140,25 +166,23 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
     bl_category = "BlenderRail"
 
 
-    def draw_collect_objects(self, layout, element_type, elements):
-        row = layout.row()
+    def draw_collect_objects(self, layout, element_type, elements_colletion):
+        row = layout.row(align = True)
         objects_column = row.column(align = True)
-        for index, element in enumerate(elements):
-            object_row = objects_column.row(align = True)
-            object_row.prop(element, "object", text = "", placeholder = "Object", icon = 'OBJECT_DATA')
-
-            select_object = object_row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
-            select_object.element_type = element_type
-            select_object.index = index
-
-            settings = object_row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
-            settings.element_type = element_type
-            settings.collect_method = False
-            settings.index = index
+        objects_column.template_list(
+            "BLENDERRAIL_UL_element_list",
+            "blenderrail_elements_list",
+            elements_colletion,
+            "objects",
+            elements_colletion,
+            "active_element_index",
+            rows = 4
+        )
         
         buttons = row.column(align=True)
         add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
         add_object.element_type = element_type
+        add_object.active_index = elements_colletion.active_element_index
         remove_object = buttons.operator("blenderrail.remove_collect_object", text = "", icon = 'REMOVE')
         remove_object.element_type = element_type
 
@@ -293,19 +317,6 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         segments_column = collections_column.column()
         segments_column.label(text = "Segments:")
         segments_row = segments_column.row(align = True)
-        '''
-        segments_row.template_list(
-            "BLENDERRAIL_UL_segment_list",
-            "blenderrail_segment_list",
-            active_curve,
-            "segments",
-            active_curve,
-            "active_segment_index",
-            rows = 4,
-            maxrows = 10,
-            columns = 5
-        )
-        '''
 
         segments = active_curve.segments
         segments_row.prop(scene, "show_segments_grid", text = "Show Segments Grid", icon = 'VIEW_ORTHO')
@@ -383,23 +394,6 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             property_column.prop(active_curve, "random_index", text = "Random Index")
    
 
-        '''
-        # Segment Settings
-        settings_box.separator()
-        if len(active_curve.segments) > 0:
-            active_segment = active_curve.segments[active_curve.active_segment_index]
-            
-            settings_box.label(text = "Segment Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
-
-            property_column = settings_box.column(align = True)
-            fit_method = property_column.row(align = True)
-            fit_method.label(text = "Fit Method")
-            fit_method.prop(active_segment, "fit_method", text = "")
-            if active_segment.fit_method == 'FIXED':
-                property_column.prop(active_segment, "fixed_number", text = "Fixed Number")
-        '''
-
-
         # Main Elements Settings:
         settings_box.separator()
         main_elements = active_curve.main_elements
@@ -416,7 +410,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             settings.element_type = "main_elements"
             settings.collect_method = True
         else:
-            self.draw_collect_objects(main_elements_column, "main_elements", main_elements.objects)
+            self.draw_collect_objects(main_elements_column, "main_elements", main_elements)
 
 
         # Corner Elements Settings:
@@ -435,7 +429,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             settings.element_type = "corner_elements"
             settings.collect_method = True
         else:
-            self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements.objects)
+            self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements)
 
 
         # Interval Elements Settings:
