@@ -103,7 +103,11 @@ class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
             row = layout.row(align = True)
             icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
             row.label(text = "", icon = icon)
-            row.prop(item, "curve_object", text = "", placeholder = "Curve", icon = 'CURVE_DATA')
+            row.label(text = item.curve_object.name, icon = 'CURVE_DATA')
+
+            replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'FILE_REFRESH')
+            replace_curve.index = index
+
             select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF')
             select_curve.floor_index = active_floor_index
             select_curve.curve_index = index
@@ -141,7 +145,12 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
 
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
-        row.label(text = item.object.name, icon = 'OBJECT_DATA')
+        element_text = item.object.name if item.is_empty == False else "Empty Element"
+        row.label(text = element_text, icon = 'OBJECT_DATA')
+
+        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "FILE_REFRESH")
+        replace_object.element_type = item.element_type
+        replace_object.index = index
 
         select_object = row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
         select_object.element_type = item.element_type
@@ -167,9 +176,8 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
 
     def draw_collect_objects(self, layout, element_type, elements_colletion):
-        row = layout.row(align = True)
-        objects_column = row.column(align = True)
-        objects_column.template_list(
+        objects_row = layout.row(align = True)
+        objects_row.template_list(
             "BLENDERRAIL_UL_element_list",
             "blenderrail_elements_list",
             elements_colletion,
@@ -179,12 +187,24 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             rows = 4
         )
         
-        buttons = row.column(align=True)
-        add_object = buttons.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
+        objects_ops_column = objects_row.column()
+        objects_addremove = objects_ops_column.column(align=True)
+        add_object = objects_addremove.operator("blenderrail.add_collect_object", text = "", icon = 'ADD')
         add_object.element_type = element_type
-        add_object.active_index = elements_colletion.active_element_index
-        remove_object = buttons.operator("blenderrail.remove_collect_object", text = "", icon = 'REMOVE')
+        remove_object = objects_addremove.operator("blenderrail.remove_collect_object", text = "", icon = 'REMOVE')
         remove_object.element_type = element_type
+
+        objects_ops_column.separator()
+
+        objects_move = objects_ops_column.column(align = True)
+        move_down = objects_move.operator("blenderrail.reorder_collect_object", text = "", icon = 'EVENT_UP_ARROW')
+        move_down.element_type = element_type
+        move_down.up_down = False
+
+        move_up = objects_move.operator("blenderrail.reorder_collect_object", text = "", icon = 'EVENT_DOWN_ARROW')
+        move_up.element_type = element_type
+        move_up.up_down = True
+
 
 
     def draw(self, context):
@@ -222,11 +242,11 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         building_setting.prop(active_building, "building_collection", text = "", placeholder = "Building Collection")
         building_setting.prop(active_building, "floors_collection", text = "", placeholder = "Floors Collection")
         building_setting.prop(active_building, "elements_collection", text = "", placeholder = "Elements Collection")
-        building_setting.label(text = "number of curves in the building: " +str(len(active_building.all_curves)))
 
 
         collections_box = layout.box()
         collections_column = collections_box.column(align = True)
+
         
         # FLOORS:
         collections_column.separator()
@@ -245,35 +265,36 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             maxrows = 10
         )
 
-        floors_column = floors_row.column()
-
-        floors_addremove = floors_column.column(align = True)
-        floors_addremove.operator("blenderrail.add_floor", text = "", icon = "ADD")
-        floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
-
         if len(active_building.floors) <= 0:
             floors_column.label(text = "No floors added", icon = 'INFO')
-            return
+        
 
         floors = active_building.floors
         floor_index = active_building.active_floor_index
         active_floor = floors[floor_index]
 
-        floors_column.separator()
-        floors_move = floors_column.column(align = True)
+        floors_ops_column = floors_row.column()
+
+        floors_addremove = floors_ops_column.column(align = True)
+        floors_addremove.operator("blenderrail.add_floor", text = "", icon = "ADD")
+        floors_addremove.operator("blenderrail.remove_floor", text = "", icon = "REMOVE")
+
+        floors_ops_column.separator()
+        floors_move = floors_ops_column.column(align = True)
         move_down = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW')
         move_down.up_down = False
         move_down.floor_index = floor_index
 
-        move_up = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
+        move_up = floors_ops_column.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
         move_up.up_down = True
         move_up.floor_index = floor_index
 
-        floors_column.separator()
-        floors_copy = floors_column.column(align = True)
+        floors_ops_column.separator()
+        floors_copy = floors_ops_column.column(align = True)
         floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.current_floor_index = floor_index
+
 
         # CURVES:
         collections_column.separator()
@@ -400,7 +421,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
         settings_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        main_elements_column = settings_box.column(align = True)
+        main_elements_column = settings_box.column()
         collect_method_row = main_elements_column.row()
         collect_method_row.prop(main_elements, "collect_method", expand = True)
         if main_elements.collect_method == 'EXISTING':
@@ -419,7 +440,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
         settings_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        corner_elements_column = settings_box.column(align = True)
+        corner_elements_column = settings_box.column()
         collect_method_row = corner_elements_column.row()
         collect_method_row.prop(corner_elements, "collect_method", expand = True)
         if corner_elements.collect_method == 'EXISTING':

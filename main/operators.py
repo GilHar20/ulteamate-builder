@@ -170,7 +170,6 @@ def _calculate_floors_start_height(context, floors, stacked):
     accumulated_height: float = 0
 
     for floor_index, floor in enumerate(floors):
-        #floor.ID = floor_index
 
         curves = [curve for curve in floor.curves if curve.curve_object is not None]
         if not curves:

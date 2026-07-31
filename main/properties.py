@@ -2,11 +2,24 @@ import bpy
 from . import operators
 from ..utilities import gn_sockets
 
+
+
 # ------------------------
 # Property groups: Segment
 # ------------------------
 
 class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
+    def _correct_uv_element(self, context):
+        host_curve = self.host_curve
+        obj = self.object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
+                gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
+                host_curve.update_tag()
+                return
+            
     def _up_stretch_element(self, context):
         host_curve = self.host_curve
         obj = self.object
@@ -59,6 +72,27 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
+    is_empty : bpy.props.BoolProperty(
+        name = "Empty Element",
+        description = "Instead of assigning an object, set element bounds to fill length on the curve",
+        default = False
+    )
+
+    empty_bounds : bpy.props.FloatVectorProperty(
+        name = "Empty Bounds",
+        description = "Bounds of the empty element, used to fill length on the curve",
+        default = (1.0, 0.2, 3.4),
+        subtype = 'XYZ',
+        size = 3,
+    )
+
+    correct_uv : bpy.props.BoolProperty(
+        name = "Correct UV",
+        description = "Stretch the element's UV attribute to match the scaling on the curve",
+        default = False,
+        update = _correct_uv_element
+    )
+
     up_stretched : bpy.props.BoolProperty(
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
@@ -96,6 +130,17 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
 
 
 class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
+    def _correct_uv_element(self, context):
+        host_curve = self.host_curve
+        obj = self.object
+        for modifier in host_curve.modifiers:
+            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+                continue
+            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
+                gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
+                host_curve.update_tag()
+                return
+
     def _up_stretch_element(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
@@ -141,6 +186,13 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         min = 0,
         max = 10000,
         update = _clamp_active_element_index
+    )
+
+    correct_uv : bpy.props.BoolProperty(
+        name = "Correct UV",
+        description = "Stretch the element's UV attribute to match the scaling on the curve",
+        default = False,
+        update = _correct_uv_element
     )
 
     up_stretched : bpy.props.BoolProperty(
@@ -428,7 +480,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
 
     source_floor : bpy.props.StringProperty(
         name = "Source Floor",
-        description = "Name of the source floor",
+        description = "Index of the source floor",
         default = "",
     )
 
@@ -518,6 +570,7 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         type = bpy.types.Object
     )
 
+    # all_curves is not used. Will be in the future
     all_curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",

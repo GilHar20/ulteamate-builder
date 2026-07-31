@@ -14,6 +14,7 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
     bl_description = "Add floor to the list right after the active one"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
+
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
@@ -84,6 +85,7 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
     bl_description = "Move the floor up or down the list (True for down the list, false for up)"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
+
     floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     up_down : bpy.props.BoolProperty(
         name = "Up Down",
@@ -111,6 +113,8 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
             moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
             pushed_floor.ID -= 1
             moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
+            building.active_floor_index = self.floor_index + 1
+            building.active_floor_index = min(building.active_floor_index, max(0, len(building.floors) - 1))
         else:
             floors.move(self.floor_index, self.floor_index - 1)
             moved_floor = floors[self.floor_index - 1]
@@ -119,6 +123,8 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
             moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
             pushed_floor.ID += 1
             moved_floor.collection.name = building.name + "_Floor" + str(moved_floor.ID)
+            building.active_floor_index = self.floor_index - 1
+            building.active_floor_index = min(building.active_floor_index, max(0, len(building.floors) - 1))
         return {"FINISHED"}
 
 
@@ -127,6 +133,7 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     bl_label = "Select Floor Curve"
     bl_description = "Select the curve object assigned to the floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
 
     floor_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
     curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
@@ -236,6 +243,7 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
     bl_label = "Copy Floor"
     bl_description = "Copy the floor with all its settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
+
     
     current_floor_index : bpy.props.IntProperty(options = {"HIDDEN"})
     split : bpy.props.BoolProperty(name = "Split", default = False, options = {"HIDDEN"})
@@ -321,6 +329,15 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
 
     def execute(self, context):
+        wm = context.window_manager
+        element = wm.blenderrail_add_collect_object
+        if element is None:
+            self.report({"WARNING"}, "No object provided, Element not added")
+            return {"CANCELLED"}
+        if element.type != 'CURVE' or element.data.dimensions != '2D':
+            self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
+            return {"CANCELLED"}
+        
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
@@ -333,14 +350,25 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
         if len(curves) == 0:
             new_curve = curves.add()
+            new_curve.curve_object = element
             floor.active_curve_index = 0
         else:
             new_curve = curves.add()
+            new_curve.curve_object = element
             floor.active_curve_index = len(floor.curves) - 1
-        
-        building.all_curves.add().object = new_curve.curve_object
+            curves.move(len(curves) - 1, floor.active_curve_index + 1)
+
+        wm.blenderrail_add_collect_object = None
 
         return {"FINISHED"}
+
+    def invoke(self, context, event):
+        title = "Add Curve Object"
+        return context.window_manager.invoke_props_dialog(self, title = title)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
 
 
 class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
@@ -376,11 +404,52 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
         return {"FINISHED"}
     
 
+class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
+    bl_idname = "blenderrail.replace_curve_object"
+    bl_label = "Replace Curve"
+    bl_description = "Replace the active curve object"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def execute(self, context):
+        wm = context.window_manager
+        element = wm.blenderrail_add_collect_object
+        if element is None:
+            self.report({"WARNING"}, "No object provided, Element not added")
+            return {"CANCELLED"}
+        if element.type != 'CURVE' or element.data.dimensions != '2D':
+            self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
+            return {"CANCELLED"}
+        
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+        curves = floor.curves
+        curve = floor.curves[self.index]
+
+        curve.curve_object = element
+        wm.blenderrail_add_collect_object = None
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        title = "Replace Curve Object"
+        return context.window_manager.invoke_props_dialog(self, title = title)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+
+
 class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
     bl_idname = "blenderrail.stack_curve_object"
     bl_label = "Stack Curve Object"
     bl_description = "Set height (location z value)"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
 
     property_to_stack : bpy.props.EnumProperty(
         name = "property_to_stack",
@@ -472,6 +541,7 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
     bl_label = "Add Segment to Floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
+
     def execute(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
@@ -499,6 +569,7 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
     bl_idname = "blenderrail.remove_segment"
     bl_label = "Remove Active Segment"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
 
     def execute(self, context):
         scene = context.scene
@@ -531,6 +602,7 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
     bl_idname = "blenderrail.segment_settings"
     bl_label = "Segment Settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
 
     active_index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
     element_ID : bpy.props.IntProperty(default = 0, min = 0, max = 10000)
@@ -576,16 +648,27 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
     bl_label = "Add Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
-    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
-    active_index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
 
-    def _add_curve_element(self, curve, collection_objects, element_type):
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    is_empty : bpy.props.BoolProperty(default = False)
+    empty_bounds : bpy.props.FloatVectorProperty(
+        name = "Empty Bounds",
+        description = "Bounds of the empty element, used to fill length on the curve",
+        default = (1.0, 0.2, 3.4),
+        subtype = 'XYZ',
+        size = 3,
+    )
+
+    def _add_curve_element(self, curve, collection_objects, element_type, is_empty, empty_bounds):
         assigned_modifiers = [modifier for modifier in curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == element_type]
         assigned_objects = [gn_sockets._get_socket_value(modifier, "Socket_4") for modifier in assigned_modifiers]
 
         if len(assigned_modifiers) == 0:
+            obj = collection_objects.object[0]
             new_modifier = curve.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
-            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj)
+            gn_sockets._set_socket_value(new_modifier, "Socket_9", is_empty)
+            gn_sockets._set_socket_value(new_modifier, "Socket_10", empty_bounds)
+            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj if is_empty == False else None)
             gn_sockets._set_socket_value(new_modifier, "Socket_5", element_type)
             return
 
@@ -594,15 +677,18 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         bpy.context.view_layer.objects.active = curve
 
         for object_index, collect_object in enumerate(collection_objects):
-            obj = collect_object.object
-            if obj is None or obj in assigned_objects:
-                continue
-            else:
-                last_modifier = assigned_modifiers[object_index - 1 if object_index >= 0 else 0]
-                source_index = curve.modifiers.find(last_modifier.name)
-                bpy.ops.object.modifier_copy(modifier = last_modifier.name)
-                new_modifier = curve.modifiers[source_index + 1]
-            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj)
+            obj = collect_object.object if is_empty == False else None
+            if obj in assigned_objects:
+                self.report({"ERROR"}, "Object already assigned to the curve! Object cannot be assigned twice.")
+                return {"CANCELLED"}
+            
+            last_modifier = assigned_modifiers[object_index - 1 if object_index >= 0 else 0]
+            source_index = assigned_modifiers.index(last_modifier)
+            bpy.ops.object.modifier_copy(modifier = last_modifier.name)
+            new_modifier = curve.modifiers[source_index]
+            gn_sockets._set_socket_value(new_modifier, "Socket_9", is_empty)
+            gn_sockets._set_socket_value(new_modifier, "Socket_10", empty_bounds)
+            gn_sockets._set_socket_value(new_modifier, "Socket_4", obj if is_empty == False else None)
             gn_sockets._set_socket_value(new_modifier, "Socket_5", element_type)
             self.report({"INFO"}, last_modifier.name)
             break
@@ -610,29 +696,52 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
 
     
     def execute(self, context):
-        wm = context.window_manager
-        element = wm.blenderrail_add_collect_object
-        if element is None:
-            self.report({"WARNING"}, "No object provided, Element not added")
-            return {"CANCELLED"}
-        if element.type != 'MESH':
-            self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
-            return {"CANCELLED"}
-
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
+        active_element = collection.objects[collection.active_element_index]
+        empty_bounds = active_element.empty_bounds
 
+        wm = context.window_manager
+        element = wm.blenderrail_add_collect_object
+
+        # CASE is_empty is True
+        if self.is_empty == True:
+            new_element = collection.objects.add()
+            new_element.object = element
+            new_element.host_curve = curve.curve_object
+            new_element.element_type = self.element_type
+            new_element.is_empty = self.is_empty
+            collection.objects.move(len(collection.objects) - 1, collection.active_element_index + 1)
+
+            wm.blenderrail_add_collect_object = None    # IMPORTANT!!! IF is_empty, wm.blenderrail_add_collect_object has to be None
+            self._add_curve_element(curve.curve_object, collection.objects, self.element_type, self.is_empty, self.empty_bounds)
+            curve.curve_object.update_tag()
+
+            self.report({"INFO"}, "Added Empty Element" + str(self.is_empty))
+            return {"FINISHED"}
+
+        elif element is None:
+            wm.blenderrail_add_collect_object = None
+            self.report({"WARNING"}, "No object provided, Element not added")
+            return {"CANCELLED"}
+        elif element.type != 'MESH':
+            wm.blenderrail_add_collect_object = None
+            self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
+            return {"CANCELLED"}
+
+        # CASE is_empty is False
         new_element = collection.objects.add()
         new_element.object = element
         new_element.host_curve = curve.curve_object
         new_element.element_type = self.element_type
+        new_element.is_empty = self.is_empty
         collection.objects.move(len(collection.objects) - 1, collection.active_element_index + 1)
 
+        self._add_curve_element(curve.curve_object, collection.objects, self.element_type, self.is_empty, self.empty_bounds)
         wm.blenderrail_add_collect_object = None
-        self._add_curve_element(curve.curve_object, collection.objects, self.element_type)
         curve.curve_object.update_tag()
 
         return {"FINISHED"}
@@ -642,8 +751,20 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        collection = getattr(curve, self.element_type)
+        active_element = collection.objects[collection.active_element_index]
+
         layout = self.layout
-        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+        layout.prop(self, "is_empty", text = "Set Element as Empty", icon = 'EMPTY_DATA', toggle = True)
+        if self.is_empty:
+            bounds_column = layout.column(align = True)
+            bounds_column.prop(active_element, "empty_bounds", text = "Element Bounds", icon = 'FIXED_SIZE')
+        else:
+            layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "", placeholder = "Element Object")
 
 
 class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
@@ -651,17 +772,8 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
     bl_label = "Remove Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
-    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
-    def _remove_curve_element(self, context, host_curve, assigned_modifiers, current_object):
-        for modifier_index, modifier in enumerate(assigned_modifiers):
-            socket_obj = gn_sockets._get_socket_value(modifier, "Socket_4")
-            if socket_obj == current_object:
-                self.report({"INFO"}, "Removed modifier: " + modifier.name + " for object: " + current_object.name)
-                host_curve.modifiers.remove(modifier)
-                return
-        self.report({"WARNING"}, "No matching modifier found for the object to remove")
-        return
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
         scene = context.scene
@@ -669,27 +781,74 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
+        active_element_index = collection.active_element_index
         
         if len(collection.objects) == 0:
             self.report({"INFO"}, "No objects to remove")
             return {"CANCELLED"}
 
-        host_curve = collection.objects[collection.active_element_index].host_curve
+        host_curve = collection.objects[active_element_index].host_curve
         assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
-        current_object = collection.objects[collection.active_element_index].object
 
-        self._remove_curve_element(context, host_curve, assigned_modifiers, current_object)
-
+        host_curve.modifiers.remove(assigned_modifiers[active_element_index])
         collection.objects.remove(collection.active_element_index)
         collection.active_element_index = min(collection.active_element_index, max(0, len(collection.objects) - 1))
 
         return {"FINISHED"}
     
 
+class BLENDERRAIL_OT_reorder_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.reorder_collect_object"
+    bl_label = "Reorder Collect Object"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+ 
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    up_down : bpy.props.BoolProperty(
+        name = "Up Down",
+        description = " Switches between moving floor up or dowm the list (True for down the list, false for up)",
+        default = True)
+
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        collection = getattr(curve, self.element_type)
+        collection_objects = collection.objects
+        active_element_index = collection.active_element_index
+
+        host_curve = collection.objects[active_element_index].host_curve
+        assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
+        modifier_name = assigned_modifiers[active_element_index].name
+
+
+        if self.up_down == True:
+            collection_objects.move(active_element_index, active_element_index + 1)
+            bpy.ops.object.select_all(action='DESELECT')
+            host_curve.select_set(True)
+            bpy.context.view_layer.objects.active = host_curve
+            bpy.ops.object.modifier_move_down(modifier=modifier_name)
+            collection.active_element_index = active_element_index + 1
+            collection.active_element_index = min(collection.active_element_index, max(0, len(collection.objects) - 1))
+
+        else:
+            collection_objects.move(active_element_index, active_element_index - 1)
+            bpy.ops.object.select_all(action='DESELECT')
+            host_curve.select_set(True)
+            bpy.context.view_layer.objects.active = host_curve
+            bpy.ops.object.modifier_move_up(modifier=modifier_name)
+            collection.active_element_index = active_element_index - 1
+            collection.active_element_index = min(collection.active_element_index, max(0, len(collection.objects) - 1))
+
+        return{"FINISHED"}
+
+
 class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
     bl_idname = "blenderrail.select_collect_object"
     bl_label = "Select Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
  
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
     index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
@@ -722,10 +881,59 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         return{"FINISHED"}
 
 
+class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
+    bl_idname = "blenderrail.replace_collect_object"
+    bl_label = "Replace Collect Object"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
+    
+    def execute(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        collection = getattr(curve, self.element_type)
+        active_element = collection.objects[collection.active_element_index]
+
+        wm = context.window_manager
+        element = wm.blenderrail_add_collect_object
+        if element is None and active_element.is_empty == False:
+            self.report({"WARNING"}, "No object provided, Element not added")
+            return {"CANCELLED"}
+        if element.type != 'MESH' and active_element.is_empty == False:
+            self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
+            return {"CANCELLED"}
+
+        host_curve = collection.objects[collection.active_element_index].host_curve
+        assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
+
+        current_modifier = assigned_modifiers[self.index]
+        gn_sockets._set_socket_value(current_modifier, "Socket_4", element if not active_element.is_empty else None)
+        gn_sockets._set_socket_value(current_modifier, "Socket_9", active_element.is_empty if active_element.is_empty else False)
+        gn_sockets._set_socket_value(current_modifier, "Socket_10", active_element.empty_bounds if active_element.is_empty else (1.0, 0.2, 3.4))
+
+        wm.blenderrail_add_collect_object = None
+        curve.curve_object.update_tag()
+
+        return{"FINISHED"}
+
+    def invoke(self, context, event):
+        title = "Replace Element"
+        return context.window_manager.invoke_props_dialog(self, title = title)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+
+
 class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
     bl_idname = "blenderrail.collect_object_settings"
     bl_label = "Collect Object Settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
  
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
     collect_method : bpy.props.BoolProperty(default = False, options = {"HIDDEN"})
@@ -741,9 +949,7 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
 
-        method = "Objects" if not self.collect_method else "Existing Collection"
-
-        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type + ", " + method
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
@@ -755,12 +961,12 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         corner_elements = curve.corner_elements
         element = None
 
-        if self.element_type == "main_elements":
+        if self.element_type == "main_elements" and self.collect_method == False:
             element = main_elements.objects[self.index]
-        if self.element_type == "corner_elements":
+        if self.element_type == "corner_elements" and self.collect_method == False:
             element = corner_elements.objects[self.index]
         if element == None:
-            self.report({"ERROR"}, "No object provided")
+            self.report({"ERROR"}, f"There were no {self.element_type} assigned")
             return{"CANCELLED"}
 
         if self.element_type == "main_elements" and self.collect_method == True:
@@ -768,32 +974,36 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         if self.element_type == "corner_elements" and self.collect_method == True:
             element = corner_elements
         if element == None:
-            self.report({"ERROR"}, "No object provided")
+            self.report({"ERROR"}, "There is no collection provided")
             return{"CANCELLED"}
         
 
         layout = self.layout
         
         if self. collect_method == True:
-            layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
+            layout.prop(element, "correct_uv", text = "Correct UVs", toggle = True)
+            layout.prop(element, "up_stretched", text = "Up Stretch", toggle = True)
+            
             axes_column = layout.column(align = True)
             forward_row = axes_column.row()
-            forward_row.label(text = "Forward Axis")
-            forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            forward_row.prop(element, "forward_axis", text = "Forward Axis")
             side_row = axes_column.row()
-            side_row.label(text = "Side Axis")
-            side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
+            side_row.prop(element, "side_axis", text = "Side Axis")
 
         else:
-            layout.prop(element, "up_stretched", text = "Up Stretched", toggle = True)
-            axes_column = layout.column(align = True)
+            empty_column = layout.column(align = True)
+            empty_column.prop(element, "is_empty", text = "Set Element as Empty", toggle = True)
+            if element.is_empty == True:
+                empty_column.prop(element, "empty_bounds", text = "Element Bounds", icon = 'FIXED_SIZE')
 
+            layout.prop(element, "correct_uv", text = "Correct UVs", toggle = True)
+            layout.prop(element, "up_stretched", text = "Up Stretch", toggle = True)
+
+            axes_column = layout.column(align = True)
             forward_row = axes_column.row()
-            forward_row.label(text = "Forward Axis")
-            forward_row.prop(element, "forward_axis", text = "Forward Axis", expand = True)
+            forward_row.prop(element, "forward_axis", text = "Forward Axis")
             side_row = axes_column.row()
-            side_row.label(text = "Side Axis")
-            side_row.prop(element, "side_axis", text = "Side Axis", expand = True)
+            side_row.prop(element, "side_axis", text = "Side Axis")
 
         
-        return{"FINISHED"}
+        return
