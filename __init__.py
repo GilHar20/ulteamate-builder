@@ -1,6 +1,6 @@
 bl_info = {
     "name": "BlenderRail",
-    "version": (0, 7, 5),
+    "version": (0, 7, 6),
     "blender": (4, 5, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > blenderrail",

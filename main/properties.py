@@ -478,12 +478,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000
     )
 
-    source_floor : bpy.props.StringProperty(
-        name = "Source Floor",
-        description = "Index of the source floor",
-        default = "",
-    )
-
     is_linked : bpy.props.BoolProperty(
         name = "Floor Linked",
         description = "True if floor is linked to another floor",
@@ -534,6 +528,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         name = "Curves Collection",
         description = "Collection to store all floor's curves",
         type = bpy.types.Collection
+    )
+
+    instance_object : bpy.props.PointerProperty(
+        name = "Instance Collection Object",
+        description = "Collection object linked from the source floor curves_collection",
+        type = bpy.types.Object
     )
 
     active_curve_index : bpy.props.IntProperty(

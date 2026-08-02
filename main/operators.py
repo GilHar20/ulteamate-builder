@@ -151,7 +151,16 @@ def on_depsgraph_update(scene, depsgraph):
     if not hasattr(scene, "buildings"):
         return
 
+    if not scene.buildings:
+        return
+
     if bpy.context.mode != 'EDIT_CURVE':
+        return
+
+    if bpy.context.active_object.type != 'CURVE':
+        return
+
+    if bpy.context.active_object.modifiers[0].name != "BLENDERRAIL_CurveAttributes_GN":
         return
 
     _rematch_in_progress = True

@@ -36,10 +36,14 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
 
             icon = 'CHECKBOX_HLT' if active_floor_index == index else 'CHECKBOX_DEHLT'
             label_row.label(text = "", icon = icon)
-            label_row.label(text = "------------------", icon = 'LINKED')
+            label_row.label(text = "Floor #" + str(index) + " -----", icon = 'LINKED')
 
             op_row = layout.row(align = True)
             op_row.alignment = 'RIGHT'
+
+            realize_floor = op_row.operator("blenderrail.copy_floor", text = "", icon = 'UNLINKED', emboss = False)
+            realize_floor.current_floor_index = index
+            realize_floor.mode = "REALIZE"
 
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
@@ -86,7 +90,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             row.label(text = str(array + 2) + " Array", icon = 'MOD_ARRAY')
             split = row.operator("blenderrail.copy_floor", text = "", icon = 'AREA_JOIN_DOWN')
             split.current_floor_index = index
-            split.split = True
+            split.mode = "SPLIT"
             split.level_index = array
 
 
@@ -105,10 +109,10 @@ class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
             row.label(text = "", icon = icon)
             row.label(text = item.curve_object.name, icon = 'CURVE_DATA')
 
-            replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'FILE_REFRESH')
+            replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'FILE_REFRESH', emboss = False)
             replace_curve.index = index
 
-            select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF')
+            select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = active_floor_index
             select_curve.curve_index = index
 
@@ -148,15 +152,15 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
         element_text = item.object.name if item.is_empty == False else "Empty Element"
         row.label(text = element_text, icon = 'OBJECT_DATA')
 
-        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "FILE_REFRESH")
+        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "FILE_REFRESH", emboss = False)
         replace_object.element_type = item.element_type
         replace_object.index = index
 
-        select_object = row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF")
+        select_object = row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF", emboss = False)
         select_object.element_type = item.element_type
         select_object.index = index
 
-        settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES')
+        settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES', emboss = False)
         settings.element_type = item.element_type
         settings.collect_method = False
         settings.index = index
@@ -294,6 +298,7 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.current_floor_index = floor_index
+        copy_floor.mode = "COPY"
 
 
         # CURVES:
@@ -335,17 +340,19 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         # SEGMENTS:
         collections_column.separator()
 
-        segments_column = collections_column.column()
-        segments_column.label(text = "Segments:")
-        segments_row = segments_column.row(align = True)
-
         segments = active_curve.segments
+
+        collections_column.label(text = "Segments:")
+        segments_list = collections_column.box()
+        segments_row = segments_list.row(align = True)
         segments_row.prop(scene, "show_segments_grid", text = "Show Segments Grid", icon = 'VIEW_ORTHO')
+        segments_row.prop(scene, "segments_grid_columns", text = "Columns", icon = 'GRIP_V')
+        
         if scene.show_segments_grid == True and len(segments) > 0:
-            segments_row.prop(scene, "segments_grid_columns", text = "Columns", icon = 'GRIP_V')
-            grid = segments_column.grid_flow(row_major = True, columns = scene.segments_grid_columns, align = True)
+            grid = segments_list.grid_flow(row_major = True, columns = scene.segments_grid_columns, align = True)
             for segment_index, segment in enumerate(segments):
-                segment_settings = grid.operator("blenderrail.segment_settings", text = str(segment_index), icon = 'PARTICLE_PATH')
+                segment_settings_box = grid.box()
+                segment_settings = segment_settings_box.operator("blenderrail.segment_settings", text = str(segment_index), icon = 'PARTICLE_PATH', emboss = False)
                 segment_settings.active_index = segment_index
 
 
