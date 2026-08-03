@@ -11,12 +11,15 @@ class BLENDERRAIL_UL_building_list(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         scene = context.scene
+        building = scene.buildings[index]
         active_building_index = scene.active_building_index
+
         icon = 'CHECKBOX_HLT' if active_building_index == index else 'CHECKBOX_DEHLT'
-        
         row = layout.row(align = True)
-        row.label(text = "", icon = icon)
-        row.prop(item, "name", text = "", placeholder = "Building Name", icon = 'FILE_FONT')
+        row.label(text = building.name, icon = icon)
+
+        building_settings = row.operator("blenderrail.building_settings", text = "", icon = 'PREFERENCES', emboss = False)
+        building_settings.index = index
 
         select_object = layout.operator("blenderrail.select_base_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_object.building_index = index
@@ -62,6 +65,8 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         op_row.alignment = 'RIGHT'
 
         if item.array < 2:
+            floor_settings = op_row.operator("blenderrail.floor_settings", text = "", icon = 'PREFERENCES', emboss = False)
+            floor_settings.index = index
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
             select_curve.curve_index = -1
@@ -72,6 +77,8 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
         if item.array >= 2:
             icon = 'DISCLOSURE_TRI_DOWN' if item.show_array else 'DISCLOSURE_TRI_RIGHT'
             op_row.prop(item, "show_array", text = "", icon = icon, emboss = False)
+            floor_settings = op_row.operator("blenderrail.floor_settings", text = "", icon = 'PREFERENCES', emboss = False)
+            floor_settings.index = index
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
             select_curve.curve_index = -1
@@ -98,23 +105,26 @@ class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
     """UIList for displaying displaying curves per floor"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-            scene = context.scene
-            building = scene.buildings[scene.active_building_index]
-            active_floor_index = building.active_floor_index
-            floor = building.floors[active_floor_index]
-            active_curve_index = floor.active_curve_index
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        active_floor_index = building.active_floor_index
+        floor = building.floors[active_floor_index]
+        active_curve_index = floor.active_curve_index
 
-            row = layout.row(align = True)
-            icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
-            row.label(text = "", icon = icon)
-            row.label(text = item.curve_object.name, icon = 'CURVE_DATA')
+        row = layout.row(align = True)
+        icon = 'CHECKBOX_HLT' if index == active_curve_index else 'CHECKBOX_DEHLT'
+        row.label(text = "", icon = icon)
+        row.label(text = item.curve_object.name, icon = 'CURVE_DATA')
 
-            replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'FILE_REFRESH', emboss = False)
-            replace_curve.index = index
+        curve_settings = row.operator("blenderrail.curve_settings", text = "", icon = 'PREFERENCES', emboss = False)
+        curve_settings.index = index
 
-            select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-            select_curve.floor_index = active_floor_index
-            select_curve.curve_index = index
+        replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
+        replace_curve.index = index
+
+        select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+        select_curve.floor_index = active_floor_index
+        select_curve.curve_index = index
 
 
 class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
@@ -152,7 +162,7 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
         element_text = item.object.name if item.is_empty == False else "Empty Element"
         row.label(text = element_text, icon = 'OBJECT_DATA')
 
-        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "FILE_REFRESH", emboss = False)
+        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "DECORATE_OVERRIDE", emboss = False)
         replace_object.element_type = item.element_type
         replace_object.index = index
 
@@ -219,11 +229,13 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
         # BUILDINGS:
         buildings_box = layout.box()
-        buildings_column = buildings_box.column(align = True)
-        buildings_row = buildings_column.row()
+        buildings_row = buildings_box.row(align = True)
         buildings_row.scale_y = 2.0
-        buildings_row.operator("blenderrail.generate_building", text = "Add Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
-        buildings_column.operator("blenderrail.remove_building", text = "Remove Building", icon = 'EVENT_NDOF_BUTTON_MINUS')
+        building_add_row = buildings_row.row(align = True)
+        building_add_row.scale_x = 1.5
+        building_add_row.operator("blenderrail.generate_building", text = "Add Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
+        building_remove_row = buildings_row.row(align = True)
+        building_remove_row.operator("blenderrail.remove_building", text = "Remove", icon = 'EVENT_NDOF_BUTTON_MINUS')
 
         if len(buildings) <= 0:
             buildings_box.label(text = "No buildings added", icon = 'INFO')
@@ -241,11 +253,6 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
             "active_building_index",
             rows = 2
         )
-        building_setting = buildings_box.column(align = True)
-        building_setting.prop(active_building, "base_object", text = "", placeholder = "Base Object")
-        building_setting.prop(active_building, "building_collection", text = "", placeholder = "Building Collection")
-        building_setting.prop(active_building, "floors_collection", text = "", placeholder = "Floors Collection")
-        building_setting.prop(active_building, "elements_collection", text = "", placeholder = "Elements Collection")
 
 
         collections_box = layout.box()

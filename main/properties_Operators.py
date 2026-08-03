@@ -1,3 +1,5 @@
+from operator import index
+
 import bpy
 from . import operators
 from ..utilities import find_node_group, gn_sockets
@@ -177,6 +179,10 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             self._select_set(context, curve_items)
 
+        building.active_floor_index = active_floor_index
+        if self.curve_index > -1:
+            building.floors[active_floor_index].active_curve_index = self.curve_index
+
         return{"FINISHED"}
 
 
@@ -210,7 +216,7 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         
         instance_empty = bpy.data.objects.new(f"{building.name}_Floor{new_floor.ID}", None)
         curve_attributes = instance_empty.modifiers.new(name = "BLENDERRAIL_LinkFloor_GN", type = "NODES")
-        curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
+        curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")[0]
         curve_attributes.node_group = curve_attributes_gn
         curve_attributes.show_expanded = False
         new_floor.instance_object = instance_empty
@@ -380,6 +386,38 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
         #bpy.ops.blenderrail.evaluate_building()
         
         return{"FINISHED"}
+
+
+class BLENDERRAIL_OT_floor_settings(bpy.types.Operator):
+    bl_idname = "blenderrail.floor_settings"
+    bl_label = "Floor Settings"
+    bl_description = "Edit the settings of the active floor"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
+
+
+    index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def execute(self, context):
+        '''This executes NOTHING. Sole purpose of this operator is to expose the active floor's properties in a pop-up dialog :)'''
+        return{"FINISHED"}
+
+    def invoke(self, context, event):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[self.index]
+
+        title = building.name + ", Floor " + str(floor.ID)
+        return context.window_manager.invoke_props_dialog(self, title = title)
+
+    def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[self.index]
+
+        layout = self.layout
+        property_column = layout.column(align = True)
+        property_column.prop(floor, "curves_collection", text = "", icon = 'OUTLINER_COLLECTION')
+        property_column.prop(floor, "array", text = "Number of Levels")
 
 
 
@@ -595,8 +633,71 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
                 description += " of all floor curves to the floor start height"
 
         return description
-    
 
+
+class BLENDERRAIL_OT_curve_settings(bpy.types.Operator):
+    bl_idname = "blenderrail.curve_settings"
+    bl_label = "Curve Settings"
+    bl_description = "Set curve properties"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+
+    def execute(self, context):
+        '''This executes NOTHING. Sole purpose of this operator is to expose the active curve's properties in a pop-up dialog :)'''
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[self.index]
+
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID)
+        return context.window_manager.invoke_props_dialog(self, title = title)
+
+    def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[self.index]
+
+        layout = self.layout
+        
+        curve_fill_column = layout.column(align = True)
+        curve_fill_column.prop(curve, "height", text = "Height")
+        curve_fill_column.prop(curve, "inset", text = "Shrink/Expand", )
+
+        layout.separator(factor = 4.0, type = 'LINE')
+
+        floor_ceiling_column = layout.column(align = True)
+        floor_ceiling_column.alignment = 'RIGHT'
+        floor_ceiling_column.prop(curve, "floor_ceiling", text = "Floor/Ceiling")
+        if curve.floor_ceiling != 'NONE':
+            floor_ceiling_column.prop(curve, "thickness", text = "Extrude Thickness")
+        if curve.floor_ceiling == 'BOTTOM' or curve.floor_ceiling == 'BOTH':
+            floor_ceiling_column.prop(curve, "direction_bottom", text = "Bottom Extrude Offset")
+        if curve.floor_ceiling == 'TOP' or curve.floor_ceiling == 'BOTH':
+            floor_ceiling_column.prop(curve, "direction_top", text = "Top Extrude Offset")
+
+        floor_ceiling_column.prop(curve, "top_material", text = "Top Material", icon = 'MATERIAL')
+        floor_ceiling_column.prop(curve, "sides_material", text = "Sides Material", icon = 'MATERIAL')
+        floor_ceiling_column.prop(curve, "bottom_material", text = "Bottom Material", icon = 'MATERIAL')
+
+        layout.separator(factor = 4.0, type = 'LINE')
+
+        select_column = layout.column(align = True)
+        select_column.alignment = 'RIGHT'
+        select_column.prop(curve, "select_method", text = "Select Method")
+        if curve.select_method != 'CUSTOM':
+            select_column.prop(curve, "select_per_segment", text = "Element per Segment", toggle = True)
+        if curve.select_method == 'SEQUENCE':
+            select_column.prop(curve, "sequence_offset", text = "Sequence Offset")
+        elif curve.select_method == 'RANDOM':
+            select_column.prop(curve, "random_index", text = "Random Index")
+
+    
 
 # --------------------------------
 # Operators: segments Operators
@@ -943,6 +1044,11 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = element
         element.select_set(True)
+
+        if self.element_type == "main_elements":
+            main_elements.active_element_index = self.index
+        if self.element_type == "corner_elements":
+            corner_elements.active_element_index = self.index
 
         return{"FINISHED"}
 

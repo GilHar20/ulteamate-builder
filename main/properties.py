@@ -345,6 +345,19 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         max = 10000
     )
 
+    curve_object : bpy.props.PointerProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = bpy.types.Object,
+        update = _update_curve_collection
+    )
+
+    segments : bpy.props.CollectionProperty(
+        name = "Segments",
+        description = "Segments of the curve object",
+        type = BLENDERRAIL_PG_segment
+    )
+
     height : bpy.props.FloatProperty(
         name = "Height",
         default = 3.4,
@@ -398,18 +411,24 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         max = 10.0
     )
 
-    curve_object : bpy.props.PointerProperty(
-        name = "Input curve object",
-        description = "Input curve geometry",
-        type = bpy.types.Object,
-        update = _update_curve_collection
+    top_material : bpy.props.PointerProperty(
+        name = "Top Material",
+        description = "Material for the top surface of the floor",
+        type = bpy.types.Material
     )
 
-    segments : bpy.props.CollectionProperty(
-        name = "Segments",
-        description = "Segments of the curve object",
-        type = BLENDERRAIL_PG_segment
+    sides_material : bpy.props.PointerProperty(
+        name = "Sides Material",
+        description = "Material for the sides surface of the floor",
+        type = bpy.types.Material
     )
+
+    bottom_material : bpy.props.PointerProperty(
+        name = "Bottom Material",
+        description = "Material for the bottom surface of the floor",
+        type = bpy.types.Material
+    )
+
 
     active_segment_index : bpy.props.IntProperty(
         name = "Active Segment Index",

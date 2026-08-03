@@ -18,6 +18,7 @@ classes = [
     properties_Operators.BLENDERRAIL_OT_select_floor_curves,
     properties_Operators.BLENDERRAIL_OT_link_floor,
     properties_Operators.BLENDERRAIL_OT_copy_floor,
+    properties_Operators.BLENDERRAIL_OT_floor_settings,
     
     properties_Operators.BLENDERRAIL_OT_add_segment,
     properties_Operators.BLENDERRAIL_OT_remove_segment,
@@ -27,6 +28,7 @@ classes = [
     properties_Operators.BLENDERRAIL_OT_remove_curve_object,
     properties_Operators.BLENDERRAIL_OT_replace_curve_object,
     properties_Operators.BLENDERRAIL_OT_stack_curve_object,
+    properties_Operators.BLENDERRAIL_OT_curve_settings,
 
     properties_Operators.BLENDERRAIL_OT_add_collect_object,
     properties_Operators.BLENDERRAIL_OT_remove_collect_object,
@@ -39,6 +41,7 @@ classes = [
     operators.BLENDERRAIL_OT_remove_building,
     operators.BLENDERRAIL_OT_select_base_object,
     operators.BLENDERRAIL_OT_evaluate_building,
+    operators.BLENDERRAIL_OT_building_settings,
     
     ui.BLENDERRAIL_UL_building_list,
     ui.BLENDERRAIL_UL_floor_list,

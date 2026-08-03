@@ -545,6 +545,13 @@ class BLENDERRAIL_OT_remove_building(bpy.types.Operator):
 
         return{"FINISHED"}
 
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width = 500)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text = "Are you ABSOLUTELY CERTAIN you want to delete the active building?", icon = 'ERROR')
+
 
 
 class BLENDERRAIL_OT_select_base_object(bpy.types.Operator):
@@ -566,3 +573,39 @@ class BLENDERRAIL_OT_select_base_object(bpy.types.Operator):
         object.select_set(True)
 
         return {"FINISHED"}
+
+
+
+class BLENDERRAIL_OT_building_settings(bpy.types.Operator):
+    bl_idname = "blenderrail.building_settings"
+    bl_label = "Building Settings"
+    bl_description = "Edit building properties"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    def execute(self, context):
+        '''This executes NOTHING. Sole purpose of this operator is to expose the active building's properties in a pop-up dialog :)'''
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        scene = context.scene
+        building = scene.buildings[self.index]
+
+        title = building.name
+        return context.window_manager.invoke_props_dialog(self,title = title)
+
+    def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[self.index]
+
+        layout = self.layout
+        properties_column = layout.column(align = True)
+        properties_column.alignment = 'RIGHT'
+
+        properties_column.prop(building, "name", text = "Building Name", icon = 'FILE_FONT')
+        properties_column.prop(building, "base_object", text = "Base Object", icon = 'OBJECT_DATA')
+        properties_column.prop(building, "building_collection", text = "Building Collection", icon = 'OUTLINER_COLLECTION')
+        properties_column.prop(building, "floors_collection", text = "Floors Collection", icon = 'OUTLINER_COLLECTION')
+        properties_column.prop(building, "elements_collection", text = "Elements Collection", icon = 'OUTLINER_COLLECTION')
