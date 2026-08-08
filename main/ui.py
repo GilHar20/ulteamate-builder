@@ -119,12 +119,12 @@ class BLENDERRAIL_UL_curve_list(bpy.types.UIList):
         curve_settings = row.operator("blenderrail.curve_settings", text = "", icon = 'PREFERENCES', emboss = False)
         curve_settings.index = index
 
-        replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
-        replace_curve.index = index
-
         select_curve = row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_curve.floor_index = active_floor_index
         select_curve.curve_index = index
+        
+        replace_curve = row.operator("blenderrail.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
+        replace_curve.index = index
 
 
 class BLENDERRAIL_UL_segment_list(bpy.types.UIList):
@@ -162,18 +162,18 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
         element_text = item.object.name if item.is_empty == False else "Empty Element"
         row.label(text = element_text, icon = 'OBJECT_DATA')
 
-        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "DECORATE_OVERRIDE", emboss = False)
-        replace_object.element_type = item.element_type
-        replace_object.index = index
+        settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES', emboss = False)
+        settings.element_type = item.element_type
+        settings.collect_method = False
+        settings.index = index
 
         select_object = row.operator("blenderrail.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF", emboss = False)
         select_object.element_type = item.element_type
         select_object.index = index
 
-        settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES', emboss = False)
-        settings.element_type = item.element_type
-        settings.collect_method = False
-        settings.index = index
+        replace_object = row.operator("blenderrail.replace_collect_object", text = "", icon = "DECORATE_OVERRIDE", emboss = False)
+        replace_object.element_type = item.element_type
+        replace_object.index = index
 
 
 
@@ -182,11 +182,18 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
 # -----------------------
 
 class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
-    bl_label = "BlenderRail"
+    bl_label = "Ultimate Trail"
     bl_idname = "VIEW3D_PT_blenderrail_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "BlenderRail"
+    bl_category = "Ultimate"
+
+
+    def draw_header(self, context):
+        from .. import icons
+        pcoll = icons.preview_collections.get("main")
+        if pcoll:
+            self.layout.label(text="", icon_value=pcoll["panel_logo"].icon_id)
 
 
     def draw_collect_objects(self, layout, element_type, elements_colletion):
@@ -220,7 +227,6 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         move_up.up_down = True
 
 
-
     def draw(self, context):
         layout = self.layout
         scene = context.scene
@@ -229,13 +235,18 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
         # BUILDINGS:
         buildings_box = layout.box()
-        buildings_row = buildings_box.row(align = True)
-        buildings_row.scale_y = 2.0
-        building_add_row = buildings_row.row(align = True)
-        building_add_row.scale_x = 1.5
-        building_add_row.operator("blenderrail.generate_building", text = "Add Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
-        building_remove_row = buildings_row.row(align = True)
-        building_remove_row.operator("blenderrail.remove_building", text = "Remove", icon = 'EVENT_NDOF_BUTTON_MINUS')
+        buildings_operators = buildings_box.row(align = True)
+
+
+        building_addremove = buildings_operators.column(align = True)
+        building_addremove.scale_x = 1.5
+        building_addremove.operator("blenderrail.generate_building", text = "Add Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
+        building_addremove.operator("blenderrail.remove_building", text = "Remove", icon = 'EVENT_NDOF_BUTTON_MINUS')
+
+        building_refresh = buildings_operators.column(align = True)
+        building_refresh.scale_y = 2.0
+        building_refresh.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        
 
         if len(buildings) <= 0:
             buildings_box.label(text = "No buildings added", icon = 'INFO')
@@ -255,14 +266,9 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         )
 
 
-        collections_box = layout.box()
-        collections_column = collections_box.column(align = True)
-
-        
         # FLOORS:
-        collections_column.separator()
-
-        floors_column = collections_column.column()
+        floors_box = layout.box()
+        floors_column = floors_box.column()
         floors_column.label(text = "Floors:")
         floors_row = floors_column.row(align = True)
         floors_row.template_list(
@@ -278,7 +284,6 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
         if len(active_building.floors) <= 0:
             floors_column.label(text = "No floors added", icon = 'INFO')
-        
 
         floors = active_building.floors
         floor_index = active_building.active_floor_index
@@ -307,12 +312,43 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         copy_floor.current_floor_index = floor_index
         copy_floor.mode = "COPY"
 
+        if active_floor.is_linked == True:
+            linked_box = layout.box()
+            linked_column = linked_box.column()
+            linked_column.alignment == 'CENTER'
+            linked_column.label(text = "Floor is linked!", icon = "INFO")
+            linked_column.label(text = "Refer to the source floor for further settings")
+            return
+        
+        stack_floors_column = floors_box.column(align = True)
+        stack_row = stack_floors_column.row(align = True)
+        stack_floors = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors", icon = 'TRIA_DOWN_BAR')
+        stack_floors.property_to_stack = 'FLOORS'
+        stack_curves = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors & Curves", icon = 'TRIA_DOWN_BAR')
+        stack_curves.property_to_stack = 'CURVES'
+        
+        stack_row2 = stack_floors_column.row(align = True)
+        stack_floor = stack_row2.operator("blenderrail.stack_curve_object", text = "Stack Floor Curves", icon = 'TRIA_DOWN_BAR')
+        stack_floor.property_to_stack = 'CURRENTFLOORCURVES'
+        stack_curve = stack_row2.operator("blenderrail.stack_curve_object", text = "Snap Curve", icon = 'TRIA_DOWN_BAR')
+        stack_curve.property_to_stack = 'CURRENTCURVE'
+        flatten = stack_floors_column.operator("blenderrail.stack_curve_object", text = "Flatten current Floor", icon = 'TRIA_DOWN_BAR')
+        flatten.property_to_stack = 'FLATTENFLOOR'
+
 
         # CURVES:
-        collections_column.separator()
+        curves_box = layout.box()
 
-        curves_column = collections_column.column()
-        curves_column.label(text = "Curves:")
+        curves_column = curves_box.column()
+        curves_label_row = curves_column.row()
+        curves_label_row.scale_y = 1.5
+        curves_label_row.label(text = "Curves: ", icon = 'DISCLOSURE_TRI_RIGHT')
+
+        liveedit_row = curves_label_row.row()
+        liveedit_row.alignment = 'RIGHT'
+        liveedit_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+
+        curves_column.separator(factor = 1.0)
         curves_row = curves_column.row(align = True)
         curves_row.template_list(
             "BLENDERRAIL_UL_curve_list",
@@ -345,12 +381,11 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
 
         # SEGMENTS:
-        collections_column.separator()
-
         segments = active_curve.segments
 
-        collections_column.label(text = "Segments:")
-        segments_list = collections_column.box()
+        segments_box = layout.box()
+        segments_box.label(text = "Segments :", icon = 'DISCLOSURE_TRI_RIGHT')
+        segments_list = segments_box.box()
         segments_row = segments_list.row(align = True)
         segments_row.prop(scene, "show_segments_grid", text = "Show Segments Grid", icon = 'VIEW_ORTHO')
         segments_row.prop(scene, "segments_grid_columns", text = "Columns", icon = 'GRIP_V')
@@ -363,79 +398,17 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
                 segment_settings.active_index = segment_index
 
 
-        collections_column.separator(factor = 2.0)
-
-        operators_row = collections_box.row(align = True)
-        operators_row.scale_y = 2
-        operators_row.operator("blenderrail.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
-        refresh_column = operators_row.column(align = True)
-        refresh_column.alignment = 'RIGHT'
-        refresh_column.operator("blenderrail.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        segments_box.separator(factor = 2.0)
 
 
-        settings_box = layout.box()
-
-
-        # Floor Settings
-        settings_box.label(text = "Floor Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
-
-        property_column = settings_box.column(align = True)
-        property_column.prop(active_floor, "curves_collection", text = "", icon = 'OUTLINER_COLLECTION')
-
-        property_column.prop(active_floor, "array", text = "Array", icon = 'ANCHOR_BOTTOM')
-        
-        stack_row = property_column.row(align = True)
-        stack_floors = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors", icon = 'TRIA_DOWN_BAR')
-        stack_floors.property_to_stack = 'FLOORS'
-        stack_curves = stack_row.operator("blenderrail.stack_curve_object", text = "Stack Floors & Curves", icon = 'TRIA_DOWN_BAR')
-        stack_curves.property_to_stack = 'CURVES'
-        
-        stack_row2 = property_column.row(align = True)
-        stack_floor = stack_row2.operator("blenderrail.stack_curve_object", text = "Stack Floor Curves", icon = 'TRIA_DOWN_BAR')
-        stack_floor.property_to_stack = 'CURRENTFLOORCURVES'
-        stack_curve = stack_row2.operator("blenderrail.stack_curve_object", text = "Snap Curve", icon = 'TRIA_DOWN_BAR')
-        stack_curve.property_to_stack = 'CURRENTCURVE'
-        flatten = property_column.operator("blenderrail.stack_curve_object", text = "Flatten current Floor", icon = 'TRIA_DOWN_BAR')
-        flatten.property_to_stack = 'FLATTENFLOOR'
-        
-
-        # Curve Settings
-        settings_box.separator()
-        settings_box.label(text = "Curve Settings: ", icon = 'DISCLOSURE_TRI_RIGHT')
-
-        property_column = settings_box.column(align = True)
-        property_column.prop(active_curve, "height", text = "Height")
-        property_column.prop(active_curve, "inset", text = "Shrink/Expand", )
-
-        floor_ceiling_row = property_column.row(align = True)
-        floor_ceiling_row.label(text = "Floor/Ceiling")
-        floor_ceiling_row.prop(active_curve, "floor_ceiling", text = "")
-        if active_curve.floor_ceiling != 'NONE':
-            property_column.prop(active_curve, "thickness", text = "Extrude Thickness")
-        if active_curve.floor_ceiling == 'BOTTOM' or active_curve.floor_ceiling == 'BOTH':
-            property_column.prop(active_curve, "direction_bottom", text = "Bottom Extrude Offset")
-        if active_curve.floor_ceiling == 'TOP' or active_curve.floor_ceiling == 'BOTH':
-            property_column.prop(active_curve, "direction_top", text = "Top Extrude Offset")
-
-        select_method = property_column.row(align = True)
-        select_method.label(text = "Select Method")
-        select_method.prop(active_curve, "select_method", text = "")
-        if active_curve.select_method != 'CUSTOM':
-            property_column.prop(active_curve, "select_per_segment", text = "Element per Segment", toggle = True)
-
-        if active_curve.select_method == 'SEQUENCE':
-            property_column.prop(active_curve, "sequence_offset", text = "Sequence Offset")
-        elif active_curve.select_method == 'RANDOM':
-            property_column.prop(active_curve, "random_index", text = "Random Index")
-   
-
-        # Main Elements Settings:
-        settings_box.separator()
+        # Elements
         main_elements = active_curve.main_elements
 
-        settings_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
+        elements_box = layout.box()
+        elements_box.separator()
+        elements_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        main_elements_column = settings_box.column()
+        main_elements_column = elements_box.column()
         collect_method_row = main_elements_column.row()
         collect_method_row.prop(main_elements, "collect_method", expand = True)
         if main_elements.collect_method == 'EXISTING':
@@ -449,12 +422,12 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
 
 
         # Corner Elements Settings:
-        settings_box.separator()
         corner_elements = active_curve.corner_elements
 
-        settings_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
+        elements_box.separator()
+        elements_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        corner_elements_column = settings_box.column()
+        corner_elements_column = elements_box.column()
         collect_method_row = corner_elements_column.row()
         collect_method_row.prop(corner_elements, "collect_method", expand = True)
         if corner_elements.collect_method == 'EXISTING':

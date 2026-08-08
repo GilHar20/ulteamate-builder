@@ -3,11 +3,12 @@ import bpy
 
 
 class BLENDERRAIL_PT_thumbnail_panel(bpy.types.Panel):
-    bl_label = "thumbnail"
-    bl_idname = "VIEW3D_PT_thumbnail"
+    bl_label = "Elements Managaer"
+    bl_idname = "VIEW3D_PT_elements_manager"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "BlenderRail"
+    bl_category = "Ultimate"
+
 
     def draw(self, context):
         layout = self.layout

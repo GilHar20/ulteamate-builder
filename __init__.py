@@ -1,6 +1,6 @@
 bl_info = {
-    "name": "BlenderRail",
-    "version": (0, 7, 6),
+    "name": "Ultimate Trail",
+    "version": (0, 7, 7),
     "blender": (4, 5, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > blenderrail",
@@ -14,6 +14,8 @@ bl_info = {
 }
 
 import bpy
+
+from . import icons
 from . import main
 from . import viewportgui
 from . import utilities
@@ -29,45 +31,47 @@ from . import addon_updater_ops
 class BlenderRailPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
+    # addon_updater preferences
     auto_check_update = bpy.props.BoolProperty(
-        name="Auto-check for Update",
-        description="If enabled, auto-check for updates using an interval",
-        default=False)
+        name = "Auto-check for Update",
+        description = "If enabled, auto-check for updates using an interval",
+        default = False)
 
     updater_interval_months = bpy.props.IntProperty(
-        name='Months',
-        description="Number of months between checking for updates",
-        default=0,
-        min=0)
+        name = 'Months',
+        description = "Number of months between checking for updates",
+        default = 0,
+        min = 0)
 
     updater_interval_days = bpy.props.IntProperty(
-        name='Days',
-        description="Number of days between checking for updates",
-        default=7,
-        min=0,
-        max=31)
+        name = 'Days',
+        description = "Number of days between checking for updates",
+        default = 7,
+        min = 0,
+        max = 31)
 
     updater_interval_hours = bpy.props.IntProperty(
-        name='Hours',
-        description="Number of hours between checking for updates",
-        default=0,
-        min=0,
-        max=23)
+        name = 'Hours',
+        description = "Number of hours between checking for updates",
+        default = 0,
+        min = 0,
+        max = 23)
 
     updater_interval_minutes = bpy.props.IntProperty(
-        name='Minutes',
-        description="Number of minutes between checking for updates",
-        default=0,
-        min=0,
-        max=59)
+        name = 'Minutes',
+        description = "Number of minutes between checking for updates",
+        default = 0,
+        min = 0,
+        max = 59)
 
+    # asset management settings
     asset_library_name = bpy.props.StringProperty(
-        name="Asset Library",
-        description=(
+        name = "Asset Library",
+        description = (
             "Name of a library listed under Edit → Preferences → File Paths → Asset Libraries. "
             "Its root folder is used to locate your Geometry Nodes .blend file(s)"
         ),
-        default="GeometryNodesModifiers"
+        default = "Ultimate"
     )
 
     def draw(self, context):
@@ -88,27 +92,27 @@ class BlenderRailPreferences(bpy.types.AddonPreferences):
 #===================================
 
 def register():
-    '''
     addon_updater_ops.make_annotations(BlenderRailPreferences)  # Avoid blender 2.8 warnings
     bpy.utils.register_class(BlenderRailPreferences)
-    '''
     
     addon_updater_ops.register(bl_info)
 
+    icons.register()
+
     utilities.register()
-    main.register()
     viewportgui.register()
+    main.register()
 
 
 def unregister():
-    viewportgui.unregister()
     main.unregister()
+    viewportgui.unregister()
     utilities.unregister()
 
-    '''
+    icons.unregister()
+
     addon_updater_ops.unregister()
     bpy.utils.unregister_class(BlenderRailPreferences)
-    '''
 
 
 

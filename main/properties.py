@@ -31,29 +31,6 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
                 host_curve.update_tag()
                 return
 
-    def _forward_axis_element(self, context):
-        host_curve = self.host_curve
-        obj = self.object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-                continue
-            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
-                gn_sockets._set_socket_value(modifier, "Socket_7", self.forward_axis)
-                host_curve.update_tag()
-                return    
-
-    def _side_axis_element(self, context):
-        host_curve = self.host_curve
-        obj = self.object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-                continue
-            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
-                gn_sockets._set_socket_value(modifier, "Socket_8", self.side_axis)
-                host_curve.update_tag()
-                return    
-
-
     object : bpy.props.PointerProperty(
         name = "Element Object",
         description = "Pointer to object used for this element",
@@ -89,8 +66,14 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
     correct_uv : bpy.props.BoolProperty(
         name = "Correct UV",
         description = "Stretch the element's UV attribute to match the scaling on the curve",
-        default = False,
+        default = True,
         update = _correct_uv_element
+    )
+
+    uv_name : bpy.props.StringProperty(
+        name = "UV Name",
+        description = "Name of UV attribute to correct, in case of the geometry stretching",
+        default = "UVMap"
     )
 
     up_stretched : bpy.props.BoolProperty(
@@ -98,34 +81,6 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
         default = False,
         update = _up_stretch_element
-    )
-
-    forward_axis : bpy.props.EnumProperty(
-        name = "Forward Axis",
-        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        items = [
-        ('X', "X", "X", 0),
-        ('Y', "Y", "Y", 1),
-        ('Z', "Z", "Z", 2),
-        ('-X', "-X", "-X", 3),
-        ('-Y', "-Y", "-Y", 4),
-        ('-Z', "-Z", "-Z", 5),],
-        default = 'X',
-        update = _forward_axis_element
-    )
-
-    side_axis : bpy.props.EnumProperty(
-        name = "Side Axis",
-        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        items = [
-        ('X', "X", "X", 0),
-        ('Y', "Y", "Y", 1),
-        ('Z', "Z", "Z", 2),
-        ('-X', "-X", "-X", 3),
-        ('-Y', "-Y", "-Y", 4),
-        ('-Z', "-Z", "-Z", 5),],
-        default = '-Y',
-        update = _side_axis_element
     )
 
 
@@ -202,32 +157,6 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
         update = _up_stretch_element
     )
 
-    forward_axis : bpy.props.EnumProperty(
-        name = "Forward Axis",
-        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        items = [
-        ('X', "X", "X", 0),
-        ('Y', "Y", "Y", 1),
-        ('Z', "Z", "Z", 2),
-        ('-X', "-X", "-X", 3),
-        ('-Y', "-Y", "-Y", 4),
-        ('-Z', "-Z", "-Z", 5),],
-        default = 'X',
-    )
-
-    side_axis : bpy.props.EnumProperty(
-        name = "Side Axis",
-        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        items = [
-        ('X', "X", "X", 0),
-        ('Y', "Y", "Y", 1),
-        ('Z', "Z", "Z", 2),
-        ('-X', "-X", "-X", 3),
-        ('-Y', "-Y", "-Y", 4),
-        ('-Z', "-Z", "-Z", 5),],
-        default = '-Y',
-    )
-
 
 class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
@@ -298,13 +227,6 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
 
 
 class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
-    def _update_total_height(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        operators._calculate_floors_start_height(context, floors, False)
-        return
-    
     def _update_curve_collection(self, context):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
@@ -331,6 +253,31 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
 
+    def _update_total_height(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floors = building.floors
+        operators._calculate_floors_start_height(context, floors, False)
+        return
+
+    def _update_top_material(self, context):
+        modifier = self.curve_object.modifiers[0]
+        gn_sockets._set_socket_value(modifier, "Socket_19", self.top_material)
+        self.curve_object.update_tag()
+        return
+
+    def _update_sides_material(self, context):
+        modifier = self.curve_object.modifiers[0]
+        gn_sockets._set_socket_value(modifier, "Socket_20", self.sides_material)
+        self.curve_object.update_tag()
+        return
+
+    def _update_bottom_material(self, context):
+        modifier = self.curve_object.modifiers[0]
+        gn_sockets._set_socket_value(modifier, "Socket_21", self.bottom_material)
+        self.curve_object.update_tag()
+        return
+
     ID : bpy.props.IntProperty(
         name = "Curve ID",
         default = 0,
@@ -356,6 +303,22 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         name = "Segments",
         description = "Segments of the curve object",
         type = BLENDERRAIL_PG_segment
+    )
+
+    active_segment_index : bpy.props.IntProperty(
+        name = "Active Segment Index",
+        default = 0,
+        min = 0,
+        max = 10000,
+        update = _clamp_active_segment_index
+    )
+
+    inset : bpy.props.FloatProperty(
+        name = "Inset",
+        description = "Inset the curve inside or outside its normal",
+        default = -0.2,
+        min = -10.0,
+        max = 10.0
     )
 
     height : bpy.props.FloatProperty(
@@ -402,40 +365,25 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
         max = 1.0
     )
 
-
-    inset : bpy.props.FloatProperty(
-        name = "Inset",
-        description = "Inset the curve inside or outside its normal",
-        default = -0.2,
-        min = -10.0,
-        max = 10.0
-    )
-
     top_material : bpy.props.PointerProperty(
         name = "Top Material",
         description = "Material for the top surface of the floor",
-        type = bpy.types.Material
+        type = bpy.types.Material,
+        update = _update_top_material
     )
 
     sides_material : bpy.props.PointerProperty(
         name = "Sides Material",
         description = "Material for the sides surface of the floor",
-        type = bpy.types.Material
+        type = bpy.types.Material,
+        update = _update_sides_material
     )
 
     bottom_material : bpy.props.PointerProperty(
         name = "Bottom Material",
         description = "Material for the bottom surface of the floor",
-        type = bpy.types.Material
-    )
-
-
-    active_segment_index : bpy.props.IntProperty(
-        name = "Active Segment Index",
-        default = 0,
-        min = 0,
-        max = 10000,
-        update = _clamp_active_segment_index
+        type = bpy.types.Material,
+        update = _update_bottom_material
     )
 
     select_method : bpy.props.EnumProperty(
@@ -452,7 +400,7 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     select_per_segment : bpy.props.BoolProperty(
         name = "Select Per Segment",
         description = "When True, a specific element will be set for each segment. Otherwise, a segment can instance multiple different elements",
-        default = True
+        default = False
     )
 
     sequence_offset : bpy.props.IntProperty(
@@ -537,12 +485,6 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         max = 10000.0
     )
 
-    curves : bpy.props.CollectionProperty(
-        name = "Input curve object",
-        description = "Input curve geometry",
-        type = BLENDERRAIL_PG_curve
-    )
-
     curves_collection : bpy.props.PointerProperty(
         name = "Curves Collection",
         description = "Collection to store all floor's curves",
@@ -553,6 +495,12 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         name = "Instance Collection Object",
         description = "Collection object linked from the source floor curves_collection",
         type = bpy.types.Object
+    )
+
+    curves : bpy.props.CollectionProperty(
+        name = "Input curve object",
+        description = "Input curve geometry",
+        type = BLENDERRAIL_PG_curve
     )
 
     active_curve_index : bpy.props.IntProperty(

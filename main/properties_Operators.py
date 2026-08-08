@@ -98,6 +98,14 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
+        floor = floors[self.floor_index]
+
+        if floor.is_linked == True:
+            curves_collections = [floor.curves_collection for floor in floors]
+            matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+            if floor.ID -1 == matching_index:
+                self.report({"ERROR"}, "Linked floor cannot be lower in the list than its source floor")
+                return{"CANCELLED"}            
 
         if self.floor_index == 0 and self.up_down == False:
             self.report({"INFO"}, "Floor is the first item in the list")
@@ -140,44 +148,58 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
     floor_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
     curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
-    def _select_set(self, context, curve_items):
+    def _select_set(self, context, curve_objects):
         if self.curve_index > -1:
-            context.view_layer.objects.active = curve_items[self.curve_index].curve_object
-            curve_items[self.curve_index].curve_object.select_set(True)
+            context.view_layer.objects.active = curve_objects[self.curve_index].curve_object
+            curve_objects[self.curve_index].curve_object.select_set(True)
             return
 
-        context.view_layer.objects.active = curve_items[0].curve_object
-        for curve in curve_items:
+        context.view_layer.objects.active = curve_objects[0].curve_object
+        for curve in curve_objects:
             curve.curve_object.select_set(True)
         return
 
     def execute(self, context):
+        if context.mode == 'EDIT_MESH':
+            self.report({'WARNING'}, "Cannot select curve while in mesh edit mode")
+            return {"CANCELLED"}
+        
         scene = context.scene
         building = scene.buildings[scene.active_building_index]
         if self.floor_index == -1:
             active_floor_index = building.active_floor_index
         else:
             active_floor_index = self.floor_index
-        curves = building.floors[active_floor_index].curves
-        curve_items = [curve for curve in curves if curve.curve_object is not None]
 
-        if len(curve_items) == 0:
+        floors = building.floors
+        floor = floors[building.active_floor_index]
+
+        if floor.is_linked == True:
+            curves_collections = [floor.curves_collection for floor in floors]
+            matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+            floor = floors[matching_index]
+            curves = floor.curves
+            curve_objects = [curve for curve in curves if curve.curve_object is not None]
+            self._select_set(context, curve_objects)
+            self.report({"INFO"}, "Floor is linked. Selected the curves of the source floor")
+            return{"FINISHED"}
+
+        curves = floor.curves
+        curve_objects = [curve for curve in curves if curve.curve_object is not None]
+
+        if len(curve_objects) == 0:
             self.report({'INFO'}, "No curve objects assigned")
             return{"CANCELLED"}
-
-        if context.mode == 'EDIT_MESH':
-            self.report({'WARNING'}, "Cannot select curve while in mesh edit mode")
-            return {"CANCELLED"}
             
         elif context.mode == 'EDIT_CURVE':
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curve_items)
+            self._select_set(context, curve_objects)
             bpy.ops.object.mode_set(mode='EDIT')
 
         elif context.mode == 'OBJECT':
             bpy.ops.object.select_all(action='DESELECT')
-            self._select_set(context, curve_items)
+            self._select_set(context, curve_objects)
 
         building.active_floor_index = active_floor_index
         if self.curve_index > -1:
@@ -203,26 +225,34 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         source_floor = floors[active_floor_index]
 
         if source_floor.is_linked == True:
-            self.report({"ERROR"}, "Cannot link an already linked floor! Please select original floor")
-            return{"FINISHED"}
+            instance_empty = source_floor.instance_object
+            curves_collections = [floor.curves_collection for floor in floors]
+            matching_index = curves_collections.index(gn_sockets._get_socket_value(source_floor.instance_object.modifiers[0] , "Socket_2"))
+            source_floor = floors[matching_index]
 
         floors.add()
         floors.move(len(floors) - 1, active_floor_index + 1)
         building.active_floor_index = active_floor_index + 1
         new_floor = floors[building.active_floor_index]
         new_floor.source_floor = source_floor.ID
-        new_floor.ID = source_floor.ID + 1
+        new_floor.ID = active_floor_index + 1
         new_floor.is_linked = True
         
         instance_empty = bpy.data.objects.new(f"{building.name}_Floor{new_floor.ID}", None)
+        instance_empty.lock_location = (True,True,True)
+        instance_empty.lock_rotation = (True,True,True)
+        instance_empty.lock_scale = (True,True,True)
+
         curve_attributes = instance_empty.modifiers.new(name = "BLENDERRAIL_LinkFloor_GN", type = "NODES")
         curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")[0]
         curve_attributes.node_group = curve_attributes_gn
+        gn_sockets._set_socket_value(curve_attributes, "Socket_2", source_floor.curves_collection)
         curve_attributes.show_expanded = False
         new_floor.instance_object = instance_empty
 
         context.scene.collection.objects.link(instance_empty)
-        new_floor.curves_collection = bpy.data.collections.new(f"{building.name}_Floor{new_floor.ID}")
+        new_floor.curves_collection = bpy.data.collections.new(building.name + "_Floor" + str(new_floor.ID))
+        new_floor.curves_collection.color_tag = building.floors_collection.color_tag
         building.floors_collection.children.link(new_floor.curves_collection)
         new_floor.curves_collection.objects.link(instance_empty)
         
@@ -237,6 +267,10 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
 
         operators._calculate_floors_start_height(context, floors, False)
 
+        massage = "Created link fron floor " + str(source_floor.ID)
+        if source_floor.is_linked == True:
+            massage = "Selected floor is linked! Created link from the original floor " + str(source_floor.ID)
+        self.report({"INFO"}, massage)
         return{"FINISHED"}
 
 
