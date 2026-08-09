@@ -68,6 +68,10 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
             building.active_floor_index = 0
             return {"CANCELLED"}
 
+        if floor.is_linked == True:
+            bpy.data.collections.remove(floor.curves_collection)
+            bpy.data.objects.remove(floor.instance_object, do_unlink=True)
+
         if floor.curves_collection:
             bpy.data.collections.remove(floor.curves_collection)
         floors.remove(building.active_floor_index)
@@ -225,7 +229,6 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         source_floor = floors[active_floor_index]
 
         if source_floor.is_linked == True:
-            instance_empty = source_floor.instance_object
             curves_collections = [floor.curves_collection for floor in floors]
             matching_index = curves_collections.index(gn_sockets._get_socket_value(source_floor.instance_object.modifiers[0] , "Socket_2"))
             source_floor = floors[matching_index]
@@ -250,7 +253,6 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         curve_attributes.show_expanded = False
         new_floor.instance_object = instance_empty
 
-        context.scene.collection.objects.link(instance_empty)
         new_floor.curves_collection = bpy.data.collections.new(building.name + "_Floor" + str(new_floor.ID))
         new_floor.curves_collection.color_tag = building.floors_collection.color_tag
         building.floors_collection.children.link(new_floor.curves_collection)
@@ -822,7 +824,13 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.active_index) 
+        return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
         scene = context.scene
@@ -832,7 +840,6 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
         segment = curve.segments[self.active_index]
 
         layout = self.layout
-        layout.label(text = str(self.active_index))
         layout.prop(segment, "element_ID", text = "Element ID")
         layout.prop(segment, "fit_method", expand = True)
         if segment.fit_method == 'FIXED':

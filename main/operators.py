@@ -166,8 +166,16 @@ def on_depsgraph_update(scene, depsgraph):
     _rematch_in_progress = True
 
     building = scene.buildings[scene.active_building_index]
+    floors = building.floors
     floor = building.floors[building.active_floor_index]
-    curve = floor.curves[floor.active_curve_index]
+
+    if floor.is_linked == True:
+        curves_collections = [floor.curves_collection for floor in floors]
+        matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+        source_floor = floors[matching_index]
+        curve = source_floor.curves[matching_index]
+    else:
+        curve = floor.curves[floor.active_curve_index]
 
     _sync_segments_to_curves(curve)
         
@@ -350,6 +358,7 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
         all_curves = _calculate_floors_start_height(context, floors, False)
 
+
         for curve in all_curves:
             curve_obj = curve.curve_object
             if curve_obj is None:
@@ -392,13 +401,17 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-            path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "height")
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
+            path = 'buildings[%d].floors[%d].curves[%d].ID' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "ID")
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_10")
             path = 'buildings[%d].floors[%d].curves[%d].inset' % (building_index, curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "inset")
+
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
+            path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "height")
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_5")
             path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)      
@@ -436,27 +449,29 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             gn_sockets._set_socket_value(curve_attributes, "Socket_20", curve.sides_material)
             gn_sockets._set_socket_value(curve_attributes, "Socket_21", curve.bottom_material)
 
+
             _assign_curve_elements(self, context, curve, "main_elements")
             _assign_curve_elements(self, context, curve, "corner_elements")
 
 
-            for seg_index, segment in enumerate(curve.segments):
+            for segment_index, segment in enumerate(curve.segments):
                 element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
                 element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
+                segment.ID = segment_index
                 gn_sockets._set_socket_value(element_id, "Socket_2", segment.ID)
                 element_id.show_expanded = False
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_4")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "fit_method")
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_5")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "fixed_number")
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_3")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, seg_index)
+                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, path, "element_ID")
 
         building.active_floor_index = old_active_floor
