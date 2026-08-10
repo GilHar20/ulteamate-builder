@@ -470,12 +470,12 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        element = wm.blenderrail_add_collect_object
-        if element is None:
+        curve_obj = wm.blenderrail_add_collect_object
+        if curve_obj is None:
             self.report({"WARNING"}, "No object provided, Element not added")
             return {"CANCELLED"}
-        if element.type != 'CURVE' or element.data.dimensions != '2D':
-            self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
+        if curve_obj.type != 'CURVE' or curve_obj.data.dimensions != '2D':
+            self.report({"WARNING"}, "Invalid object! Only 2D curve objects can be assigned")
             return {"CANCELLED"}
         
         scene = context.scene
@@ -490,15 +490,17 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
         if len(curves) == 0:
             new_curve = curves.add()
-            new_curve.curve_object = element
+            new_curve.curve_object = curve_obj
             floor.active_curve_index = 0
         else:
             new_curve = curves.add()
-            new_curve.curve_object = element
+            new_curve.curve_object = curve_obj
             floor.active_curve_index = len(floor.curves) - 1
             curves.move(len(curves) - 1, floor.active_curve_index + 1)
 
         wm.blenderrail_add_collect_object = None
+
+        bpy.ops.blenderrail.evaluate_building()
 
         return {"FINISHED"}
 
@@ -508,7 +510,7 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
-        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Curve Object")
 
 
 class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):

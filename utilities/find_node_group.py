@@ -26,15 +26,23 @@ def folder_path_for_asset_library(library_name):
 
 def _iter_blend_paths_in_folder(folder):
     folder = bpy.path.abspath(folder)
+    if not os.path.isdir(folder):
+        raise RuntimeError("Cannot read asset library folder: %s" % folder)
+
+    blend_paths = []
     try:
-        names = os.listdir(folder)
+        for root, dirnames, filenames in os.walk(folder):
+            # Skip hidden directories (e.g. .git) and do not descend into them.
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+            for name in sorted(filenames):
+                if name.startswith(".") or not name.lower().endswith(".blend"):
+                    continue
+                blend_paths.append(bpy.path.abspath(os.path.join(root, name)))
     except OSError as exc:
         raise RuntimeError("Cannot read asset library folder: %s" % exc) from exc
-    blends = sorted(
-        n for n in names if n.lower().endswith(".blend") and not n.startswith(".")
-    )
-    for n in blends:
-        yield bpy.path.abspath(os.path.join(folder, n))
+
+    for path in blend_paths:
+        yield path
 
 
 def link_gn_from_library(node_group_name):

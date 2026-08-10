@@ -491,17 +491,17 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         scene = context.scene
         buildings = scene.buildings
 
-        construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")[0]
+        construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")
 
-        if construct is None:
-            self.report({"ERROR"}, "Node group 'BLENDERRAIL_Construct_GN' not found")
+        if construct[0] is None:
+            self.report({"ERROR"}, construct[1])
             return {"CANCELLED"}
         
         bpy.ops.mesh.primitive_cube_add(size = 2, enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
         cube_obj = context.view_layer.objects.active
 
         modifier = cube_obj.modifiers.new(name = "BLENDERRAIL_Construct_GN", type = "NODES")
-        modifier.node_group = construct
+        modifier.node_group = construct[0]
         modifier.show_expanded = False
 
         building = buildings.add()
@@ -534,14 +534,13 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         gn_sockets._set_socket_value(modifier, "Socket_2", floors_collection)
 
         bpy.ops.blenderrail.add_floor()
+
         floor = building.floors[0]
         curves_collection = bpy.data.collections.new("Floor_" + str(floor.ID) + "_Curves")
         context.scene.collection.children.link(curves_collection)
         floor.curves_collection = curves_collection
         floors_collection.children.link(curves_collection)
         context.scene.collection.children.unlink(curves_collection)
-
-        bpy.ops.blenderrail.add_curve_object()
 
         bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
         bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
@@ -552,8 +551,13 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
             if parent != floor.curves_collection:
                 parent.objects.unlink(curve_obj)
 
+        new_curve = floor.curves.add()
+        new_curve.curve_object = curve_obj
+        floor.active_curve_index = 0
         floor.curves[0].curve_object = curve_obj
 
+        bpy.ops.blenderrail.evaluate_building()
+        
         return {"FINISHED"}
 
 
