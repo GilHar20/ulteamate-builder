@@ -316,7 +316,7 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     inset : bpy.props.FloatProperty(
         name = "Inset",
         description = "Inset the curve inside or outside its normal",
-        default = -0.2,
+        default = 0.2,
         min = -10.0,
         max = 10.0
     )

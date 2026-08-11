@@ -152,10 +152,10 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
         building = scene.buildings[scene.active_building_index]
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        elements_collection = getattr(curve, item.element_type)
-        active_element_index = elements_collection.active_element_index
 
-        icon = 'CHECKBOX_HLT' if active_element_index == index else 'CHECKBOX_DEHLT'
+        elements_collection = data
+
+        icon = 'CHECKBOX_HLT' if elements_collection.active_element_index == index else 'CHECKBOX_DEHLT'
 
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
@@ -298,19 +298,19 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         floors_ops_column.separator()
         floors_move = floors_ops_column.column(align = True)
         move_down = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_UP_ARROW')
-        move_down.up_down = False
+        move_down.up_down = True
         move_down.floor_index = floor_index
 
-        move_up = floors_ops_column.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
-        move_up.up_down = True
+        move_up = floors_move.operator("blenderrail.reorder_floor", text = "", icon = 'EVENT_DOWN_ARROW')
+        move_up.up_down = False
         move_up.floor_index = floor_index
 
         floors_ops_column.separator()
         floors_copy = floors_ops_column.column(align = True)
-        floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
         copy_floor = floors_copy.operator("blenderrail.copy_floor", text = "", icon = 'DUPLICATE',)
-        copy_floor.current_floor_index = floor_index
+        copy_floor.floor_index = floor_index
         copy_floor.mode = "COPY"
+        floors_copy.operator("blenderrail.link_floor", text = "", icon = 'LINKED')
 
         if active_floor.is_linked == True:
             linked_box = layout.box()
@@ -392,10 +392,10 @@ class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
         
         if scene.show_segments_grid == True and len(segments) > 0:
             grid = segments_list.grid_flow(row_major = True, columns = scene.segments_grid_columns, align = True)
-            for segment_index, segment in enumerate(segments):
+            for segment in segments:
                 segment_settings_box = grid.box()
-                segment_settings = segment_settings_box.operator("blenderrail.segment_settings", text = str(segment_index), icon = 'PARTICLE_PATH', emboss = False)
-                segment_settings.active_index = segment_index
+                segment_settings = segment_settings_box.operator("blenderrail.segment_settings", text = str(segment.ID), icon = 'PARTICLE_PATH', emboss = False)
+                segment_settings.active_index = segment.ID
 
 
         segments_box.separator(factor = 2.0)
