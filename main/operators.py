@@ -183,6 +183,8 @@ def on_depsgraph_update(scene, depsgraph):
 
 
 def _calculate_floors_start_height(context, floors, stacked):
+    scene = context.scene
+    building = scene.buildings[scene.active_building_index]
     all_curves = []
     accumulated_height: float = 0
 
@@ -229,7 +231,9 @@ def _calculate_floors_start_height(context, floors, stacked):
 
         for index, curve in enumerate(curves):
             curve.ID = index
-            curve.floor_ID = floor.ID
+            curve.floor_ID = floor_index
+            if floor.curves_collection:
+                floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
         
         z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
         floor.total_height = z_diff * floor.array
@@ -283,11 +287,6 @@ def _assign_curve_elements(self, context, curve, element_type):
 
             curve_elements.show_expanded = False
 
-            # TEMP CODE TO BE REMOVED
-            element.element_type = element_type
-            element.host_curve = curve.curve_object
-            if element.host_curve == None:
-                element.host_curve = curve.curve_object
 
     elif elements_collection.collect_method == 'COLLECTION':
         if len(elements_collection.existing_collection.objects) == 0:
@@ -310,12 +309,6 @@ def _assign_curve_elements(self, context, curve, element_type):
                 collection.objects.link(element.object)
 
             curve_elements.show_expanded = False
-
-            # TEMO CODE TO BE REMOVED
-            element.element_type = element_type
-            element.host_curve = curve.curve_object
-            if element.host_curve == None:
-                element.host_curve = curve.curve_object
     
     return
 
@@ -347,17 +340,17 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
-        
-
-        # TEMP CODE TO BE REMOVED
-        for floor in floors:
-            if floor.curves_collection == None:
-                floor.curves_collection = bpy.data.collections.new(building.name + "_" + str(floor.ID))
-                building.floors_collection.children.link(floor.curves_collection)
-
 
         all_curves = _calculate_floors_start_height(context, floors, False)
 
+        for floor_index, floor in enumerate(floors):
+            instance_empty = floor.instance_object
+            if instance_empty is None:
+                continue
+            link_modifier = instance_empty.modifiers[0]
+            attribute = gn_sockets._input_driver_path(link_modifier.name, "Socket_4")
+            path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, floor_index)
+            _set_attribute_driver(self, context, instance_empty, attribute, path, "floor_visibility")
 
         for curve in all_curves:
             curve_obj = curve.curve_object
@@ -365,17 +358,6 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
                 continue
             if floors[curve.floor_ID].is_linked == True:
                 continue
-
-
-            # TEMP CODE TO BE REMOVED
-            floor = floors[curve.floor_ID]
-            target = floor.curves_collection
-            for collection in list(curve_obj.users_collection):
-                if collection != target:
-                    collection.objects.unlink(curve_obj)
-            if target not in curve_obj.users_collection:
-                target.objects.link(curve_obj)
-
 
             _sync_segments_to_curves(curve)
 
@@ -400,6 +382,10 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_3")
             path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)
             _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
+
+            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_23")
+            path = 'buildings[%d].floors[%d].total_height' % (building_index, curve.floor_ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "total_height")
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
             path = 'buildings[%d].floors[%d].curves[%d].ID' % (building_index, curve.floor_ID, curve.ID)

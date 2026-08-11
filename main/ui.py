@@ -45,7 +45,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             op_row.alignment = 'RIGHT'
 
             realize_floor = op_row.operator("blenderrail.copy_floor", text = "", icon = 'UNLINKED', emboss = False)
-            realize_floor.current_floor_index = index
+            realize_floor.floor_index = index
             realize_floor.mode = "REALIZE"
 
             select_curve = op_row.operator("blenderrail.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
@@ -96,7 +96,7 @@ class BLENDERRAIL_UL_floor_list(bpy.types.UIList):
             row.separator(factor = 4.0, type = 'LINE')
             row.label(text = str(array + 2) + " Array", icon = 'MOD_ARRAY')
             split = row.operator("blenderrail.copy_floor", text = "", icon = 'AREA_JOIN_DOWN')
-            split.current_floor_index = index
+            split.floor_index = index
             split.mode = "SPLIT"
             split.level_index = array
 

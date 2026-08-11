@@ -176,9 +176,10 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
             active_floor_index = self.floor_index
 
         floors = building.floors
-        floor = floors[building.active_floor_index]
+        floor = floors[self.floor_index]
 
         if floor.is_linked == True:
+            bpy.ops.object.select_all(action = 'DESELECT')
             curves_collections = [floor.curves_collection for floor in floors]
             matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
             floor = floors[matching_index]
@@ -196,13 +197,13 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
             return{"CANCELLED"}
             
         elif context.mode == 'EDIT_CURVE':
-            bpy.ops.object.mode_set(mode='OBJECT')
-            bpy.ops.object.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            bpy.ops.object.select_all(action = 'DESELECT')
             self._select_set(context, curve_objects)
-            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.object.mode_set(mode = 'EDIT')
 
         elif context.mode == 'OBJECT':
-            bpy.ops.object.select_all(action='DESELECT')
+            bpy.ops.object.select_all(action = 'DESELECT')
             self._select_set(context, curve_objects)
 
         building.active_floor_index = active_floor_index
@@ -247,8 +248,12 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         instance_empty.lock_scale = (True,True,True)
 
         curve_attributes = instance_empty.modifiers.new(name = "BLENDERRAIL_LinkFloor_GN", type = "NODES")
-        curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")[0]
-        curve_attributes.node_group = curve_attributes_gn
+        curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_LinkFloor_GN")
+        if curve_attributes_gn[0] == None:
+            self.report({"ERROR"}, curve_attributes_gn[1])
+            return{"CANCELLED"}
+        
+        curve_attributes.node_group = curve_attributes_gn[0]
         gn_sockets._set_socket_value(curve_attributes, "Socket_2", source_floor.curves_collection)
         curve_attributes.show_expanded = False
         new_floor.instance_object = instance_empty
@@ -262,17 +267,22 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         new_floor.total_height = source_floor.total_height
         new_floor.array = source_floor.array
 
-        higher_floors = [floor for floor in floors if floor.ID > new_floor.ID]
-        for floor in higher_floors:
-            floor.ID = floor.ID + 1
-            floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
+        attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
+        path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, building.active_floor_index)
+        operators._set_attribute_driver(self, context, instance_empty, attribute, path, "floor_visibility")
 
-        operators._calculate_floors_start_height(context, floors, False)
+        #for index, floor in enumerate(floors):
+        #    floor.ID = index
+        #    if floor.curves_collection:
+        #        floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
+
+        bpy.ops.blenderrail.evaluate_building()
 
         massage = "Created link fron floor " + str(source_floor.ID)
         if source_floor.is_linked == True:
             massage = "Selected floor is linked! Created link from the original floor " + str(source_floor.ID)
         self.report({"INFO"}, massage)
+
         return{"FINISHED"}
 
 
@@ -575,9 +585,11 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
         element = wm.blenderrail_add_collect_object
         if element is None:
             self.report({"WARNING"}, "No object provided, Element not added")
+            wm.blenderrail_add_collect_object = None
             return {"CANCELLED"}
         if element.type != 'CURVE' or element.data.dimensions != '2D':
             self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
+            wm.blenderrail_add_collect_object = None
             return {"CANCELLED"}
         
         scene = context.scene
@@ -895,6 +907,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
             if curve_elements_gn[0] is None:
                 self.report({"INFO"}, curve_elements_gn[1])
                 return{"CANCELLED"}
+            
             curve_element.node_group = curve_elements_gn[0]
             curve.modifiers.move(len(curve.modifiers) - 1, 1)
             gn_sockets._set_socket_value(curve_element, "Socket_9", is_empty)
@@ -922,6 +935,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
             if curve_elements_gn[0] is None:
                 self.report({"INFO"}, curve_elements_gn[1])
                 return{"CANCELLED"}
+            
             curve_element.node_group = curve_elements_gn[0]
             curve.modifiers.move(len(curve.modifiers) - 1, object_index + 1)
 
@@ -1148,24 +1162,32 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
-        active_element = collection.objects[collection.active_element_index]
+        selected_element = collection.objects[self.index]
 
+        if selected_element.is_empty == True:
+            self.report({"INFO"}, "Selected element is set as 'Empty'. Please disable 'Empty' and select a viable object")
+            return{"CANCELLED"}
+        
         wm = context.window_manager
         element = wm.blenderrail_add_collect_object
-        if element is None and active_element.is_empty == False:
+        if element is None and selected_element.is_empty == False:
             self.report({"WARNING"}, "No object provided, Element not added")
+            wm.blenderrail_add_collect_object = None
             return {"CANCELLED"}
-        if element.type != 'MESH' and active_element.is_empty == False:
+        if element.type != 'MESH' and selected_element.is_empty == False:
             self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
+            wm.blenderrail_add_collect_object = None
             return {"CANCELLED"}
 
-        host_curve = collection.objects[collection.active_element_index].host_curve
+        host_curve = selected_element.host_curve
         assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "BLENDERRAIL_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
 
         current_modifier = assigned_modifiers[self.index]
-        gn_sockets._set_socket_value(current_modifier, "Socket_4", element if not active_element.is_empty else None)
-        gn_sockets._set_socket_value(current_modifier, "Socket_9", active_element.is_empty if active_element.is_empty else False)
-        gn_sockets._set_socket_value(current_modifier, "Socket_10", active_element.empty_bounds if active_element.is_empty else (1.0, 0.2, 3.4))
+        gn_sockets._set_socket_value(current_modifier, "Socket_4", element if not selected_element.is_empty else None)
+        gn_sockets._set_socket_value(current_modifier, "Socket_9", selected_element.is_empty if selected_element.is_empty else False)
+        gn_sockets._set_socket_value(current_modifier, "Socket_10", selected_element.empty_bounds if selected_element.is_empty else (1.0, 0.2, 3.4))
+
+        selected_element.object = element
 
         wm.blenderrail_add_collect_object = None
         curve.curve_object.update_tag()
@@ -1177,8 +1199,20 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
+        scene = context.scene
+        building = scene.buildings[scene.active_building_index]
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        collection = getattr(curve, self.element_type)
+        selected_element = collection.objects[self.index]
+
         layout = self.layout
-        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+        if selected_element.is_empty == True:
+            layout.label(text = "Selected element is set as 'EMPTY'!", icon = 'INFO')
+            layout.label(text = "Disable 'Empty' if you wish to assign an object")
+            layout.prop(self, "is_empty", text = "Set Element as Empty", icon = 'EMPTY_DATA', toggle = True)
+        else:
+            layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
 
 
 class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
@@ -1211,13 +1245,12 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         curve = floor.curves[floor.active_curve_index]
 
         layout = self.layout
-        layout.label(text = self.element_type)
 
         elements_collection = getattr(curve, self.element_type)
         element = None
         
         if self.collect_method == False:
-            element = elements_collection.objects[elements_collection.active_element_index]
+            element = elements_collection.objects[self.index]
 
         else:
             element = elements_collection
