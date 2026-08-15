@@ -227,28 +227,6 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
 
 
 class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
-    def _update_curve_collection(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floor = building.floors[building.active_floor_index]
-        curves_collection = floor.curves_collection
-
-        prev_name = self.get("_prev_curve_object_name", "")
-        prev_obj = bpy.data.objects.get(prev_name) if prev_name else None
-        new_obj = self.curve_object
-        
-        if prev_obj and prev_obj != new_obj:
-            if curves_collection in prev_obj.users_collection:
-                curves_collection.objects.unlink(prev_obj)
-
-        if new_obj:
-            if curves_collection not in new_obj.users_collection:
-                curves_collection.objects.link(new_obj)
-
-
-        self["_prev_curve_object_name"] = new_obj.name if new_obj else ""
-        return
-    
     def _clamp_active_segment_index(self, context):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
@@ -295,8 +273,7 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     curve_object : bpy.props.PointerProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = bpy.types.Object,
-        update = _update_curve_collection
+        type = bpy.types.Object
     )
 
     segments : bpy.props.CollectionProperty(
@@ -459,6 +436,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
 
     array : bpy.props.IntProperty(
         name = "Floor Array",
+        description = "Number of floor exact duplicate to stack vertically",
         default = 1,
         min = 1,
         max = 1000,
@@ -471,8 +449,17 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
         default = False
     )
 
+    maximum_height : bpy.props.FloatProperty(
+        name = "Maximum Height",
+        description = "The height distane between the floor's lowest and heighst point, across all its curve object's heights",
+        default = 0,
+        min = 0.0,
+        max = 10000.0
+    )
+
     total_height : bpy.props.FloatProperty(
         name = "Total Height",
+        description = "The overall height the floor occupies. Calculated as maximum height * array",
         default = 0,
         min = 0.0,
         max = 10000.0
@@ -480,6 +467,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
 
     start_height : bpy.props.FloatProperty(
         name = "Total Height",
+        description = "Height vakue (Z) of the first floor curve",
         default = 0,
         min = 0.0,
         max = 10000.0

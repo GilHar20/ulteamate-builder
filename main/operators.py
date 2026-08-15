@@ -143,7 +143,6 @@ _rematch_in_progress = False
 
 @persistent
 def on_depsgraph_update(scene, depsgraph):
-    """Re-match segments when a floor's curve topology changes."""
     global _rematch_in_progress
     if _rematch_in_progress:
         return
@@ -160,31 +159,18 @@ def on_depsgraph_update(scene, depsgraph):
     if bpy.context.active_object.type != 'CURVE':
         return
 
-    if bpy.context.active_object.modifiers[0].name != "BLENDERRAIL_CurveAttributes_GN":
-        return
-
     _rematch_in_progress = True
 
-    building = scene.buildings[scene.active_building_index]
-    floors = building.floors
-    floor = building.floors[building.active_floor_index]
-
-    if floor.is_linked == True:
-        curves_collections = [floor.curves_collection for floor in floors]
-        matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
-        source_floor = floors[matching_index]
-        curve = source_floor.curves[matching_index]
-    else:
-        curve = floor.curves[floor.active_curve_index]
-
-    _sync_segments_to_curves(curve)
+    for curve in bpy.context.selected_objects:
+        if curve.modifiers[0].name != "BLENDERRAIL_CurveAttributes_GN":
+            return
+        _sync_segments_to_curves(curve)
         
     _rematch_in_progress = False
 
 
 def _calculate_floors_start_height(context, floors, stacked):
     scene = context.scene
-    building = scene.buildings[scene.active_building_index]
     all_curves = []
     accumulated_height: float = 0
 
@@ -229,18 +215,17 @@ def _calculate_floors_start_height(context, floors, stacked):
                 continue
             curve.curve_object.location.z = prev_curve.curve_object.location.z + prev_curve.height
 
-        for index, curve in enumerate(curves):
-            curve.ID = index
+        for curve_index, curve in enumerate(curves):
+            curve.ID = curve_index
             curve.floor_ID = floor_index
-            if floor.curves_collection:
-                floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
         
         z_diff = abs(max_curve_position + max_curve_height - min_curve_position)
+        floor.maximum_height = z_diff
         floor.total_height = z_diff * floor.array
         accumulated_height += floor.total_height
 
         all_curves.extend(curves)
-    
+
     return all_curves
 
 
@@ -250,7 +235,12 @@ def _set_attribute_driver(self, context, item, attribute, path, var_name):
     fcurve = item.driver_add(attribute)
     driver = fcurve.driver
     driver.type = 'AVERAGE'
-    var = driver.variables.new()
+
+    if driver.variables:
+        var = driver.variables[0]
+    else:
+        var = driver.variables.new()
+        
     var.name = var_name
     var.type = 'SINGLE_PROP'
     var.targets[0].id_type = 'SCENE'
@@ -384,8 +374,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_23")
-            path = 'buildings[%d].floors[%d].total_height' % (building_index, curve.floor_ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "total_height")
+            path = 'buildings[%d].floors[%d].maximum_height' % (building_index, curve.floor_ID)
+            _set_attribute_driver(self, context, curve_obj, attribute, path, "maximum_height")
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
             path = 'buildings[%d].floors[%d].curves[%d].ID' % (building_index, curve.floor_ID, curve.ID)
@@ -612,7 +602,7 @@ class BLENDERRAIL_OT_building_settings(bpy.types.Operator):
         building = scene.buildings[self.index]
 
         title = building.name
-        return context.window_manager.invoke_props_dialog(self,title = title)
+        return context.window_manager.invoke_props_dialog(self, title = title, width = 400)
 
     def draw(self, context):
         scene = context.scene
