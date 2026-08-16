@@ -161,10 +161,19 @@ def on_depsgraph_update(scene, depsgraph):
 
     _rematch_in_progress = True
 
-    for curve in bpy.context.selected_objects:
-        if curve.modifiers[0].name != "BLENDERRAIL_CurveAttributes_GN":
-            return
-        _sync_segments_to_curves(curve)
+    building = scene.buildings[scene.active_building_index]
+    floors = building.floors
+    floor = building.floors[building.active_floor_index]
+
+    if floor.is_linked == True:
+        curves_collections = [floor.curves_collection for floor in floors]
+        matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+        source_floor = floors[matching_index]
+        curve = source_floor.curves[matching_index]
+    else:
+        curve = floor.curves[floor.active_curve_index]
+
+    _sync_segments_to_curves(curve)
         
     _rematch_in_progress = False
 
