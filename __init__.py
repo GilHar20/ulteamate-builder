@@ -1,16 +1,16 @@
 bl_info = {
-    "name": "Ultimate Trail",
-    "version": (0, 7, 7),
+    "name": "ULTeaMate Builder",
+    "version": (0, 7, 8),
     "blender": (4, 5, 0),
     "author": "Gilad Harnik",
-    "location": "View3D > Sidebar > blenderrail",
-    "description": "A plugin for architectural visualizations",
+    "location": "View3D > Sidebar > ULTeaMate > ULTeaMate Builder",
+    "description": "Spline based procedural building toolkit",
     "category": "3D View",
-    "git_url": "https://github.com/GilHar20/blenderrail.git",
+    "git_url": "https://github.com/GilHar20/ulteamate-builder.git",
     "git_branch": "main",
     "git_commit": "main",
-    "tracker_url": "https://github.com/GilHar20/blenderrail/issues",
-    "doc_url": "https://github.com/GilHar20/blenderrail",
+    "tracker_url": "https://github.com/GilHar20/ulteamate-builder/issues",
+    "doc_url": "https://github.com/GilHar20/ulteamate-builder",
 }
 
 import bpy

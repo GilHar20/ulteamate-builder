@@ -72,7 +72,7 @@ except Exception as e:
 # not match and have errors. Must be all lowercase and no spaces! Should also
 # be unique among any other addons that could exist (using this updater code),
 # to avoid clashes in operator registration.
-updater.addon = "blenderrail"
+updater.addon = "ulteamatebuilder"
 
 
 # -----------------------------------------------------------------------------
@@ -1357,12 +1357,12 @@ def register(bl_info):
 
     # Choose your own repository, must match git name for GitHUb and Bitbucket,
     # for GitLab use project ID (numbers only).
-    updater.repo = "blenderrail"
+    updater.repo = "ulteamatebuilder"
 
-    updater.addon = "blenderrail"
+    updater.addon = "ulteamatebuilder"
 
     # Website for manual addon download, optional but recommended to set.
-    updater.website = "https://github.com/GilHar20/blenderrail"
+    updater.website = "https://github.com/GilHar20/ulteamatebuilder"
 
     # Addon subfolder path.
     # "sample/path/to/addon"
