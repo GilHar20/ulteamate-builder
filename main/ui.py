@@ -182,11 +182,11 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
 # -----------------------
 
 class BLENDERRAIL_PT_control_panel(bpy.types.Panel):
-    bl_label = "Ultimate Trail"
+    bl_label = "ULTeaMate Builder"
     bl_idname = "VIEW3D_PT_blenderrail_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Ultimate"
+    bl_category = "ULTeaMate"
 
 
     def draw_header(self, context):
