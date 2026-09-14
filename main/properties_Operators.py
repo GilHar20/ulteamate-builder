@@ -61,11 +61,12 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     new_source_floor : bpy.props.BoolProperty(default = False)
 
     def _clear_floor_curves(self, context, building, floor):
-        for curve_object in floor.curves_collection.objects:
-            building.building_collection.objects.link(curve_object)
+        for curve_obj in floor.curves_collection.objects:
+            building.building_collection.objects.link(curve_obj)
+            floor.curves_collection.objects.unlint(curve_obj)
             bpy.ops.object.select_all(action='DESELECT')
-            curve_object.select_set(True)
-            context.view_layer.objects.active = curve_object
+            curve_obj.select_set(True)
+            context.view_layer.objects.active = curve_obj
             bpy.ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
         return
     
@@ -568,7 +569,8 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
         new_curve.curve_object = curve_obj
         floor.active_curve_index = len(floor.curves) - 1 if len(floor.curves) > 0 else 0
         curves.move(len(curves) - 1, floor.active_curve_index + 1)
-        floor.curves_collection.objects.link(curve_obj)
+        if curve_obj.name not in floor.curves_collection.objects:
+            floor.curves_collection.objects.link(curve_obj)
 
         bpy.ops.object.select_all(action='DESELECT')
         curve_obj.select_set(True)
@@ -603,24 +605,29 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
-        active_curve = curves[floor.active_curve_index]
-        active_curve_index = floor.active_curve_index
-
-        if len(floors) == 0:
-            self.report({"WARNING"}, "No floors")
-            return {"CANCELLED"}
 
         if len(curves) == 0:
             self.report({"WARNING"}, "No curve rows to remove")
             floor.active_curve_index = 0
             return {"CANCELLED"}
-
-        curves.remove(floor.active_curve_index)
-        floor.active_curve_index = min(active_curve_index, max(0, len(curves) - 1))
         
-        floor.curves_collection.objects.unlink(active_curve.curve_object)
-        context.scene.collection.objects.link(active_curve)
-        active_curve.curve_object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+        active_curve = curves[floor.active_curve_index]
+        active_curve_index = floor.active_curve_index
+        curve_obj = active_curve.curve_object
+
+        if curve_obj is None:
+            self.report({"WARNING"}, "No curve object to remove")
+            return {"CANCELLED"}
+        
+        if curve_obj.name in floor.curves_collection.objects:
+            floor.curves_collection.objects.unlink(curve_obj)
+        if curve_obj.name not in context.scene.collection.objects:
+            building.building_collection.objects.link(curve_obj)
+
+        bpy.ops.object.select_all(action='DESELECT')
+        curve_obj.select_set(True)
+        context.view_layer.objects.active = curve_obj
+        bpy.ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
 
         curves.remove(floor.active_curve_index)
         floor.active_curve_index = min(active_curve_index, max(0, len(curves) - 1))
@@ -655,8 +662,8 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
         building = scene.buildings[scene.active_building_index]
         floors = building.floors
         floor = floors[building.active_floor_index]
-        curves = floor.curves
         curve = floor.curves[self.index]
+        curve_obj = curve.curve_obj
 
         bpy.ops.object.select_all(action='DESELECT')
         element.select_set(True)
@@ -665,12 +672,14 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
 
         bpy.ops.object.select_all(action='DESELECT')
         element.select_set(True)
-        context.view_layer.objects.active = curve.curve_object
+        context.view_layer.objects.active = curve_obj
         bpy.ops.object.make_links_data(type = 'MODIFIERS')
 
-        floor.curves_collection.objects.unlink(curve.curve_object)
-        context.scene.collection.objects.link(curve.curve_object)
-        active_curve.curve_object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+        if element.name not in floor.curves_collection.objects:
+            floor.curves_collection.objects.link(curve_obj)
+        floor.curves_collection.objects.unlink(curve_obj)
+        context.scene.collection.objects.link(curve_obj)
+        curve_obj.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
 
         curve.curve_object = element
 

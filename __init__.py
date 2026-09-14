@@ -1,7 +1,7 @@
 bl_info = {
     "name": "ULTeaMate Builder",
-    "version": (0, 7, 8),
-    "blender": (4, 5, 0),
+    "version": (0, 7, 9),
+    "blender": (5, 2, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > ULTeaMate > ULTeaMate Builder",
     "description": "Spline based procedural building toolkit",
