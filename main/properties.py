@@ -9,27 +9,30 @@ from ..utilities import gn_sockets
 # ------------------------
 
 class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
-    def _correct_uv_element(self, context):
+    def _update_element_modifier(self, context):
         host_curve = self.host_curve
-        obj = self.object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-                continue
-            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
-                gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
-                host_curve.update_tag()
-                return
-            
-    def _up_stretch_element(self, context):
-        host_curve = self.host_curve
-        obj = self.object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
-                continue
-            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
-                gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
-                host_curve.update_tag()
-                return
+        position = self.ID + 1 # +1 is for theCcurve_Attribute node that is ALWAYS first.
+        if self.element_type == "corner_elements":
+            scene = context.scene
+            building = scene.buildings[scene.active_building_index]
+            floor = building.floors[building.active_floor_index]
+            curve = floor.curves[floor.active_curve_index]
+            position += len(curve.main_elements.objects)
+
+        modifier = host_curve.modifiers[position]
+        gn_sockets._set_socket_value(modifier, "Socket_9", self.is_empty)
+        gn_sockets._set_socket_value(modifier, "Socket_10", self.empty_bounds)
+        gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
+        gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
+        host_curve.update_tag()
+        return
+
+    ID : bpy.props.IntProperty(
+        name = "Element ID",
+        default = 0,
+        min = 0,
+        max = 10000
+    )
 
     object : bpy.props.PointerProperty(
         name = "Element Object",
@@ -52,7 +55,8 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
     is_empty : bpy.props.BoolProperty(
         name = "Empty Element",
         description = "Instead of assigning an object, set element bounds to fill length on the curve",
-        default = False
+        default = False,
+        update = _update_element_modifier,
     )
 
     empty_bounds : bpy.props.FloatVectorProperty(
@@ -61,13 +65,14 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         default = (1.0, 0.2, 3.4),
         subtype = 'XYZ',
         size = 3,
+        update = _update_element_modifier,
     )
 
     correct_uv : bpy.props.BoolProperty(
         name = "Correct UV",
         description = "Stretch the element's UV attribute to match the scaling on the curve",
         default = True,
-        update = _correct_uv_element
+        update = _update_element_modifier
     )
 
     uv_name : bpy.props.StringProperty(
@@ -80,7 +85,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
         default = False,
-        update = _up_stretch_element
+        update = _update_element_modifier
     )
 
 

@@ -148,19 +148,17 @@ class BLENDERRAIL_UL_element_list(bpy.types.UIList):
     """UIList for displaying displaying segments per curve"""
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
-
         elements_collection = data
 
         icon = 'CHECKBOX_HLT' if elements_collection.active_element_index == index else 'CHECKBOX_DEHLT'
 
         row = layout.row(align = True)
         row.label(text = "", icon = icon)
-        element_text = item.object.name if item.is_empty == False else "Empty Element"
-        row.label(text = element_text, icon = 'OBJECT_DATA')
+        if item.is_empty:
+            text = str(item.ID) + "Empty Element"
+        else:
+            text = str(item.ID) + item.object.name
+        row.label(text = text, icon = 'OBJECT_DATA')
 
         settings = row.operator("blenderrail.collect_object_settings", text = "", icon = 'PREFERENCES', emboss = False)
         settings.element_type = item.element_type

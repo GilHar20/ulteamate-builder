@@ -269,22 +269,26 @@ def _assign_curve_elements(self, context, curve, element_type):
             self.report({'WARNING'}, "No elements assigned. Please provide elements")
             return
 
-        for element in elements_collection.objects:
-            if not element.object:
+        for element_index, element in enumerate(elements_collection.objects):
+            element.ID = element_index
+            curve_element = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
+            curve_element_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
+            curve_element.node_group = curve_element_gn
+            curve_element.show_expanded = False
+
+            element_name = bpy.data.objects.get(element.object.name) if element.object is not None else None
+
+            gn_sockets._set_socket_value(curve_element, "Socket_9", element.is_empty)
+            gn_sockets._set_socket_value(curve_element, "Socket_10", element.empty_bounds)
+            gn_sockets._set_socket_value(curve_element, "Socket_5", element_type)
+            gn_sockets._set_socket_value(curve_element, "Socket_4", element_name)
+            gn_sockets._set_socket_value(curve_element, "Socket_6", element.up_stretched)
+
+            element_object = element.object if element.object else None
+            if element_object is None:
                 continue
-
-            curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
-            curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
-            curve_elements.node_group = curve_elements_gn
-            
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
-            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
-            gn_sockets._set_socket_value(curve_elements, "Socket_6", element.up_stretched)
-
-            if collection not in element.object.users_collection:
+            elif collection not in element.object.users_collection:
                 collection.objects.link(element.object)
-
-            curve_elements.show_expanded = False
 
 
     elif elements_collection.collect_method == 'COLLECTION':
@@ -292,22 +296,18 @@ def _assign_curve_elements(self, context, curve, element_type):
             self.report({'WARNING'}, "No elements are linked into the assigned collection")
             return
         
-        for element in elements_collection.exiiting_collection:
-            if not element.object:
-                continue
-
+        for element in elements_collection.existing_collection:
             curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
             curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
             curve_elements.node_group = curve_elements_gn
-            
+            curve_elements.show_expanded = False
+
             gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
             gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
             gn_sockets._set_socket_value(curve_elements, "Socket_6", elements_collection.up_stretched)
 
             if collection not in element.object.users_collection:            
                 collection.objects.link(element.object)
-
-            curve_elements.show_expanded = False
     
     return
 
