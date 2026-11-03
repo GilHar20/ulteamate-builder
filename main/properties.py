@@ -4,17 +4,16 @@ from ..utilities import gn_sockets
 
 
 
-# ------------------------
-# Property groups: Segment
-# ------------------------
+# ---------------
+# Property groups
+# ---------------
 
-class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
     def _update_element_modifier(self, context):
         host_curve = self.host_curve
         position = self.ID + 1 # +1 is for theCcurve_Attribute node that is ALWAYS first.
         if self.element_type == "corner_elements":
-            scene = context.scene
-            building = scene.buildings[scene.active_building_index]
+            building = self.id_data.utm_building
             floor = building.floors[building.active_floor_index]
             curve = floor.curves[floor.active_curve_index]
             position += len(curve.main_elements.objects)
@@ -89,7 +88,7 @@ class BLENDERRAIL_PG_collect_objects(bpy.types.PropertyGroup):
     )
 
 
-class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):   
+class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):   
     def _correct_uv_element(self, context):
         host_curve = self.host_curve
         obj = self.object
@@ -102,8 +101,7 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
                 return
 
     def _up_stretch_element(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = self.id_data.utm_building
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         host_curve = curve.curve_object
@@ -131,7 +129,7 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
     objects : bpy.props.CollectionProperty(
         name = "Element Object",
         description = "Objects to insert into the Tartget Collection",
-        type = BLENDERRAIL_PG_collect_objects
+        type = UTMBUILDER_PG_collect_objects
     )
 
     existing_collection : bpy.props.PointerProperty(
@@ -163,10 +161,9 @@ class BLENDERRAIL_PG_elements_collection(bpy.types.PropertyGroup):
     )
 
 
-class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):   
+class UTMBUILDER_PG_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = self.id_data.utm_building
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         curve.curve_object.update_tag()
@@ -231,16 +228,14 @@ class BLENDERRAIL_PG_segment(bpy.types.PropertyGroup):
     )
 
 
-class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_curve(bpy.types.PropertyGroup):
     def _clamp_active_segment_index(self, context):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
 
     def _update_total_height(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        operators._calculate_floors_start_height(context, floors, False)
+        building = self.id_data.utm_building
+        operators._calculate_floors_start_height(context, building.floors, False)
         return
 
     def _update_top_material(self, context):
@@ -284,7 +279,7 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
-        type = BLENDERRAIL_PG_segment
+        type = UTMBUILDER_PG_segment
     )
 
     active_segment_index : bpy.props.IntProperty(
@@ -402,22 +397,20 @@ class BLENDERRAIL_PG_curve(bpy.types.PropertyGroup):
     main_elements : bpy.props.PointerProperty(
         name = "Main Elements",
         description = "Collection of main elements",
-        type = BLENDERRAIL_PG_elements_collection
+        type = UTMBUILDER_PG_elements_collection
     )
 
     corner_elements : bpy.props.PointerProperty(
         name = "Main Elements",
         description = "Collection of main elements",
-        type = BLENDERRAIL_PG_elements_collection
+        type = UTMBUILDER_PG_elements_collection
     )
 
 
-class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = building.floors
-        operators._calculate_floors_start_height(context, floors, False)
+        building = self.id_data.utm_building
+        operators._calculate_floors_start_height(context, building.floors, False)
         return
 
     ID : bpy.props.IntProperty(
@@ -493,7 +486,7 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = BLENDERRAIL_PG_curve
+        type = UTMBUILDER_PG_curve
     )
 
     active_curve_index : bpy.props.IntProperty(
@@ -504,10 +497,11 @@ class BLENDERRAIL_PG_floor(bpy.types.PropertyGroup):
     )
 
 
-class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
-        object = self.base_object
-        object.name = self.name + "_Constructor"
+        owner = self.base_object if self.base_object else self.id_data
+        if owner and getattr(owner, "type", None) == 'MESH':
+            owner.name = self.name + "_Constructor"
         return
     
     ID : bpy.props.IntProperty(
@@ -523,6 +517,12 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         default = "build",
         update = _update_base_object_name
     )
+
+    is_utm_building : bpy.props.BoolProperty(
+        name = "Valid UTM Building",
+        description = "Makes this object is a valid ULTEAMMATE Builder constructor",
+        default = False,
+    )
     
     base_object : bpy.props.PointerProperty(
         name = "Building",
@@ -534,7 +534,7 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     all_curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = BLENDERRAIL_PG_collect_objects
+        type = UTMBUILDER_PG_collect_objects
     )
 
     building_collection : bpy.props.PointerProperty(
@@ -558,7 +558,7 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
     floors : bpy.props.CollectionProperty(
         name = "Floors",
         description = "List of all the floors in the building",
-        type = BLENDERRAIL_PG_floor
+        type = UTMBUILDER_PG_floor
     )
 
     active_floor_index : bpy.props.IntProperty(
@@ -567,4 +567,16 @@ class BLENDERRAIL_PG_building(bpy.types.PropertyGroup):
         min = 0,
         max = 10000
     )
-    
+
+    show_segments_grid : bpy.props.BoolProperty(
+        name = "Show Segments Grid",
+        default = False,
+    )
+
+    segments_grid_columns : bpy.props.IntProperty(
+        name = "Segments Grid Columns",
+        default = 6,
+        min = 1,
+        max = 10,
+    )
+

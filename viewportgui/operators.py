@@ -1,9 +1,10 @@
 import bpy
 from . import draw
+from ..main import resolve_building_object
 
 
-class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
-    bl_idname = "blenderrail.viewport_panel"
+class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
+    bl_idname = "utmbuilder.viewport_panel"
     bl_label = "Toggle Viewport Elements Panel"
     bl_description = "Show or hide the floating elements panel in the 3D viewport"
 
@@ -13,24 +14,37 @@ class BLENDERRAIL_OT_viewport_panel(bpy.types.Operator):
     def is_running(cls):
         return cls._handle is not None
 
+    @classmethod
+    def poll(cls, context):
+        return resolve_building_object.resolve_building_object(context) is not None
+
     def invoke(self, context, event):
         cls = type(self)
-
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
 
         if cls.is_running():
             cls._remove(context)
             return {'FINISHED'}
 
-        #floor = draw.get_active_floor()
-        if floor is None or floor.curves is None:
+        constructor = resolve_building_object.resolve_building_object(context)
+        if constructor is None:
+            self.report({'WARNING'}, "No valid ULTEAMMATE building on the active object")
+            return {'CANCELLED'}
+
+        building = constructor.utm_building
+        if len(building.floors) == 0:
+            self.report({'WARNING'}, "Building has no floors")
+            return {'CANCELLED'}
+
+        floor = building.floors[building.active_floor_index]
+        if len(floor.curves) == 0:
             self.report({'WARNING'}, "Active floor has no curve assigned")
             return {'CANCELLED'}
 
+        curve = floor.curves[floor.active_curve_index]
         curve_obj = curve.curve_object
+        if curve_obj is None:
+            self.report({'WARNING'}, "Active curve has no curve object")
+            return {'CANCELLED'}
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = curve_obj

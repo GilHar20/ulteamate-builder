@@ -5,7 +5,7 @@ import bpy
 from . import find_node_group
 
 classes = [
-    find_node_group.BLENDERRAIL_OT_find_node_group
+    find_node_group.UTMBUILDER_OT_find_node_group
     ]
 
 

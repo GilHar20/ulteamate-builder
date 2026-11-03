@@ -1,7 +1,5 @@
-from operator import index
-
 import bpy
-from . import operators
+from . import operators, resolve_building_object as resolve
 from ..utilities import find_node_group, gn_sockets
 
 
@@ -10,16 +8,19 @@ from ..utilities import find_node_group, gn_sockets
 # Operators: Floor Operators
 # ---------------------------------
 
-class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
-    bl_idname = "blenderrail.add_floor"
+class UTMBUILDER_OT_add_floor(bpy.types.Operator):
+    bl_idname = "utmbuilder.add_floor"
     bl_label = "Add Floor"
     bl_description = "Add floor to the list right after the active one"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
+    @classmethod
+    def poll(cls, context):
+        return resolve._resolve_building_object(context) is not None
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
+
         floors = building.floors
         active_floor_index = building.active_floor_index
 
@@ -51,8 +52,8 @@ class BLENDERRAIL_OT_add_floor(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_floor"
+class UTMBUILDER_OT_remove_floor(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_floor"
     bl_label = "Remove Active Floor"
     bl_description = "Delete the active floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -63,7 +64,7 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
     def _clear_floor_curves(self, context, building, floor):
         for curve_obj in floor.curves_collection.objects:
             building.building_collection.objects.link(curve_obj)
-            floor.curves_collection.objects.unlint(curve_obj)
+            floor.curves_collection.objects.unlink(curve_obj)
             bpy.ops.object.select_all(action='DESELECT')
             curve_obj.select_set(True)
             context.view_layer.objects.active = curve_obj
@@ -75,7 +76,7 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
         matching_floors.pop(0)
         new_source_index = next(i for i, floor in enumerate(floors) if floor == new_source)
 
-        bpy.ops.blenderrail.copy_floor(floor_index = new_source_index, mode = "REALIZE")
+        bpy.ops.utmbuilder.copy_floor(floor_index = new_source_index, mode = "REALIZE")
 
         for floor in matching_floors:
             gn_sockets._set_socket_value(floor.instance_object.modifiers[0], "Socket_2", new_source.curves_collection)
@@ -85,8 +86,7 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
         return
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         active_floor = floors[building.active_floor_index]
         active_floor_index = building.active_floor_index
@@ -121,13 +121,12 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
             floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
 
         self.new_source_floor = False
-        bpy.ops.blenderrail.evaluate_building()
+        bpy.ops.utmbuilder.evaluate_building()
 
         return {"FINISHED"}
     
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         active_floor = floors[building.active_floor_index]
 
@@ -142,8 +141,7 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
             return self.execute(context)
 
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
 
         layout = self.layout
@@ -154,8 +152,8 @@ class BLENDERRAIL_OT_remove_floor(bpy.types.Operator):
         layout.prop(self, "new_source_floor", toggle = True)
 
 
-class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
-    bl_idname = "blenderrail.reorder_floor"
+class UTMBUILDER_OT_reorder_floor(bpy.types.Operator):
+    bl_idname = "utmbuilder.reorder_floor"
     bl_label = "Reorder Floor"
     bl_description = "Move the floor up or down the list (True for down the list, false for up)"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -168,8 +166,7 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
         default = True)
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         floor = floors[self.floor_index]
 
@@ -218,8 +215,8 @@ class BLENDERRAIL_OT_reorder_floor(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
-    bl_idname = "blenderrail.select_floor_curves"
+class UTMBUILDER_OT_select_floor_curves(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_floor_curves"
     bl_label = "Select Floor Curve"
     bl_description = "Select the curve object assigned to the floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -244,8 +241,7 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
             self.report({'WARNING'}, "Cannot select curve while in mesh edit mode")
             return {"CANCELLED"}
         
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         if self.floor_index == -1:
             active_floor_index = building.active_floor_index
         else:
@@ -289,8 +285,8 @@ class BLENDERRAIL_OT_select_floor_curves(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
-    bl_idname = "blenderrail.link_floor"
+class UTMBUILDER_OT_link_floor(bpy.types.Operator):
+    bl_idname = "utmbuilder.link_floor"
     bl_label = "Link Floor"
     bl_description = "Create a new floor entry with all settings linked to the original"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
@@ -302,10 +298,8 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
             self.report({"ERROR"}, curve_attributes_gn[1])
             return{"CANCELLED"}
         
-        scene = context.scene
-        buildings = scene.buildings
-        building_index = scene.active_building_index
-        building = buildings[building_index]
+        building = resolve._resolve_building_object(context)
+
         floors = building.floors
         active_floor_index = building.active_floor_index
         source_floor = floors[active_floor_index]
@@ -344,8 +338,8 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         new_floor.array = source_floor.array
 
         attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-        path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, building.active_floor_index)
-        operators._set_attribute_driver(self, context, instance_empty, attribute, path, "floor_visibility")
+        data_path = 'utm_building.floors[%d].floor_visibility' % building.active_floor_index
+        operators._set_attribute_driver(self, context, instance_empty, attribute, data_path, "floor_visibility", building.id_data)
 
         for floor_index, floor in enumerate(floors):
             floor.ID = floor_index
@@ -353,7 +347,7 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
                 floors[floor_index + 1].curves_collection.name += "temp"
             floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
 
-        bpy.ops.blenderrail.evaluate_building()
+        bpy.ops.utmbuilder.evaluate_building()
 
         massage = "Created link fron floor " + str(source_floor.ID)
         if source_floor.is_linked == True:
@@ -363,8 +357,8 @@ class BLENDERRAIL_OT_link_floor(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
-    bl_idname = "blenderrail.copy_floor"
+class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
+    bl_idname = "utmbuilder.copy_floor"
     bl_label = "Copy Floor"
     bl_description = "Copy the floor with all its settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
@@ -398,11 +392,14 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
             return
         for obj in elements.objects:
             new_obj = new_elements.objects.add()
-            new_obj.host_curve = new_curve.curve_object
+
             new_obj.object = obj.object
             new_obj.element_type = obj.element_type
+            new_obj.host_curve = new_curve.curve_object
             new_obj.is_empty = obj.is_empty
             new_obj.empty_bounds = obj.empty_bounds
+            new_obj.correct_uv = obj.correct_uv
+            new_obj.up_stretched = obj.up_stretched
             new_obj.object.update_tag()
         return
 
@@ -442,9 +439,8 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
             self._match_segments(curve, new_curve)
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
-        floors = scene.buildings[scene.active_building_index].floors
+        building = resolve._resolve_building_object(context)
+        floors = building.floors
         current_floor = floors[self.floor_index]
 
         if self.mode == 'REALIZE':
@@ -496,13 +492,13 @@ class BLENDERRAIL_OT_copy_floor(bpy.types.Operator):
                 floors[floor_index + 1].curves_collection.name += "temp"
             floor.curves_collection.name = building.name + "_Floor" + str(floor.ID)
 
-        bpy.ops.blenderrail.evaluate_building()
+        bpy.ops.utmbuilder.evaluate_building()
         
         return{"FINISHED"}
 
 
-class BLENDERRAIL_OT_floor_settings(bpy.types.Operator):
-    bl_idname = "blenderrail.floor_settings"
+class UTMBUILDER_OT_floor_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.floor_settings"
     bl_label = "Floor Settings"
     bl_description = "Edit the settings of the active floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}    
@@ -515,16 +511,14 @@ class BLENDERRAIL_OT_floor_settings(bpy.types.Operator):
         return{"FINISHED"}
 
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[self.index]
 
         title = building.name + ", Floor " + str(floor.ID)
         return context.window_manager.invoke_props_dialog(self, title = title)
 
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[self.index]
 
         layout = self.layout
@@ -538,8 +532,8 @@ class BLENDERRAIL_OT_floor_settings(bpy.types.Operator):
 # Operators: Curves Operators
 # ------------------------------
 
-class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.add_curve_object"
+class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.add_curve_object"
     bl_label = "Add Curve"
     bl_description = "Add a curve object to the active floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -547,16 +541,16 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        curve_obj = wm.blenderrail_add_collect_object
+        curve_obj = wm.utmbuilder_add_collect_object
         if curve_obj is None:
             self.report({"WARNING"}, "No object provided, Element not added")
             return {"CANCELLED"}
         if curve_obj.type != 'CURVE' or curve_obj.data.dimensions != '2D':
+            wm.utmbuilder_add_collect_object = None
             self.report({"WARNING"}, "Invalid object! Only 2D curve objects can be assigned")
             return {"CANCELLED"}
         
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
@@ -574,12 +568,12 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
 
         bpy.ops.object.select_all(action='DESELECT')
         curve_obj.select_set(True)
-        context.view_layer.objects.active = building.base_object
+        context.view_layer.objects.active = building.id_data
         bpy.ops.object.parent_no_inverse_set(keep_transform = True)
 
-        wm.blenderrail_add_collect_object = None
+        wm.utmbuilder_add_collect_object = None
 
-        bpy.ops.blenderrail.evaluate_building()
+        bpy.ops.utmbuilder.evaluate_building()
 
         return {"FINISHED"}
 
@@ -589,19 +583,18 @@ class BLENDERRAIL_OT_add_curve_object(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
-        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Curve Object")
+        layout.prop(context.window_manager, "utmbuilder_add_collect_object", text = "Curve Object")
 
 
-class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_curve_object"
+class UTMBUILDER_OT_remove_curve_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_curve_object"
     bl_label = "Remove Curve"
     bl_description = "Remove a curve object from the active floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
@@ -624,21 +617,23 @@ class BLENDERRAIL_OT_remove_curve_object(bpy.types.Operator):
         if curve_obj.name not in context.scene.collection.objects:
             building.building_collection.objects.link(curve_obj)
 
-        bpy.ops.object.select_all(action='DESELECT')
-        curve_obj.select_set(True)
-        context.view_layer.objects.active = curve_obj
-        bpy.ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+        if curve_obj.parent:
+            mw = curve_obj.matrix_world.copy()
+            curve_obj.parent = None
+            curve_obj.matrix_world = mw
 
         curves.remove(floor.active_curve_index)
         floor.active_curve_index = min(active_curve_index, max(0, len(curves) - 1))
 
-        bpy.ops.blenderrail.evaluate_building()
+        context.view_layer.objects.active = building.id_data
+        bpy.ops.utmbuilder.evaluate_building()
+        context.view_layer.objects.active = curve_obj
 
         return {"FINISHED"}
     
 
-class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.replace_curve_object"
+class UTMBUILDER_OT_replace_curve_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.replace_curve_object"
     bl_label = "Replace Curve"
     bl_description = "Replace the active curve object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -648,26 +643,25 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        element = wm.blenderrail_add_collect_object
+        element = wm.utmbuilder_add_collect_object
         if element is None:
             self.report({"WARNING"}, "No object provided, Element not added")
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             return {"CANCELLED"}
         if element.type != 'CURVE' or element.data.dimensions != '2D':
             self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             return {"CANCELLED"}
         
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         floor = floors[building.active_floor_index]
         curve = floor.curves[self.index]
-        curve_obj = curve.curve_obj
+        curve_obj = curve.curve_object
 
         bpy.ops.object.select_all(action='DESELECT')
         element.select_set(True)
-        context.view_layer.objects.active = building.base_object
+        context.view_layer.objects.active = building.id_data
         bpy.ops.object.parent_no_inverse_set(keep_transform = True)
 
         bpy.ops.object.select_all(action='DESELECT')
@@ -677,13 +671,17 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
 
         if element.name not in floor.curves_collection.objects:
             floor.curves_collection.objects.link(curve_obj)
-        floor.curves_collection.objects.unlink(curve_obj)
-        context.scene.collection.objects.link(curve_obj)
-        curve_obj.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+        if curve_obj.name in floor.curves_collection.objects:
+            floor.curves_collection.objects.unlink(curve_obj)
+            context.scene.collection.objects.link(curve_obj)
+        if curve_obj.parent:
+            mw = curve_obj.matrix_world.copy()
+            curve_obj.parent = None
+            curve_obj.matrix_world = mw
 
+        context.view_layer.objects.active = element
         curve.curve_object = element
-
-        wm.blenderrail_add_collect_object = None
+        wm.utmbuilder_add_collect_object = None
 
         return {"FINISHED"}
 
@@ -693,11 +691,11 @@ class BLENDERRAIL_OT_replace_curve_object(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
-        layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+        layout.prop(context.window_manager, "utmbuilder_add_collect_object", text = "Element Object")
 
 
-class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
-    bl_idname = "blenderrail.stack_curve_object"
+class UTMBUILDER_OT_stack_curve_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.stack_curve_object"
     bl_label = "Stack Curve Object"
     bl_description = "Set height (location z value)"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -731,8 +729,7 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         return
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floors = building.floors
         floor = floors[building.active_floor_index]
         curves = floor.curves
@@ -783,8 +780,8 @@ class BLENDERRAIL_OT_stack_curve_object(bpy.types.Operator):
         return description
 
 
-class BLENDERRAIL_OT_curve_settings(bpy.types.Operator):
-    bl_idname = "blenderrail.curve_settings"
+class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.curve_settings"
     bl_label = "Curve Settings"
     bl_description = "Set curve properties"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
@@ -797,8 +794,7 @@ class BLENDERRAIL_OT_curve_settings(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[self.index]
 
@@ -806,8 +802,7 @@ class BLENDERRAIL_OT_curve_settings(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
 
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[self.index]
 
@@ -857,17 +852,16 @@ class BLENDERRAIL_OT_curve_settings(bpy.types.Operator):
 # Operators: segments Operators
 # --------------------------------
 
-class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
-    bl_idname = "blenderrail.add_segment"
+class UTMBUILDER_OT_add_segment(bpy.types.Operator):
+    bl_idname = "utmbuilder.add_segment"
     bl_label = "Add Segment to Floor"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.activw_curve_index]
+        curve = floor.curves[floor.active_curve_index]
         curves = floor.curves
         segment_index = curve.active_segment_index
 
@@ -886,15 +880,14 @@ class BLENDERRAIL_OT_add_segment(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_segment"
+class UTMBUILDER_OT_remove_segment(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_segment"
     bl_label = "Remove Active Segment"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         curves = floor.curves
@@ -919,8 +912,8 @@ class BLENDERRAIL_OT_remove_segment(bpy.types.Operator):
         return {"FINISHED"}
     
 
-class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
-    bl_idname = "blenderrail.segment_settings"
+class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.segment_settings"
     bl_label = "Segment Settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -942,8 +935,7 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
 
@@ -951,8 +943,7 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         segment = curve.segments[self.active_index]
@@ -969,8 +960,8 @@ class BLENDERRAIL_OT_segment_settings(bpy.types.Operator):
 # Operators: Collect Object Operators
 # --------------------------------------
 
-class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.add_collect_object"
+class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.add_collect_object"
     bl_label = "Add Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1025,15 +1016,14 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
             self.report({"INFO"}, curve_elements_gn[1])
             return{"CANCELLED"}
             
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
         active_index = collection.active_element_index if len(collection.objects) > 0 else -1
 
         wm = context.window_manager
-        element = wm.blenderrail_add_collect_object
+        element = wm.utmbuilder_add_collect_object
 
         assigned_objects = [obj.object for obj in collection.objects]
         if element in assigned_objects:
@@ -1053,8 +1043,8 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         
         # CASE is_empty is True
         if self.is_empty == True:
-            # IMPORTANT!!! IF is_empty, wm.blenderrail_add_collect_object has to be None
-            wm.blenderrail_add_collect_object = None
+            # IMPORTANT!!! IF is_empty, wm.utmbuilder_add_collect_object has to be None
+            wm.utmbuilder_add_collect_object = None
             self._add_curve_element(curve, collection, curve_elements_gn[0])
             curve.curve_object.update_tag()
 
@@ -1062,17 +1052,17 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
             return {"FINISHED"}
 
         elif element is None:
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             self.report({"WARNING"}, "No object provided, Element not added")
             return {"CANCELLED"}
         elif element.type != 'MESH':
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
             return {"CANCELLED"}
 
         # CASE is_empty is False
         self._add_curve_element(curve, collection, curve_elements_gn[0])
-        wm.blenderrail_add_collect_object = None
+        wm.utmbuilder_add_collect_object = None
         curve.curve_object.update_tag()
 
         return {"FINISHED"}
@@ -1082,8 +1072,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
@@ -1091,7 +1080,7 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
         layout = self.layout
 
         if len(collection.objects) <= 0:
-            layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "", placeholder = "Element Object")
+            layout.prop(context.window_manager, "utmbuilder_add_collect_object", text = "", placeholder = "Element Object")
             return
 
         active_element = collection.objects[collection.active_element_index]
@@ -1100,13 +1089,13 @@ class BLENDERRAIL_OT_add_collect_object(bpy.types.Operator):
             bounds_column = layout.column(align = True)
             bounds_column.prop(active_element, "empty_bounds", text = "Element Bounds", icon = 'FIXED_SIZE')
         else:
-            layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "", placeholder = "Element Object")
+            layout.prop(context.window_manager, "utmbuilder_add_collect_object", text = "", placeholder = "Element Object")
             layout.prop(self, "correct_uv", text = "Correct UVs", toggle = True)
             layout.prop(self, "up_stretched", text = "Up Stretch", toggle = True)
 
 
-class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_collect_object"
+class UTMBUILDER_OT_remove_collect_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_collect_object"
     bl_label = "Remove Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1114,8 +1103,7 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
@@ -1139,8 +1127,8 @@ class BLENDERRAIL_OT_remove_collect_object(bpy.types.Operator):
         return {"FINISHED"}
     
 
-class BLENDERRAIL_OT_reorder_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.reorder_collect_object"
+class UTMBUILDER_OT_reorder_collect_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.reorder_collect_object"
     bl_label = "Reorder Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1152,8 +1140,7 @@ class BLENDERRAIL_OT_reorder_collect_object(bpy.types.Operator):
         default = True)
 
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
@@ -1188,8 +1175,8 @@ class BLENDERRAIL_OT_reorder_collect_object(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.select_collect_object"
+class UTMBUILDER_OT_select_collect_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_collect_object"
     bl_label = "Select Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1202,8 +1189,7 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
             self.report({'INFO'}, "You must leave edit mode to select objects")
             return{"FINISHED"}
 
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         main_elements = curve.main_elements 
@@ -1232,8 +1218,8 @@ class BLENDERRAIL_OT_select_collect_object(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
-    bl_idname = "blenderrail.replace_collect_object"
+class UTMBUILDER_OT_replace_collect_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.replace_collect_object"
     bl_label = "Replace Collect Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1242,8 +1228,7 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
     index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
     
     def execute(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
@@ -1254,14 +1239,14 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
             return{"CANCELLED"}
         
         wm = context.window_manager
-        element = wm.blenderrail_add_collect_object
+        element = wm.utmbuilder_add_collect_object
         if element is None and selected_element.is_empty == False:
             self.report({"WARNING"}, "No object provided, Element not added")
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             return {"CANCELLED"}
         if element.type != 'MESH' and selected_element.is_empty == False:
             self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
-            wm.blenderrail_add_collect_object = None
+            wm.utmbuilder_add_collect_object = None
             return {"CANCELLED"}
 
         host_curve = selected_element.host_curve
@@ -1274,7 +1259,7 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
 
         selected_element.object = element
 
-        wm.blenderrail_add_collect_object = None
+        wm.utmbuilder_add_collect_object = None
         curve.curve_object.update_tag()
 
         return{"FINISHED"}
@@ -1284,8 +1269,7 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         collection = getattr(curve, self.element_type)
@@ -1297,11 +1281,11 @@ class BLENDERRAIL_OT_replace_collect_object(bpy.types.Operator):
             layout.label(text = "Disable 'Empty' if you wish to assign an object")
             layout.prop(self, "is_empty", text = "Set Element as Empty", icon = 'EMPTY_DATA', toggle = True)
         else:
-            layout.prop(context.window_manager, "blenderrail_add_collect_object", text = "Element Object")
+            layout.prop(context.window_manager, "utmbuilder_add_collect_object", text = "Element Object")
 
 
-class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
-    bl_idname = "blenderrail.collect_object_settings"
+class UTMBUILDER_OT_collect_object_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.collect_object_settings"
     bl_label = "Collect Object Settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -1315,8 +1299,7 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         return{"FINISHED"}
 
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
 
@@ -1324,8 +1307,7 @@ class BLENDERRAIL_OT_collect_object_settings(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[scene.active_building_index]
+        building = resolve._resolve_building_object(context)
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
 

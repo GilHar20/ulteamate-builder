@@ -107,8 +107,8 @@ def _assign_pixels(image: bpy.types.Image, pixels: list[float]) -> None:
         image.pixels = pixels
 
 
-class BLENDERRAIL_OT_render_selected_thumbnail(bpy.types.Operator):
-    bl_idname = "blenderrail.render_selected_thumbnail"
+class UTMBUILDER_OT_render_selected_thumbnail(bpy.types.Operator):
+    bl_idname = "utmbuilder.render_selected_thumbnail"
     bl_label = "Render Selection Thumbnail"
     bl_description = "Render an element thumbnail and save it as an image"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}

@@ -1,6 +1,6 @@
 import os
-
 import bpy
+
 
 
 def _addon_preferences():
@@ -82,8 +82,8 @@ def link_gn_from_library(node_group_name):
     )
 
 
-class BLENDERRAIL_OT_find_node_group(bpy.types.Operator):
-    bl_idname = "blenderrail.find_node_group"
+class UTMBUILDER_OT_find_node_group(bpy.types.Operator):
+    bl_idname = "utmbuilder.find_node_group"
     bl_label = "Link Node Group from Asset Library"
     bl_options = {"REGISTER", "INTERNAL"}
 
