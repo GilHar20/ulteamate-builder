@@ -136,12 +136,11 @@ class UTMBUILDER_UL_element_list(bpy.types.UIList):
             text = str(item.ID) + "Empty Element"
         else:
             obj_name = item.object.name if item.object else "(none)"
-            text = str(item.ID) + obj_name
+            text = obj_name
         row.label(text = text, icon = 'OBJECT_DATA')
 
         settings = row.operator("utmbuilder.collect_object_settings", text = "", icon = 'PREFERENCES', emboss = False)
         settings.element_type = item.element_type
-        settings.collect_method = False
         settings.index = index
 
         select_object = row.operator("utmbuilder.select_collect_object", text = "", icon = "RESTRICT_SELECT_OFF", emboss = False)
@@ -179,13 +178,17 @@ class UTMBUILDER_PT_building_setup_panel(bpy.types.Panel):
         setup_box.label(text = "Building Setup:", icon = 'HOME')
 
         setup_column = setup_box.column(align = True)
-        setup_column.operator("utmbuilder.generate_building", text = "Add Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
+        add_row = setup_column.row()
+        add_row.scale_y = 1.5
+        add_row.operator("utmbuilder.generate_building", text = "Add New Building", icon = 'EVENT_NDOF_BUTTON_PLUS')
 
-        building = resolve._resolve_building_object(context)
-        if building == None:
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
             setup_box.label(text = "No valid building selected", icon = 'INFO')
             setup_box.operator("utmbuilder.sync_from_modifier_stack", text = "Sync from Modifers", icon = 'MODIFIER')
             return
+        
+        _, building = resolved
         
         row = setup_column.row(align = True)
         row.operator("utmbuilder.remove_building", text = "Remove Building", icon = 'EVENT_NDOF_BUTTON_MINUS')
@@ -211,10 +214,11 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
     bl_category = "ULTEAMMATE"
     bl_parent_id = "UTMBUILDER_PT_building_setup_panel"
 
+
     @classmethod
     def poll(cls, context):
-        building = resolve._resolve_building_object(context)
-        if building == None:
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
             return False
         else:
             return True
@@ -251,12 +255,23 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        building = resolve._resolve_building_object(context)
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return
+        _, building = resolved
 
         # FLOORS:
         floors_box = layout.box()
+        floors_label_row = floors_box.row()
+        floors_label_row.scale_y = 1.5
+        floors_label_row.label(text = "Floors:", icon = 'DISCLOSURE_TRI_RIGHT')
+
+        refresh_row = floors_label_row.row(align = True)
+        refresh_row.alignment = 'RIGHT'
+        refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+
         floors_column = floors_box.column()
-        floors_column.label(text = "Floors:")
         floors_row = floors_column.row(align = True)
         floors_row.template_list(
             "UTMBUILDER_UL_floor_list",
@@ -331,9 +346,10 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         curves_label_row.scale_y = 1.5
         curves_label_row.label(text = "Curves: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
-        liveedit_row = curves_label_row.row()
-        liveedit_row.alignment = 'RIGHT'
-        liveedit_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_row = curves_label_row.row(align = True)
+        refresh_row.alignment = 'RIGHT'
+        refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
 
         curves_column.separator(factor = 1.0)
         curves_row = curves_column.row(align = True)
@@ -371,7 +387,11 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         segments = active_curve.segments
 
         segments_box = layout.box()
+
+        segments_label_row = segments_box.row()
+        segments_label_row.scale_y = 1.5
         segments_box.label(text = "Segments :", icon = 'DISCLOSURE_TRI_RIGHT')
+
         segments_list = segments_box.box()
         segments_row = segments_list.row(align = True)
         segments_row.prop(building, "show_segments_grid", text = "Show Segments Grid", icon = 'VIEW_ORTHO')
@@ -392,20 +412,18 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         main_elements = active_curve.main_elements
 
         elements_box = layout.box()
-        elements_box.separator()
-        elements_box.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
+        
+        elements_label_row = elements_box.row()
+        elements_label_row.scale_y = 1.5
+        elements_label_row.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
+
+        refresh_row = elements_label_row.row(align = True)
+        refresh_row.alignment = 'RIGHT'
+        refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
 
         main_elements_column = elements_box.column()
-        collect_method_row = main_elements_column.row()
-        collect_method_row.prop(main_elements, "collect_method", expand = True)
-        if main_elements.collect_method == 'EXISTING':
-            existing_collection_row = main_elements_column.row(align = True)
-            existing_collection_row.prop(main_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-            settings = existing_collection_row.operator("utmbuilder.collect_object_settings", text = "", icon = 'PREFERENCES')
-            settings.element_type = "main_elements"
-            settings.collect_method = True
-        else:
-            self.draw_collect_objects(main_elements_column, "main_elements", main_elements)
+        self.draw_collect_objects(main_elements_column, "main_elements", main_elements)
 
 
         # Corner Elements Settings:
@@ -415,16 +433,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         elements_box.label(text = "Corner Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         corner_elements_column = elements_box.column()
-        collect_method_row = corner_elements_column.row()
-        collect_method_row.prop(corner_elements, "collect_method", expand = True)
-        if corner_elements.collect_method == 'EXISTING':
-            existing_collection_row = corner_elements_column.row(align = True)
-            existing_collection_row.prop(corner_elements, "existing_collection", text = "Collection", icon = 'OUTLINER_COLLECTION')
-            settings = existing_collection_row.operator("utmbuilder.collect_object_settings", text = "", icon = 'PREFERENCES')
-            settings.element_type = "corner_elements"
-            settings.collect_method = True
-        else:
-            self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements)
+        self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements)
 
 
         # Interval Elements Settings:

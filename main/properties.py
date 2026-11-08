@@ -9,19 +9,42 @@ from ..utilities import gn_sockets
 # ---------------
 
 class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
-    def _update_element_modifier(self, context):
-        host_curve = self.host_curve
-        position = self.ID + 1 # +1 is for theCcurve_Attribute node that is ALWAYS first.
+    def _find_modifier_position(self, context):
+        position = self.ID + 1 # +1 is for the Ccurve_Attribute node that is ALWAYS first.
         if self.element_type == "corner_elements":
             building = self.id_data.utm_building
             floor = building.floors[building.active_floor_index]
             curve = floor.curves[floor.active_curve_index]
             position += len(curve.main_elements.objects)
 
+    def _update_is_empty(self, context):
+        host_curve = self.host_curve
+        position = self._find_modifier_position
         modifier = host_curve.modifiers[position]
         gn_sockets._set_socket_value(modifier, "Socket_9", self.is_empty)
+        host_curve.update_tag()
+        return
+
+    def _update_empty_bounds(self, context):
+        host_curve = self.host_curve
+        position = self._find_modifier_position
+        modifier = host_curve.modifiers[position]
         gn_sockets._set_socket_value(modifier, "Socket_10", self.empty_bounds)
+        host_curve.update_tag()
+        return
+
+    def _update_up_stretched(self, context):
+        host_curve = self.host_curve
+        position = self._find_modifier_position
+        modifier = host_curve.modifiers[position]
         gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
+        host_curve.update_tag()
+        return
+
+    def _update_correct_uv(self, context):
+        host_curve = self.host_curve
+        position = self._find_modifier_position
+        modifier = host_curve.modifiers[position]
         gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
         host_curve.update_tag()
         return
@@ -55,7 +78,7 @@ class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
         name = "Empty Element",
         description = "Instead of assigning an object, set element bounds to fill length on the curve",
         default = False,
-        update = _update_element_modifier,
+        update = _update_is_empty,
     )
 
     empty_bounds : bpy.props.FloatVectorProperty(
@@ -64,14 +87,14 @@ class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
         default = (1.0, 0.2, 3.4),
         subtype = 'XYZ',
         size = 3,
-        update = _update_element_modifier,
+        update = _update_empty_bounds,
     )
 
     correct_uv : bpy.props.BoolProperty(
         name = "Correct UV",
         description = "Stretch the element's UV attribute to match the scaling on the curve",
         default = True,
-        update = _update_element_modifier
+        update = _update_correct_uv
     )
 
     uv_name : bpy.props.StringProperty(
@@ -84,7 +107,7 @@ class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
         default = False,
-        update = _update_element_modifier
+        update = _update_up_stretched
     )
 
 
@@ -93,7 +116,7 @@ class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):
         host_curve = self.host_curve
         obj = self.object
         for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+            if modifier.type != "NODES" or "UTM.Builder_CurveElements_GN" not in modifier.name:
                 continue
             if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
                 gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
@@ -106,7 +129,7 @@ class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):
         curve = floor.curves[floor.active_curve_index]
         host_curve = curve.curve_object
         for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "BLENDERRAIL_CurveElements_GN" not in modifier.name:
+            if modifier.type != "NODES" or "UTM.Builder_CurveElements_GN" not in modifier.name:
                 continue
             gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
             host_curve.update_tag()
@@ -116,26 +139,10 @@ class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):
         if self.active_element_index > len(self.objects) - 1:
             self.active_element_index = len(self.objects) - 1
 
-    collect_method : bpy.props.EnumProperty(
-        name = "Collect Method",
-        description = "Method of assigning elements to the Target Collection of the floor",
-        items = [
-        ('OBJECTS', "Separate Objects", "Select objects and create a collection", 0),
-        ('EXISTING', "Existing Collection", "Choose existing Target Collection", 1),
-        ],
-        default = 'OBJECTS'
-    )
-
     objects : bpy.props.CollectionProperty(
         name = "Element Object",
         description = "Objects to insert into the Tartget Collection",
         type = UTMBUILDER_PG_collect_objects
-    )
-
-    existing_collection : bpy.props.PointerProperty(
-        name = "Existing Collection",
-        description = "Collection of objects to insert into the Tartget Collection",
-        type = bpy.types.Collection
     )
 
     active_element_index : bpy.props.IntProperty(
@@ -499,9 +506,9 @@ class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
 
 class UTMBUILDER_PG_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
-        owner = self.base_object if self.base_object else self.id_data
-        if owner and getattr(owner, "type", None) == 'MESH':
-            owner.name = self.name + "_Constructor"
+        base_object = self.base_object if self.base_object else self.id_data
+        if base_object and getattr(base_object, "type", None) == 'MESH':
+            base_object.name = self.name + "_Constructor"
         return
     
     ID : bpy.props.IntProperty(

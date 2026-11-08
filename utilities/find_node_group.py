@@ -12,7 +12,7 @@ def folder_path_for_asset_library(library_name):
     name = (library_name or "").strip()
     if not name:
         raise RuntimeError(
-            "Set the asset library name in BlenderRail addon preferences"
+            "ULTEAMMATE library not found! Set the asset library name in ULTEAMMATE Builder addon preferences"
         )
     for lib in bpy.context.preferences.filepaths.asset_libraries:
         if lib.name == name:

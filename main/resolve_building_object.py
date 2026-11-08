@@ -17,13 +17,13 @@ def _resolve_building_object(context):
             return None
         else:
             building = active_object.parent.utm_building
-            return building
+            return active_object.parent, building
     
     building = active_object.utm_building
-    return building
+    return active_object, building
 
 
-def is_utm_constructor(obj):
+def _is_utm_constructor(obj):
     if obj is None:
         return False
     building = getattr(obj, "utm_building", None)
@@ -42,12 +42,12 @@ def resolve_building_object(context, obj=None):
     if obj is None:
         return None
 
-    if is_utm_constructor(obj):
+    if _is_utm_constructor(obj):
         return obj
 
     parent = obj.parent
     while parent is not None:
-        if is_utm_constructor(parent):
+        if _is_utm_constructor(parent):
             return parent
         parent = parent.parent
 
@@ -55,7 +55,7 @@ def resolve_building_object(context, obj=None):
 
 
 def active_building(context):
-    """Return BLENDERRAIL_PG_building for the active building, or None."""
+    """Return UTM.Builder_PG_building for the active building, or None."""
     if context is None:
         return None
 

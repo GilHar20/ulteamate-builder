@@ -66,11 +66,8 @@ def register():
 
     bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
 
-    bpy.types.WindowManager.utmbuilder_add_collect_object = bpy.props.PointerProperty(
-        type = bpy.types.Object,
-        name = "Element Object",
-        description = "Temporary object picker for Add Element dialog",
-    )
+    bpy.types.WindowManager.utmbuilder_select_object = bpy.props.PointerProperty(type = bpy.types.Object, name = "Select Object", description = "Object picker")
+    bpy.types.WindowManager.utmbuilder_select_collection = bpy.props.PointerProperty(type = bpy.types.Collection, name = "Select Collection", description = "Collection picker")
 
 
 
@@ -85,8 +82,8 @@ def unregister():
         delattr(bpy.types.Scene, 'buildings')
     if hasattr(bpy.types.Scene, 'active_building_index'):
         delattr(bpy.types.Scene, 'active_building_index')
-    if hasattr(bpy.types.WindowManager, "utmbuilder_add_collect_object"):
-        del bpy.types.WindowManager.utmbuilder_add_collect_object
+    if hasattr(bpy.types.WindowManager, "utmbuilder_select_object"):
+        del bpy.types.WindowManager.utmbuilder_select_object
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
