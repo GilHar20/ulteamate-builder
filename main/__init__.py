@@ -6,12 +6,12 @@ from . import properties, properties_Operators, operators, sync_from_modifier_st
 
 
 classes = [
-    properties.UTMBUILDER_PG_segment,
-    properties.UTMBUILDER_PG_collect_objects,
-    properties.UTMBUILDER_PG_elements_collection,
-    properties.UTMBUILDER_PG_curve,
-    properties.UTMBUILDER_PG_floor,
-    properties.UTMBUILDER_PG_building,
+    properties.UTMBUILDER_PG_utm_element,
+    properties.UTMBUILDER_PG_utm_elements_group,
+    properties.UTMBUILDER_PG_utm_curve_segment,
+    properties.UTMBUILDER_PG_utm_curve,
+    properties.UTMBUILDER_PG_utm_floor,
+    properties.UTMBUILDER_PG_utm_building,
 
     properties_Operators.UTMBUILDER_OT_add_floor,
     properties_Operators.UTMBUILDER_OT_remove_floor,
@@ -56,13 +56,10 @@ classes = [
 
 
 def register():
-    # Register classes
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Object.utm_building = bpy.props.PointerProperty(type = properties.UTMBUILDER_PG_building)
-    bpy.types.Scene.buildings = bpy.props.CollectionProperty(type = properties.UTMBUILDER_PG_building)
-    bpy.types.Scene.active_building_index = bpy.props.IntProperty(default = 0)
+    bpy.types.Object.utm_building = bpy.props.PointerProperty(type = properties.UTMBUILDER_PG_utm_building)
 
     bpy.app.handlers.depsgraph_update_post.append(operators.on_depsgraph_update)
 
@@ -84,6 +81,8 @@ def unregister():
         delattr(bpy.types.Scene, 'active_building_index')
     if hasattr(bpy.types.WindowManager, "utmbuilder_select_object"):
         del bpy.types.WindowManager.utmbuilder_select_object
+    if hasattr(bpy.types.WindowManager, "utmbuilder_select_collection"):
+        del bpy.types.WindowManager.utmbuilder_select_collection
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

@@ -346,7 +346,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 continue
             link_modifier = instance_empty.modifiers[0]
             attribute = gn_sockets._input_driver_path(link_modifier.name, "Socket_4")
-            data_path = 'utm_building.floors[%d].floor_visibility' % floor_index
+            data_path = 'utmb_building.floors[%d].floor_visibility' % floor_index
             _set_attribute_driver(self, context, instance_empty, attribute, data_path, "floor_visibility", base_object)
 
         for curve in all_curves:
@@ -373,59 +373,59 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             curve_attributes.show_expanded = False
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_18")
-            data_path = 'utm_building.floors[%d].floor_visibility' % curve.floor_ID
+            data_path = 'utmb_building.floors[%d].floor_visibility' % curve.floor_ID
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "floor_visibility", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_3")
-            data_path = 'utm_building.floors[%d].array' % curve.floor_ID
+            data_path = 'utmb_building.floors[%d].array' % curve.floor_ID
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "array", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_23")
-            data_path = 'utm_building.floors[%d].maximum_height' % curve.floor_ID
+            data_path = 'utmb_building.floors[%d].maximum_height' % curve.floor_ID
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "maximum_height", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
-            data_path = 'utm_building.floors[%d].curves[%d].ID' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].ID' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "ID", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_10")
-            data_path = 'utm_building.floors[%d].curves[%d].inset' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].inset' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "inset", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-            data_path = 'utm_building.floors[%d].curves[%d].height' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].height' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "height", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_5")
-            data_path = 'utm_building.floors[%d].curves[%d].floor_ceiling' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].floor_ceiling' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "floor_ceiling", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_15")
-            data_path = 'utm_building.floors[%d].curves[%d].thickness' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].thickness' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "thickness", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_16")
-            data_path = 'utm_building.floors[%d].curves[%d].direction_bottom' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].direction_bottom' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "direction_bottom", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_17")
-            data_path = 'utm_building.floors[%d].curves[%d].direction_top' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].direction_top' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "direction_top", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_11")
-            data_path = 'utm_building.floors[%d].curves[%d].select_method' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].select_method' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "select_method", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_14")
-            data_path = 'utm_building.floors[%d].curves[%d].select_per_segment' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].select_per_segment' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "select_per_segment", base_object)
             
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_12")
-            data_path = 'utm_building.floors[%d].curves[%d].sequence_offset' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].sequence_offset' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "sequence_offset", base_object)
 
             attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_13")
-            data_path = 'utm_building.floors[%d].curves[%d].random_index' % (curve.floor_ID, curve.ID)
+            data_path = 'utmb_building.floors[%d].curves[%d].random_index' % (curve.floor_ID, curve.ID)
             _set_attribute_driver(self, context, curve_obj, attribute, data_path, "random_index", base_object)
 
             gn_sockets._set_socket_value(curve_attributes, "Socket_19", curve.top_material)
@@ -446,15 +446,15 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 element_id.show_expanded = False
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_4")
-                data_path = 'utm_building.floors[%d].curves[%d].segments[%d].fit_method' % (curve.floor_ID, curve.ID, segment.ID)
+                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].fit_method' % (curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, data_path, "fit_method", base_object)
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_5")
-                data_path = 'utm_building.floors[%d].curves[%d].segments[%d].fixed_number' % (curve.floor_ID, curve.ID, segment.ID)
+                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].fixed_number' % (curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, data_path, "fixed_number", base_object)
 
                 attribute = gn_sockets._input_driver_path(element_id.name, "Socket_3")
-                data_path = 'utm_building.floors[%d].curves[%d].segments[%d].element_ID' % (curve.floor_ID, curve.ID, segment.ID)
+                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].element_ID' % (curve.floor_ID, curve.ID, segment.ID)
                 _set_attribute_driver(self, context, curve_obj, attribute, data_path, "element_ID", base_object)
 
         building.active_floor_index = old_active_floor
@@ -482,7 +482,7 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
             return True
         
     def _next_building_name(self):
-        count = sum(1 for obj in bpy.data.objects if resolve._is_utm_constructor(obj))
+        count = sum(1 for obj in bpy.data.objects if resolve._is_utm_building(obj))
         return "build_" + str(count + 1)
 
     def execute(self, context):
@@ -499,7 +499,7 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
         modifier.node_group = construct[0]
         modifier.show_expanded = False
 
-        building = cube_obj.utm_building
+        building = cube_obj.utmb_building
         building.is_utm_building = True
         building.name = self._next_building_name()
         building.base_object = cube_obj

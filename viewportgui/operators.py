@@ -1,6 +1,6 @@
 import bpy
 from . import draw
-from ..main import resolve_building_object
+from ..main import resolve_building_object as resolve
 
 
 class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
@@ -16,7 +16,11 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return resolve_building_object.resolve_building_object(context) is not None
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return False
+        else:
+            return True
 
     def invoke(self, context, event):
         cls = type(self)
@@ -25,15 +29,11 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
             cls._remove(context)
             return {'FINISHED'}
 
-        constructor = resolve_building_object.resolve_building_object(context)
-        if constructor is None:
-            self.report({'WARNING'}, "No valid ULTEAMMATE building on the active object")
-            return {'CANCELLED'}
-
-        building = constructor.utm_building
-        if len(building.floors) == 0:
-            self.report({'WARNING'}, "Building has no floors")
-            return {'CANCELLED'}
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            self.report({"ERROR"}, "No building found")
+            return {"CANCELLED"}
+        _, building = resolved
 
         floor = building.floors[building.active_floor_index]
         if len(floor.curves) == 0:

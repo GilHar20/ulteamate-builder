@@ -8,7 +8,7 @@ from ..utilities import gn_sockets
 # Property groups
 # ---------------
 
-class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
     def _find_modifier_position(self, context):
         position = self.ID + 1 # +1 is for the Ccurve_Attribute node that is ALWAYS first.
         if self.element_type == "corner_elements":
@@ -111,7 +111,7 @@ class UTMBUILDER_PG_collect_objects(bpy.types.PropertyGroup):
     )
 
 
-class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):   
+class UTMBUILDER_PG_utm_elements_group(bpy.types.PropertyGroup):   
     def _correct_uv_element(self, context):
         host_curve = self.host_curve
         obj = self.object
@@ -139,10 +139,16 @@ class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):
         if self.active_element_index > len(self.objects) - 1:
             self.active_element_index = len(self.objects) - 1
 
+    group_element_type : bpy.props.StringProperty(
+        name = "Element Type",
+        description = "What type of element is object used for",
+        default = ""
+    )
+
     objects : bpy.props.CollectionProperty(
         name = "Element Object",
         description = "Objects to insert into the Tartget Collection",
-        type = UTMBUILDER_PG_collect_objects
+        type = UTMBUILDER_PG_utm_element
     )
 
     active_element_index : bpy.props.IntProperty(
@@ -168,7 +174,7 @@ class UTMBUILDER_PG_elements_collection(bpy.types.PropertyGroup):
     )
 
 
-class UTMBUILDER_PG_segment(bpy.types.PropertyGroup):   
+class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):   
     def _element_ID_update(self, context):
         building = self.id_data.utm_building
         floor = building.floors[building.active_floor_index]
@@ -207,14 +213,6 @@ class UTMBUILDER_PG_segment(bpy.types.PropertyGroup):
         default = 0.0
     )
 
-    element_ID : bpy.props.IntProperty(
-        name = "Element ID",
-        default = 0,
-        min = 0,
-        max = 10000,
-        update = _element_ID_update
-    )
-
     fit_method : bpy.props.EnumProperty(
         name = "Fit Method",
         description = "Methos for fitting element instances on the spline",
@@ -234,8 +232,16 @@ class UTMBUILDER_PG_segment(bpy.types.PropertyGroup):
         update = _clamp_fixed_number
     )
 
+    element_ID : bpy.props.IntProperty(
+        name = "Element ID",
+        default = 0,
+        min = 0,
+        max = 10000,
+        update = _element_ID_update
+    )
 
-class UTMBUILDER_PG_curve(bpy.types.PropertyGroup):
+
+class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
     def _clamp_active_segment_index(self, context):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
@@ -286,7 +292,7 @@ class UTMBUILDER_PG_curve(bpy.types.PropertyGroup):
     segments : bpy.props.CollectionProperty(
         name = "Segments",
         description = "Segments of the curve object",
-        type = UTMBUILDER_PG_segment
+        type = UTMBUILDER_PG_utm_curve_segment
     )
 
     active_segment_index : bpy.props.IntProperty(
@@ -403,18 +409,18 @@ class UTMBUILDER_PG_curve(bpy.types.PropertyGroup):
 
     main_elements : bpy.props.PointerProperty(
         name = "Main Elements",
-        description = "Collection of main elements",
-        type = UTMBUILDER_PG_elements_collection
+        description = "Group of main elements",
+        type = UTMBUILDER_PG_utm_elements_group
     )
 
     corner_elements : bpy.props.PointerProperty(
-        name = "Main Elements",
-        description = "Collection of main elements",
-        type = UTMBUILDER_PG_elements_collection
+        name = "Corner Elements",
+        description = " Group of corner elements",
+        type = UTMBUILDER_PG_utm_elements_group
     )
 
 
-class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
         building = self.id_data.utm_building
         operators._calculate_floors_start_height(context, building.floors, False)
@@ -431,6 +437,12 @@ class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
         name = "Floor Linked",
         description = "True if floor is linked to another floor",
         default = False
+    )
+
+    instance_object : bpy.props.PointerProperty(
+        name = "Instance Collection Object",
+        description = "Collection object linked from the source floor curves_collection",
+        type = bpy.types.Object
     )
 
     floor_visibility : bpy.props.BoolProperty(
@@ -484,16 +496,10 @@ class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
         type = bpy.types.Collection
     )
 
-    instance_object : bpy.props.PointerProperty(
-        name = "Instance Collection Object",
-        description = "Collection object linked from the source floor curves_collection",
-        type = bpy.types.Object
-    )
-
     curves : bpy.props.CollectionProperty(
         name = "Input curve object",
         description = "Input curve geometry",
-        type = UTMBUILDER_PG_curve
+        type = UTMBUILDER_PG_utm_curve
     )
 
     active_curve_index : bpy.props.IntProperty(
@@ -504,7 +510,7 @@ class UTMBUILDER_PG_floor(bpy.types.PropertyGroup):
     )
 
 
-class UTMBUILDER_PG_building(bpy.types.PropertyGroup):
+class UTMBUILDER_PG_utm_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
         base_object = self.base_object if self.base_object else self.id_data
         if base_object and getattr(base_object, "type", None) == 'MESH':
@@ -527,21 +533,8 @@ class UTMBUILDER_PG_building(bpy.types.PropertyGroup):
 
     is_utm_building : bpy.props.BoolProperty(
         name = "Valid UTM Building",
-        description = "Makes this object is a valid ULTEAMMATE Builder constructor",
+        description = "Makes this object is a valid ULTEAMMATE Builder base object",
         default = False,
-    )
-    
-    base_object : bpy.props.PointerProperty(
-        name = "Building",
-        description = "Base geometry to hold the constract modifier",
-        type = bpy.types.Object
-    )
-
-    # all_curves is not used. Will be in the future
-    all_curves : bpy.props.CollectionProperty(
-        name = "Input curve object",
-        description = "Input curve geometry",
-        type = UTMBUILDER_PG_collect_objects
     )
 
     building_collection : bpy.props.PointerProperty(
@@ -565,7 +558,7 @@ class UTMBUILDER_PG_building(bpy.types.PropertyGroup):
     floors : bpy.props.CollectionProperty(
         name = "Floors",
         description = "List of all the floors in the building",
-        type = UTMBUILDER_PG_floor
+        type = UTMBUILDER_PG_utm_floor
     )
 
     active_floor_index : bpy.props.IntProperty(

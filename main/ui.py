@@ -87,7 +87,7 @@ class UTMBUILDER_UL_curve_list(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         floor = data
-        building = getattr(floor.id_data, "utm_building", None)
+        building = getattr(floor.id_data, "utmb_building", None)
         active_floor_index = building.active_floor_index if building else 0
         active_curve_index = floor.active_curve_index
 
@@ -412,7 +412,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         main_elements = active_curve.main_elements
 
         elements_box = layout.box()
-        
+
         elements_label_row = elements_box.row()
         elements_label_row.scale_y = 1.5
         elements_label_row.label(text = "Main Elements: ", icon = 'DISCLOSURE_TRI_RIGHT')

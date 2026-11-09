@@ -1,2 +1,2 @@
-# UTM.Builder
-A blender plugin for architectural visulaztions
+# ULTEAMMATE Builder
+A blender plugin for streamlined creation of procedural building

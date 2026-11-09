@@ -24,9 +24,6 @@ class UTMBUILDER_OT_add_floor(bpy.types.Operator):
 
     def execute(self, context):
         resolved = resolve._resolve_building_object(context)
-        if resolved is None:
-            self.report({"ERROR"}, "No building found")
-            return {"CANCELLED"}
         _, building = resolved
 
         floors = building.floors
@@ -373,7 +370,7 @@ class UTMBUILDER_OT_link_floor(bpy.types.Operator):
         new_floor.array = source_floor.array
 
         attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-        data_path = 'utm_building.floors[%d].floor_visibility' % building.active_floor_index
+        data_path = 'utmb_building.floors[%d].floor_visibility' % building.active_floor_index
         operators._set_attribute_driver(self, context, instance_empty, attribute, data_path, "floor_visibility", building.id_data)
 
         for floor_index, floor in enumerate(floors):
@@ -645,6 +642,8 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         curves.move(len(curves) - 1, floor.active_curve_index + 1)
         if curve_obj.name not in floor.curves_collection.objects:
             floor.curves_collection.objects.link(curve_obj)
+        if curve_obj.name in context.scene.collection.objects:
+            context.scene.collection.objects.link(curve_obj)
 
         bpy.ops.object.select_all(action='DESELECT')
         curve_obj.select_set(True)
@@ -1086,6 +1085,9 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
             layout.prop(segment, "fixed_number", text = "Fixed Number")
 
 
+# UTMBUILDER_OT_merge_segment(bpy.types.Operator)
+
+
 
 # --------------------------------------
 # Operators: Collect Object Operators
@@ -1159,15 +1161,14 @@ class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
         active_index = collection.active_element_index if len(collection.objects) > 0 else -1
 
         wm = context.window_manager
-        element = wm.utmbuilder_select_object
+        selected_object = wm.utmbuilder_select_object
 
-        assigned_objects = [obj.object for obj in collection.objects]
-        if element in assigned_objects:
+        if selected_object in element_group.objects:
                 self.report({"ERROR"}, "Object already assigned to the curve! Cannot be assigned twice.")
                 return {"CANCELLED"}
 
-        new_element = collection.objects.add()
-        new_element.object = element
+        new_element = element_group.objects.add()
+        new_element.object = selected_object
         new_element.host_curve = curve.curve_object
         new_element.element_type = self.element_type
         new_element.is_empty = self.is_empty
@@ -1183,23 +1184,23 @@ class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
             wm.utmbuilder_select_object = None
             self._add_curve_element(curve, collection, curve_elements_gn[0])
             curve.curve_object.update_tag()
-
             self.report({"INFO"}, "Added Empty Element")
             return {"FINISHED"}
 
-        elif element is None:
+        # CASE is_empty is False
+        elif selected_object is None:
             wm.utmbuilder_select_object = None
             self.report({"WARNING"}, "No object provided, Element not added")
             return {"CANCELLED"}
-        elif element.type != 'MESH':
+        elif selected_object.type != 'MESH':
             wm.utmbuilder_select_object = None
             self.report({"WARNING"}, "Invalid element! Only mesh objects can be added")
             return {"CANCELLED"}
 
-        # CASE is_empty is False
         self._add_curve_element(curve, collection, curve_elements_gn[0])
         wm.utmbuilder_select_object = None
         curve.curve_object.update_tag()
+        self.report({"INFO"}, "Added Element")
 
         return {"FINISHED"}
 
