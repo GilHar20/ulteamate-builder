@@ -1,5 +1,7 @@
 import bpy
-from . import resolve_building_object as resolve
+from .. import icons
+from .. utilities import resolve_building_object as resolve
+from ..utilities.preferences import UTMBUILDER_Preferences
 
 
 
@@ -165,14 +167,34 @@ class UTMBUILDER_PT_building_setup_panel(bpy.types.Panel):
     bl_category = "ULTEAMMATE"
 
 
+    def _draw_asset_library_not_setup(self, context):
+        addon = context.preferences.addons.get(UTMBUILDER_Preferences.bl_idname)
+        return not addon.preferences.asset_library_exists
+
     def draw_header(self, context):
-        from .. import icons
+        layout = self.layout
+        
+        title_row = layout.row()
         pcoll = icons.preview_collections.get("main")
         if pcoll:
-            self.layout.label(text="", icon_value=pcoll["panel_logo"].icon_id)
+            title_row.label(text = "", icon_value = pcoll["panel_logo"].icon_id)
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        settings_row = layout.row(align = True)
+        settings_row.alignment = 'RIGHT'
+        settings_row.operator("utmbuilder.open_addon_preferences", text = "", icon = "PREFERENCES")
 
     def draw(self, context):
         layout = self.layout
+
+        if self._draw_asset_library_not_setup(context):
+            lib_box = layout.box()
+            lib_box.alert = True
+            lib_box.label(text = "Asset library is not set up properly!", icon = 'ERROR')
+            lib_box.label(text = "Open preferences to set up the asset library", icon = 'ERROR')
+            lib_box.operator("utmbuilder.open_addon_preferences", text = "Open Addon Preferences", icon = "PREFERENCES")
+            return
 
         setup_box = layout.box()
         setup_box.label(text = "Building Setup:", icon = 'HOME')

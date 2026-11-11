@@ -1,6 +1,6 @@
 import bpy
-from . import operators, resolve_building_object as resolve
-from ..utilities import find_node_group, gn_sockets
+from . import operators
+from ..utilities import find_node_group, gn_sockets, resolve_building_object as resolve
 
 
 
@@ -598,17 +598,18 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
         bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
         curve_obj = context.view_layer.objects.active
+        curve_obj.name = self.name
         curve_obj.location.z = floor.start_height
         return curve_obj
     
-    def _select_curve(self, context):
+    def _select_curve(self, context, base_object):
         wm = context.window_manager
         curve_obj = wm.utmbuilder_select_object
-        if curve_obj is None:
-            return None
-        if curve_obj.type != 'CURVE' or curve_obj.data.dimensions != '2D':
+        if curve_obj.type != 'CURVE':
             wm.utmbuilder_select_object = None
-            return None
+            return "Invalid element! Only curve objects can be assigned"
+        if curve_obj.parent and curve_obj.parent is not base_object:
+            return "Curve already assigned to a different building!"
         return curve_obj
 
     def execute(self, context):
@@ -626,8 +627,11 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         if self.mode == 'CREATE':
             curve_obj = self._create_curve(context, base_object, floor)
         else:
-            curve_obj = self._select_curve(context)
-        
+            curve_obj = self._select_curve(context, base_object)
+
+        if isinstance(curve_obj, str):
+            self.report({"ERROR"}, curve_obj)
+            return {"CANCELLED"}
         if curve_obj is None:
             self.report({"ERROR"}, "No object provided, Element not added")
             return {"CANCELLED"}
@@ -742,8 +746,8 @@ class UTMBUILDER_OT_replace_curve_object(bpy.types.Operator):
             self.report({"WARNING"}, "No object provided, Element not added")
             wm.utmbuilder_select_object = None
             return {"CANCELLED"}
-        if element.type != 'CURVE' or element.data.dimensions != '2D':
-            self.report({"WARNING"}, "Invalid element! Only 2D curve objects can be assigned")
+        if element.type != 'CURVE':
+            self.report({"WARNING"}, "Invalid element! Only curve objects can be assigned")
             wm.utmbuilder_select_object = None
             return {"CANCELLED"}
         
@@ -1034,6 +1038,12 @@ class UTMBUILDER_OT_remove_segment(bpy.types.Operator):
         return {"FINISHED"}
     
 
+# URMBUILDER_OT_merge_segment(bpy.types.Operator)
+
+
+# UTMBUILDER_OT_select_segment(bpy.types.Operator)
+
+
 class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
     bl_idname = "utmbuilder.segment_settings"
     bl_label = "Segment Settings"
@@ -1083,9 +1093,6 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
         layout.prop(segment, "fit_method", expand = True)
         if segment.fit_method == 'FIXED':
             layout.prop(segment, "fixed_number", text = "Fixed Number")
-
-
-# UTMBUILDER_OT_merge_segment(bpy.types.Operator)
 
 
 
@@ -1163,11 +1170,12 @@ class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
         wm = context.window_manager
         selected_object = wm.utmbuilder_select_object
 
-        if selected_object in element_group.objects:
+        existing_objects = [obj.object for obj in collection.objects]
+        if selected_object in existing_objects:
                 self.report({"ERROR"}, "Object already assigned to the curve! Cannot be assigned twice.")
                 return {"CANCELLED"}
 
-        new_element = element_group.objects.add()
+        new_element = collection.objects.add()
         new_element.object = selected_object
         new_element.host_curve = curve.curve_object
         new_element.element_type = self.element_type

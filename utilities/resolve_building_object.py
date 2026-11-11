@@ -1,7 +1,3 @@
-import bpy
-
-
-
 def _resolve_building_object(context):
     if not context.view_layer.objects.active:
         return None

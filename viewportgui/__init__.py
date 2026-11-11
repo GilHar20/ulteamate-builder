@@ -5,7 +5,7 @@ from . import draw, operators, thumbnail_render, ui
 classes = [
     thumbnail_render.UTMBUILDER_OT_render_selected_thumbnail,
     operators.UTMBUILDER_OT_viewport_panel,
-    ui.UTMBUILDER_PT_thumbnail_panel
+    #ui.UTMBUILDER_PT_thumbnail_panel
 ]
 
 

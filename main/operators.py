@@ -2,8 +2,7 @@ import bpy
 import mathutils
 from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
-from ..utilities import find_node_group, gn_sockets
-from . import resolve_building_object as resolve
+from ..utilities import find_node_group, gn_sockets, resolve_building_object as resolve
 
 
 
@@ -332,7 +331,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
 
         for modifier in base_object.modifiers:
             if "Construct_GN" in modifier.name:
-                gn_sockets._set_socket_value(modifier, "Socket_2", building.building_collection)
+                gn_sockets._set_socket_value(modifier, "Socket_2", building.floors_collection)
 
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
@@ -475,9 +474,6 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
     def poll(cls, context):
         if context.mode != 'OBJECT':
             return False
-        resolved = resolve._resolve_building_object(context)
-        if resolved is None:
-            return False
         else:
             return True
         
@@ -499,10 +495,9 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
         modifier.node_group = construct[0]
         modifier.show_expanded = False
 
-        building = cube_obj.utmb_building
+        building = cube_obj.utm_building
         building.is_utm_building = True
         building.name = self._next_building_name()
-        building.base_object = cube_obj
         cube_obj.name = building.name + "_Constructor"
 
         building_collection = bpy.data.collections.new(building.name)

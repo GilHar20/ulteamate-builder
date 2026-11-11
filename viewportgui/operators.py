@@ -1,6 +1,6 @@
 import bpy
 from . import draw
-from ..main import resolve_building_object as resolve
+from ..utilities import resolve_building_object as resolve
 
 
 class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):

@@ -8,6 +8,7 @@ class UTMBUILDER_PT_thumbnail_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "ULTEAMMATE"
+    bl_parent_id = "UTMBUILDER_PT_building_setup_panel"
 
 
     def draw(self, context):

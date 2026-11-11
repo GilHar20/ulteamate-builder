@@ -1,11 +1,12 @@
 import bpy
 import gpu
-from ..main import resolve_building_object as resolve
 import blf
+import math
+from ..utilities import resolve_building_object as resolve
 from gpu_extras.batch import batch_for_shader
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from mathutils import Vector
-import math
+
 
 
 TITLE_HEIGHT = 30
