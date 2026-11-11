@@ -177,18 +177,20 @@ def on_depsgraph_update(scene, depsgraph):
 
 
 def _calculate_floors_start_height(context, floors, stacked):
-    scene = context.scene
     all_curves = []
     accumulated_height: float = 0
 
     for floor_index, floor in enumerate(floors):
 
         if floor.is_linked == True:
-            curves_collections = [floor.curves_collection for floor in floors]
-            matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+            all_curves_collections = [floor.curves_collection for floor in floors]
+            link_modifier = gn_sockets.link_floor_modifier(floor.instance_object)
+            curves_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
+
+            matching_index = all_curves_collections.index(curves_collection)
             source_floor = floors[matching_index]
             z_diff = accumulated_height - floor.start_height
-            gn_sockets._set_socket_value(floor.instance_object.modifiers[0], "Socket_3", (0.0 ,0.0, z_diff))
+            gn_sockets._set_socket_value(link_modifier, "height_offset", (0.0 ,0.0, z_diff))
             floor.start_height = source_floor.start_height
             floor.total_height = source_floor.total_height
             floor.instance_object.update_tag()
@@ -236,24 +238,6 @@ def _calculate_floors_start_height(context, floors, stacked):
     return all_curves
 
 
-def _set_attribute_driver(self, context, item, attribute, data_path, var_name, driver_object):
-    fcurve = item.driver_add(attribute)
-    driver = fcurve.driver
-    driver.type = 'AVERAGE'
-
-    if driver.variables:
-        var = driver.variables[0]
-    else:
-        var = driver.variables.new()
-        
-    var.name = var_name
-    var.type = 'SINGLE_PROP'
-    var.targets[0].id_type = 'OBJECT'
-    var.targets[0].id = driver_object
-    var.targets[0].data_path = data_path
-    return
-
-
 def _assign_curve_elements(self, context, building, curve, element_type):
     collection = building.elements_collection
     elements_collection = getattr(curve, element_type)
@@ -271,12 +255,12 @@ def _assign_curve_elements(self, context, building, curve, element_type):
 
         element_name = bpy.data.objects.get(element.object.name) if element.object is not None else None
 
-        gn_sockets._set_socket_value(curve_element, "Socket_5", element_type)
-        gn_sockets._set_socket_value(curve_element, "Socket_4", element_name)
-        gn_sockets._set_socket_value(curve_element, "Socket_9", element.is_empty)
-        gn_sockets._set_socket_value(curve_element, "Socket_10", element.empty_bounds)
-        gn_sockets._set_socket_value(curve_element, "Socket_11", element.correct_uv)
-        gn_sockets._set_socket_value(curve_element, "Socket_6", element.up_stretched)
+        gn_sockets._set_socket_value(curve_element, "element_type", element_type)
+        gn_sockets._set_socket_value(curve_element, "object", element_name)
+        gn_sockets._set_socket_value(curve_element, "is_empty", element.is_empty)
+        gn_sockets._set_socket_value(curve_element, "empty_bounds", element.empty_bounds)
+        gn_sockets._set_socket_value(curve_element, "correct_uv", element.correct_uv)
+        gn_sockets._set_socket_value(curve_element, "up_stretched", element.up_stretched)
 
         element_object = element.object if element.object else None
         if element_object is None:
@@ -284,28 +268,26 @@ def _assign_curve_elements(self, context, building, curve, element_type):
         elif collection not in element.object.users_collection:
             collection.objects.link(element.object)
 
-    '''
-    elif elements_collection.collect_method == 'COLLECTION':
-        if len(elements_collection.existing_collection.objects) == 0:
-            self.report({'WARNING'}, "No elements are linked into the assigned collection")
-            return
-        
-        for element in elements_collection.existing_collection:
-            curve_elements = curve.curve_object.modifiers.new(name = "UTM.Builder_CurveElements_GN", type = "NODES")
-            curve_elements_gn = find_node_group.link_gn_from_library("UTM.Builder_CurveElements_GN")[0]
-            curve_elements.node_group = curve_elements_gn
-            curve_elements.show_expanded = False
-
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
-            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
-            gn_sockets._set_socket_value(curve_elements, "Socket_6", elements_collection.up_stretched)
-
-            if collection not in element.object.users_collection:            
-                collection.objects.link(element.object)
-    '''
-
     return
 
+
+def _set_attribute_driver(self, context, item, attribute, data_path, var_name, driver_object):
+    '''Deprecated: used by drivers; kept for possible future use.'''
+    fcurve = item.driver_add(attribute)
+    driver = fcurve.driver
+    driver.type = 'AVERAGE'
+
+    if driver.variables:
+        var = driver.variables[0]
+    else:
+        var = driver.variables.new()
+        
+    var.name = var_name
+    var.type = 'SINGLE_PROP'
+    var.targets[0].id_type = 'OBJECT'
+    var.targets[0].id = driver_object
+    var.targets[0].data_path = data_path
+    return
 
 
 # --------------------
@@ -329,9 +311,8 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
         old_active_floor = building.active_floor_index
         floors = building.floors
 
-        for modifier in base_object.modifiers:
-            if "Construct_GN" in modifier.name:
-                gn_sockets._set_socket_value(modifier, "Socket_2", building.floors_collection)
+        construct_modifier = gn_sockets.construct_modifier(base_object)
+        gn_sockets._set_socket_value(construct_modifier, "floors_collection", building.floors_collection)
 
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
@@ -343,10 +324,8 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             instance_empty = floor.instance_object
             if instance_empty is None:
                 continue
-            link_modifier = instance_empty.modifiers[0]
-            attribute = gn_sockets._input_driver_path(link_modifier.name, "Socket_4")
-            data_path = 'utmb_building.floors[%d].floor_visibility' % floor_index
-            _set_attribute_driver(self, context, instance_empty, attribute, data_path, "floor_visibility", base_object)
+            link_modifier = gn_sockets.link_floor_modifier(instance_empty)
+            gn_sockets._set_socket_value(link_modifier, "floor_visibility", floor.floor_visibility)
 
         for curve in all_curves:
             curve_obj = curve.curve_object
@@ -357,13 +336,9 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
 
             _sync_segments_to_curves(curve)
 
-            if curve_obj.parent != base_object:
-                bpy.ops.object.select_all(action='DESELECT')
-                context.view_layer.objects.active = base_object
-                base_object.select_set(True)
-                curve_obj.select_set(True)
-                bpy.ops.object.parent_no_inverse_set(keep_transform = True)
-
+            mw = curve_obj.matrix_world.copy()
+            curve_obj.parent = base_object
+            curve_obj.matrix_world = mw
             curve_obj.modifiers.clear()
 
             curve_attributes = curve_obj.modifiers.new(name = "UTM.Builder_CurveAttributes_GN", type = "NODES")
@@ -371,65 +346,28 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             curve_attributes.node_group = curve_attributes_gn
             curve_attributes.show_expanded = False
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_18")
-            data_path = 'utmb_building.floors[%d].floor_visibility' % curve.floor_ID
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "floor_visibility", base_object)
+            floor = floors[curve.floor_ID]
+            gn_sockets._set_socket_value(curve_attributes, "floor_visibility", floor.floor_visibility)
+            gn_sockets._set_socket_value(curve_attributes, "array", floor.array)
+            gn_sockets._set_socket_value(curve_attributes, "maximum_height", floor.maximum_height)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_3")
-            data_path = 'utmb_building.floors[%d].array' % curve.floor_ID
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "array", base_object)
+            gn_sockets._set_socket_value(curve_attributes, "ID", curve.ID)
+            gn_sockets._set_socket_value(curve_attributes, "inset", curve.inset)
+            gn_sockets._set_socket_value(curve_attributes, "height", curve.height)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_23")
-            data_path = 'utmb_building.floors[%d].maximum_height' % curve.floor_ID
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "maximum_height", base_object)
+            gn_sockets._set_socket_value(curve_attributes, "floor_ceiling", curve.floor_ceiling)
+            gn_sockets._set_socket_value(curve_attributes, "thickness", curve.thickness)
+            gn_sockets._set_socket_value(curve_attributes, "direction_bottom", curve.direction_bottom)
+            gn_sockets._set_socket_value(curve_attributes, "direction_top", curve.direction_top)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
-            data_path = 'utmb_building.floors[%d].curves[%d].ID' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "ID", base_object)
+            gn_sockets._set_socket_value(curve_attributes, "select_method", curve.select_method)
+            gn_sockets._set_socket_value(curve_attributes, "select_per_segment", curve.select_per_segment)
+            gn_sockets._set_socket_value(curve_attributes, "sequence_offset", curve.sequence_offset)
+            gn_sockets._set_socket_value(curve_attributes, "random_index", curve.random_index)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_10")
-            data_path = 'utmb_building.floors[%d].curves[%d].inset' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "inset", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-            data_path = 'utmb_building.floors[%d].curves[%d].height' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "height", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_5")
-            data_path = 'utmb_building.floors[%d].curves[%d].floor_ceiling' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "floor_ceiling", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_15")
-            data_path = 'utmb_building.floors[%d].curves[%d].thickness' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "thickness", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_16")
-            data_path = 'utmb_building.floors[%d].curves[%d].direction_bottom' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "direction_bottom", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_17")
-            data_path = 'utmb_building.floors[%d].curves[%d].direction_top' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "direction_top", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_11")
-            data_path = 'utmb_building.floors[%d].curves[%d].select_method' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "select_method", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_14")
-            data_path = 'utmb_building.floors[%d].curves[%d].select_per_segment' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "select_per_segment", base_object)
-            
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_12")
-            data_path = 'utmb_building.floors[%d].curves[%d].sequence_offset' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "sequence_offset", base_object)
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_13")
-            data_path = 'utmb_building.floors[%d].curves[%d].random_index' % (curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, data_path, "random_index", base_object)
-
-            gn_sockets._set_socket_value(curve_attributes, "Socket_19", curve.top_material)
-            gn_sockets._set_socket_value(curve_attributes, "Socket_20", curve.sides_material)
-            gn_sockets._set_socket_value(curve_attributes, "Socket_21", curve.bottom_material)
+            gn_sockets._set_socket_value(curve_attributes, "top_material", curve.top_material)
+            gn_sockets._set_socket_value(curve_attributes, "sides_material", curve.sides_material)
+            gn_sockets._set_socket_value(curve_attributes, "bottom_material", curve.bottom_material)
 
 
             _assign_curve_elements(self, context, building, curve, "main_elements")
@@ -441,20 +379,12 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 element_id_gn = find_node_group.link_gn_from_library("UTM.Builder_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
                 segment.ID = segment_index
-                gn_sockets._set_socket_value(element_id, "Socket_2", segment.ID)
+                gn_sockets._set_socket_value(element_id, "segment_index", segment.ID)
                 element_id.show_expanded = False
 
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_4")
-                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].fit_method' % (curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, data_path, "fit_method", base_object)
-
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_5")
-                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].fixed_number' % (curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, data_path, "fixed_number", base_object)
-
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_3")
-                data_path = 'utmb_building.floors[%d].curves[%d].segments[%d].element_ID' % (curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, data_path, "element_ID", base_object)
+                gn_sockets._set_socket_value(element_id, "fit_method", segment.fit_method)
+                gn_sockets._set_socket_value(element_id, "fixed_number", segment.fixed_number)
+                gn_sockets._set_socket_value(element_id, "element_ID", segment.element_ID)
 
         building.active_floor_index = old_active_floor
 
@@ -489,24 +419,24 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
             return {"CANCELLED"}
         
         bpy.ops.mesh.primitive_cube_add(size = 2, enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
-        cube_obj = context.view_layer.objects.active
+        base_object = context.view_layer.objects.active
 
-        modifier = cube_obj.modifiers.new(name = "UTM.Builder_Construct_GN", type = "NODES")
+        modifier = base_object.modifiers.new(name = "UTM.Builder_Construct_GN", type = "NODES")
         modifier.node_group = construct[0]
         modifier.show_expanded = False
 
-        building = cube_obj.utm_building
+        building = base_object.utm_building
         building.is_utm_building = True
         building.name = self._next_building_name()
-        cube_obj.name = building.name + "_Constructor"
+        base_object.name = building.name + "_Constructor"
 
         building_collection = bpy.data.collections.new(building.name)
         building.building_collection = building_collection
         context.scene.collection.children.link(building_collection)
-        building_collection.objects.link(cube_obj)
-        for parent in cube_obj.users_collection:
+        building_collection.objects.link(base_object)
+        for parent in base_object.users_collection:
             if parent != building_collection:
-                parent.objects.unlink(cube_obj)
+                parent.objects.unlink(base_object)
 
 
         floors_collection = bpy.data.collections.new(building.name + "_Floors")
@@ -521,35 +451,23 @@ class UTMBUILDER_OT_generate_building(bpy.types.Operator):
         building_collection.children.link(elements_collection)
         context.scene.collection.children.unlink(elements_collection)
 
-        gn_sockets._set_socket_value(modifier, "Socket_2", floors_collection)
+        gn_sockets._set_socket_value(modifier, "floors_collection", floors_collection)
 
         bpy.ops.utmbuilder.add_floor()
 
         floor = building.floors[0]
-
         curves_collection = bpy.data.collections.new(building.name + "_Floor_" + str(floor.ID) + "_Curves")
         context.scene.collection.children.link(curves_collection)
         floor.curves_collection = curves_collection
         floors_collection.children.link(curves_collection)
         context.scene.collection.children.unlink(curves_collection)
 
-        bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
-        bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
-        bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
-        curve_obj = context.view_layer.objects.active
-        floor.curves_collection.objects.link(curve_obj)
-        for parent in curve_obj.users_collection:
-            if parent != floor.curves_collection:
-                parent.objects.unlink(curve_obj)
+        context.view_layer.objects.active = base_object
+        bpy.ops.utmbuilder.add_curve_object()
+        bpy.ops.object.mode_set(mode = 'OBJECT')
 
-        new_curve = floor.curves.add()
-        new_curve.curve_object = curve_obj
-        floor.active_curve_index = 0
-        floor.curves[0].curve_object = curve_obj
-
-        context.view_layer.objects.active = cube_obj
-        cube_obj.select_set(True)
-
+        context.view_layer.objects.active = base_object
+        base_object.select_set(True)
         bpy.ops.utmbuilder.evaluate_building()
         
         return {"FINISHED"}

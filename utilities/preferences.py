@@ -1,6 +1,6 @@
 import bpy
 
-from . asset_library_setup import default_user_asset_library_directory
+from . import asset_library_setup as asset_library
 
 
 class UTMBUILDER_Preferences(bpy.types.AddonPreferences):
@@ -10,11 +10,11 @@ class UTMBUILDER_Preferences(bpy.types.AddonPreferences):
         subtype = 'DIR_PATH',
         name = "Asset Library Path",
         description = (
-            "Folder for the ULTEAMMATE asset library. "
+            "Folder for the ULTEAMMATE asset library."
             "Uses this folder directly when set to the default bundled path; "
             "otherwise files are stored in a ulteammate_assets subfolder"
         ),
-        default = default_user_asset_library_directory(),
+        default = asset_library.default_user_asset_library_directory(),
     )
 
     asset_library_exists : bpy.props.BoolProperty(
@@ -24,14 +24,17 @@ class UTMBUILDER_Preferences(bpy.types.AddonPreferences):
     )
 
     def draw(self, context):
+        asset_library.sync_asset_library_exists_from_filepaths()
+        
         layout = self.layout
         box = layout.box()
 
         if self.asset_library_exists:
             box.label(text = "Asset library is set up correctly!", icon = 'INFO')
             box.prop(self, "asset_library_path", text = "Asset library Path")
+            box.operator("utmbuilder.setup_asset_library", text = "Update Asset Library", icon = "FILE_REFRESH")
             return
             
         box.label(text = "Asset library is set up properly!", icon = 'ERROR')
         box.prop(self, "asset_library_path", text = "Asset library Path")
-        box.operator("utmbuilder.setup_asset_library", text = "Register in Blender File Paths", icon = "FILE_REFRESH")
+        box.operator("utmbuilder.setup_asset_library", text = "Register Asset Library", icon = "FILE_REFRESH")

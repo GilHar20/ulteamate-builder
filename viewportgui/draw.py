@@ -51,19 +51,14 @@ def get_element_names():
 
     names = []
 
-    if curve.main_elements.collect_method == "OBJECTS":
-        if len(curve.main_elements.objects) == 0:
-            return[]
-        for element in curve.main_elements.objects:
-            if element.object != None:
-                names.append(element.object.name)
-            else:
-                names.append( "- empty -")
+    if len(curve.main_elements.objects) == 0:
+        return[]
+    for element in curve.main_elements.objects:
+        if element.object != None:
+            names.append(element.object.name)
+        else:
+            names.append( "- empty -")
 
-    if curve.main_elements.collect_method == "EXISTING":
-        for obj in curve.main_elements.existing_collection.objects:
-            names.append(obj.name if obj else "- empty -")
-    
     return names
 
 

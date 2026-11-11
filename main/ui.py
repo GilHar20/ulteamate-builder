@@ -1,7 +1,8 @@
 import bpy
 from .. import icons
 from .. utilities import resolve_building_object as resolve
-from ..utilities.preferences import UTMBUILDER_Preferences
+from .. utilities.preferences import UTMBUILDER_Preferences
+from .. utilities import asset_library_setup as asset_library
 
 
 
@@ -168,6 +169,7 @@ class UTMBUILDER_PT_building_setup_panel(bpy.types.Panel):
 
 
     def _draw_asset_library_not_setup(self, context):
+        asset_library.sync_asset_library_exists_from_filepaths()
         addon = context.preferences.addons.get(UTMBUILDER_Preferences.bl_idname)
         return not addon.preferences.asset_library_exists
 
@@ -239,6 +241,9 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
+        addon = context.preferences.addons.get(UTMBUILDER_Preferences.bl_idname)
+        if not addon.preferences.asset_library_exists:
+            return False
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
             return False

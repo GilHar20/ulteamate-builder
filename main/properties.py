@@ -1,6 +1,6 @@
 import bpy
 from . import operators
-from ..utilities import gn_sockets
+from ..utilities import gn_sockets, resolve_building_object as resolve
 
 
 
@@ -9,63 +9,76 @@ from ..utilities import gn_sockets
 # ---------------
 
 class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
-    def _find_modifier_position(self, context):
-        position = self.ID + 1 # +1 is for the Ccurve_Attribute node that is ALWAYS first.
-        if self.element_type == "corner_elements":
-            building = self.id_data.utm_building
-            floor = building.floors[building.active_floor_index]
-            curve = floor.curves[floor.active_curve_index]
-            position += len(curve.main_elements.objects)
+    def _get_curve_modifier(self, context):
+        resolved = resolve._resolve_building_object(context)
+        _, building = resolved
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        modifier = gn_sockets.curve_elements_modifier(curve, self.ID, self.element_type)
+        return modifier
+
+    def _update_ID(self, context):
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "ID", self.ID)
+        self.host_curve.update_tag()
+        return
+
+    def _update_object(self, context):
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "object", self.object)
+        self.host_curve.update_tag()
+        return
+
+    def _update_element_type(self, context):
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "element_type", self.element_type)
+        self.host_curve.update_tag()
+        return
 
     def _update_is_empty(self, context):
-        host_curve = self.host_curve
-        position = self._find_modifier_position
-        modifier = host_curve.modifiers[position]
-        gn_sockets._set_socket_value(modifier, "Socket_9", self.is_empty)
-        host_curve.update_tag()
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "is_empty", self.is_empty)
+        self.host_curve.update_tag()
         return
 
     def _update_empty_bounds(self, context):
-        host_curve = self.host_curve
-        position = self._find_modifier_position
-        modifier = host_curve.modifiers[position]
-        gn_sockets._set_socket_value(modifier, "Socket_10", self.empty_bounds)
-        host_curve.update_tag()
-        return
-
-    def _update_up_stretched(self, context):
-        host_curve = self.host_curve
-        position = self._find_modifier_position
-        modifier = host_curve.modifiers[position]
-        gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
-        host_curve.update_tag()
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "empty_bounds", self.empty_bounds)
+        self.host_curve.update_tag()
         return
 
     def _update_correct_uv(self, context):
-        host_curve = self.host_curve
-        position = self._find_modifier_position
-        modifier = host_curve.modifiers[position]
-        gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
-        host_curve.update_tag()
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "correct_uv", self.correct_uv)
+        self.host_curve.update_tag()
+        return
+
+    def _update_up_stretched(self, context):
+        modifier = self._get_curve_modifier(context)
+        gn_sockets._set_socket_value(modifier, "up_stretched", self.up_stretched)
+        self.host_curve.update_tag()
         return
 
     ID : bpy.props.IntProperty(
         name = "Element ID",
         default = 0,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _update_ID
     )
 
     object : bpy.props.PointerProperty(
         name = "Element Object",
         description = "Pointer to object used for this element",
-        type = bpy.types.Object
+        type = bpy.types.Object,
+        update = _update_object
     )
 
     element_type : bpy.props.StringProperty(
         name = "Element Type",
         description = "What type of element is object used for",
-        default = ""
+        default = "",
+        update = _update_element_type
     )
 
     host_curve : bpy.props.PointerProperty(
@@ -112,29 +125,6 @@ class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
 
 
 class UTMBUILDER_PG_utm_elements_group(bpy.types.PropertyGroup):   
-    def _correct_uv_element(self, context):
-        host_curve = self.host_curve
-        obj = self.object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "UTM.Builder_CurveElements_GN" not in modifier.name:
-                continue
-            if gn_sockets._get_socket_value(modifier, "Socket_4") == obj:
-                gn_sockets._set_socket_value(modifier, "Socket_11", self.correct_uv)
-                host_curve.update_tag()
-                return
-
-    def _up_stretch_element(self, context):
-        building = self.id_data.utm_building
-        floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
-        host_curve = curve.curve_object
-        for modifier in host_curve.modifiers:
-            if modifier.type != "NODES" or "UTM.Builder_CurveElements_GN" not in modifier.name:
-                continue
-            gn_sockets._set_socket_value(modifier, "Socket_6", self.up_stretched)
-            host_curve.update_tag()
-            return    
-
     def _clamp_active_element_index(self, context):
         if self.active_element_index > len(self.objects) - 1:
             self.active_element_index = len(self.objects) - 1
@@ -159,39 +149,57 @@ class UTMBUILDER_PG_utm_elements_group(bpy.types.PropertyGroup):
         update = _clamp_active_element_index
     )
 
-    correct_uv : bpy.props.BoolProperty(
-        name = "Correct UV",
-        description = "Stretch the element's UV attribute to match the scaling on the curve",
-        default = False,
-        update = _correct_uv_element
-    )
-
-    up_stretched : bpy.props.BoolProperty(
-        name = "Is Stretched",
-        description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        default = False,
-        update = _up_stretch_element
-    )
-
 
 class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):   
-    def _element_ID_update(self, context):
+    def _get_segment_modifier(self, context):
         building = self.id_data.utm_building
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
+        modifier = gn_sockets.element_id_modifier(curve, self.ID)
+        return modifier
+
+    def _get_active_curve(self, context):
+        building = self.id_data.utm_building
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        return curve
+
+    def _update_segment_ID(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "segment_index", self.ID)
+        curve = self._get_active_curve(context)
         curve.curve_object.update_tag()
         return
-
-    def _clamp_fixed_number(self, context):
+    
+    def _update_fit_method(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "fit_method", self.fit_method)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
+    
+    def _update_fixed_number(self, context):
         if self.fixed_number < 1:
             self.fixed_number = 1
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "fixed_number", self.fixed_number)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
+    
+    def _update_element_ID(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "element_ID", self.element_ID)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
         return
     
     ID : bpy.props.IntProperty(
         name = "Segment ID",
         default = 0,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _update_segment_ID
     )
 
     spline_ID : bpy.props.IntProperty(
@@ -221,7 +229,8 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         ('FIT', "Fit", "Fit length of elements to the spline length, a=scale if necessary", 1),
         ('FIXED', "Fixed", "Fit fixed number of elements, scale elements accordingly", 2),
         ],
-        default = 'FIT'
+        default = 'FIT',
+        update = _update_fit_method
     )
 
     fixed_number : bpy.props.IntProperty(
@@ -229,7 +238,7 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         default = 5,
         min = 0,
         max = 10000,
-        update = _clamp_fixed_number
+        update = _update_fixed_number
     )
 
     element_ID : bpy.props.IntProperty(
@@ -237,7 +246,7 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000,
-        update = _element_ID_update
+        update = _update_element_ID
     )
 
 
@@ -246,9 +255,48 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
 
+    def _update_inset(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "inset", self.inset)
+        self.curve_object.update_tag()
+        return
+
     def _update_total_height(self, context):
         building = self.id_data.utm_building
         operators._calculate_floors_start_height(context, building.floors, False)
+
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "height", self.height)
+
+        floor = building.floors[building.active_floor_index]
+        for curve_pg in floor.curves:
+            modifier = gn_sockets.curve_attributes_modifier(curve_pg)
+            gn_sockets._set_socket_value(modifier, "maximum_height", floor.maximum_height)
+            curve_pg.curve_object.update_tag()
+        return
+
+    def _update_floor_ceiling(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "floor_ceiling", self.floor_ceiling)
+        self.curve_object.update_tag()
+        return
+
+    def _update_thickness(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "thickness", self.thickness)
+        self.curve_object.update_tag()
+        return
+
+    def _update_direction_bottom(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "direction_bottom", self.direction_bottom)
+        self.curve_object.update_tag()
+        return
+
+    def _update_direction_top(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "direction_top", self.direction_top)
+        self.curve_object.update_tag()
         return
 
     def _update_top_material(self, context):
@@ -266,6 +314,30 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
     def _update_bottom_material(self, context):
         modifier = self.curve_object.modifiers[0]
         gn_sockets._set_socket_value(modifier, "Socket_21", self.bottom_material)
+        self.curve_object.update_tag()
+        return
+
+    def _update_select_method(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "select_method", self.select_method)
+        self.curve_object.update_tag()
+        return
+
+    def _update_select_per_segment(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "select_per_segment", self.select_per_segment)
+        self.curve_object.update_tag()
+        return
+
+    def _update_sequence_offset(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "sequence_offset", self.sequence_offset)
+        self.curve_object.update_tag()
+        return
+
+    def _update_random_index(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "random_index", self.random_index)
         self.curve_object.update_tag()
         return
 
@@ -308,7 +380,8 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         description = "Inset the curve inside or outside its normal",
         default = 0.2,
         min = -10.0,
-        max = 10.0
+        max = 10.0,
+        update = _update_inset
     )
 
     height : bpy.props.FloatProperty(
@@ -328,7 +401,8 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         ('TOP', "Top", "Add ceiling", 2),
         ('BOTH', "Both", "Add ceiling and floor", 3),
         ],
-        default = 'BOTTOM'
+        default = 'BOTTOM',
+        update = _update_floor_ceiling
     )
 
     thickness : bpy.props.FloatProperty(
@@ -336,7 +410,8 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         description = "Thickness of the floor surface extrude",
         default = 0.3,
         min = 0.0,
-        max = 10.0
+        max = 10.0,
+        update = _update_thickness
     )
 
     direction_bottom : bpy.props.FloatProperty(
@@ -344,7 +419,8 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         description = "Direction of the curve's bottom floor exturde, 1 = up, -1 = down",
         default = 1.0,
         min = -1.0,
-        max = 1.0
+        max = 1.0,
+        update = _update_direction_bottom
     )
 
     direction_top : bpy.props.FloatProperty(
@@ -352,7 +428,8 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         description = "Direction of the curve's top ceiling exturde, 1 = up, -1 = down",
         default = -1.0,
         min = -1.0,
-        max = 1.0
+        max = 1.0,
+        update = _update_direction_top
     )
 
     top_material : bpy.props.PointerProperty(
@@ -384,27 +461,31 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         ('RANDOM', "Random", "Randomly assign elements for each segment", 1),
         ('CUSTOM', "Custom", "Manually select elements for each segment", 2),
         ],
-        default = 'CUSTOM'
+        default = 'CUSTOM',
+        update = _update_select_method
     )
 
     select_per_segment : bpy.props.BoolProperty(
         name = "Select Per Segment",
         description = "When True, a specific element will be set for each segment. Otherwise, a segment can instance multiple different elements",
-        default = False
+        default = False,
+        update = _update_select_per_segment
     )
 
     sequence_offset : bpy.props.IntProperty(
         name = "Sequece Offset",
         default = 0,
         min = -10000,
-        max = 10000
+        max = 10000,
+        update = _update_sequence_offset
     )
 
     random_index : bpy.props.IntProperty(
         name = "Random Index",
         default = 0,
         min = -10000,
-        max = 10000
+        max = 10000,
+        update = _update_random_index
     )
 
     main_elements : bpy.props.PointerProperty(
@@ -422,6 +503,9 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
 
 class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
     def _update_total_height(self, context):
+        for curve_pg in self.curves:
+            modifier = gn_sockets.curve_attributes_modifier(curve_pg)
+            gn_sockets._set_socket_value(modifier, "array", self.array)
         building = self.id_data.utm_building
         operators._calculate_floors_start_height(context, building.floors, False)
         return

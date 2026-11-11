@@ -1,7 +1,18 @@
+'''
+Operator to sync a building from the modifier stack and collaetion hierarchy.
+Useful for moving .blend files between computers without worrying about the addon being installed.
+Or in any case were the addon is disabled, possibly in a version jump without backwards compatibility.
+
+This file acts as an entity of its own, thus presumes nothing, and will not rely on any other files.
+It will try to build the entire property group structure from scratch, all on its own.
+'''
+
+
 import re
 import bpy
 
 from ..utilities import gn_sockets
+from . import operators
 
 
 
@@ -23,29 +34,6 @@ _CURVE_ATTRIBUTE_FIELDS = (
 )
 
 
-def _set_pg_property(pg, prop_name, value):
-    prop = pg.bl_rna.properties.get(prop_name)
-    if prop.type == "ENUM":
-        if isinstance(value, int):
-            identifiers = [item.identifier for item in prop.enum_items]
-            if 0 <= value < len(identifiers):
-                value = identifiers[value]
-            setattr(pg, prop_name, value)
-            return
-        if isinstance(value, str):
-            for item in prop.enum_items:
-                if item.name == value or item.name.upper() == value.upper():
-                    setattr(pg, prop_name, item.identifier)
-                    return
-            # Already an identifier, e.g. "BOTH"
-            if value in {item.identifier for item in prop.enum_items}:
-                setattr(pg, prop_name, value)
-                return
-        setattr(pg, prop_name, value)
-        return
-    setattr(pg, prop_name, value)
-
-
 def _sync_curve_from_modifiers(curve, curve_obj):
     curve.main_elements.objects.clear()
     curve.corner_elements.objects.clear()
@@ -58,33 +46,34 @@ def _sync_curve_from_modifiers(curve, curve_obj):
             continue
 
         if "CurveAttributes_GN" in modifier.name:
-            for socket_id, field_name in _CURVE_ATTRIBUTE_FIELDS:
-                value = gn_sockets._get_socket_value(modifier, socket_id)
-                _set_pg_property(curve, field_name, value)
+            for _socket_id, field_name in _CURVE_ATTRIBUTE_FIELDS:
+                value = gn_sockets._get_socket_value(modifier, field_name)
+                gn_sockets.set_pg_property(curve, field_name, value)
 
-            curve_id = gn_sockets._get_socket_value(modifier, "Socket_22")
+            curve_id = gn_sockets._get_socket_value(modifier, "ID")
             if isinstance(curve_id, int):
                 curve.ID = curve_id
 
         elif "CurveElements_GN" in modifier.name:
-            element_type = gn_sockets._get_socket_value(modifier, "Socket_5")
+            element_type = gn_sockets._get_socket_value(modifier, "element_type")
             elements = getattr(curve, element_type)
             element = elements.objects.add()
             element.ID = len(elements.objects) - 1
             element.element_type = element_type
             element.host_curve = curve_obj
-            element.object = gn_sockets._get_socket_value(modifier, "Socket_4")
-            element.is_empty = gn_sockets._get_socket_value(modifier, "Socket_9")
-            element.empty_bounds = gn_sockets._get_socket_value(modifier, "Socket_10")
-            element.up_stretched = gn_sockets._get_socket_value(modifier, "Socket_6")
-            element.correct_uv = gn_sockets._get_socket_value(modifier, "Socket_11")
+            element.object = gn_sockets._get_socket_value(modifier, "object")
+            element.is_empty = gn_sockets._get_socket_value(modifier, "is_empty")
+            element.empty_bounds = gn_sockets._get_socket_value(modifier, "empty_bounds")
+            element.up_stretched = gn_sockets._get_socket_value(modifier, "up_stretched")
+            element.correct_uv = gn_sockets._get_socket_value(modifier, "correct_uv")
 
         elif "ElementID_GN" in modifier.name:
-            segment_settings.append({"ID": gn_sockets._get_socket_value(modifier, "Socket_2"),
-                                    "element_ID": gn_sockets._get_socket_value(modifier, "Socket_3"),
-                                    "fit_method": gn_sockets._get_socket_value(modifier, "Socket_4"),
-                                    "fixed_number": gn_sockets._get_socket_value(modifier, "Socket_5"),
-                                    })
+            segment_settings.append({
+                "ID": gn_sockets._get_socket_value(modifier, "segment_index"),
+                "element_ID": gn_sockets._get_socket_value(modifier, "element_ID"),
+                "fit_method": gn_sockets._get_socket_value(modifier, "fit_method"),
+                "fixed_number": gn_sockets._get_socket_value(modifier, "fixed_number"),
+            })
 
     operators._sync_segments_to_curves(curve)
 
@@ -95,9 +84,9 @@ def _sync_curve_from_modifiers(curve, curve_obj):
         segment.ID = index
         if isinstance(settings.get("ID"), int):
             segment.ID = settings["ID"]
-        _set_pg_property(segment, "element_ID", settings.get("element_ID", 0))
-        _set_pg_property(segment, "fit_method", settings.get("fit_method", "FIT"))
-        _set_pg_property(segment, "fixed_number", settings.get("fixed_number", 1))
+        gn_sockets.set_pg_property(segment, "element_ID", settings.get("element_ID", 0))
+        gn_sockets.set_pg_property(segment, "fit_method", settings.get("fit_method", "FIT"))
+        gn_sockets.set_pg_property(segment, "fixed_number", settings.get("fixed_number", 1))
 
 
 def _floor_array_from_collection(curves_collection):
@@ -106,7 +95,7 @@ def _floor_array_from_collection(curves_collection):
             continue
         for modifier in obj.modifiers:
             if modifier.type == "NODES" and "CurveAttributes_GN" in modifier.name:
-                value = gn_sockets._get_socket_value(modifier, "Socket_3")
+                value = gn_sockets._get_socket_value(modifier, "array")
                 if isinstance(value, int):
                     return value
                 if isinstance(value, float):
@@ -198,7 +187,7 @@ class UTMBUILDER_OT_sync_from_modifier_stack(bpy.types.Operator):
 
         building = base_object.utm_building
         building_collection = None
-        floors_collection = gn_sockets._get_socket_value(construct_modifier, "Socket_2")
+        floors_collection = gn_sockets._get_socket_value(construct_modifier, "floors_collection")
         for collection in bpy.data.collections:
             if floors_collection.name in collection.children:
                 building_collection = collection
@@ -242,7 +231,7 @@ class UTMBUILDER_OT_sync_from_modifier_stack(bpy.types.Operator):
             if kind == "linked":
                 floor.is_linked = True
                 floor.instance_object = instance_obj
-                source_collection = gn_sockets._get_socket_value(link_modifier, "Socket_2")
+                source_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
                 floor.array = 1
                 continue
 
