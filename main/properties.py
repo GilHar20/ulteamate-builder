@@ -125,7 +125,7 @@ class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
     up_stretched : bpy.props.BoolProperty(
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        default = False,
+        default = True,
         update = _update_up_stretched
     )
 
@@ -543,6 +543,13 @@ class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
         name = "Floor Linked",
         description = "True if floor is linked to another floor",
         default = False
+    )
+
+    linked_ID : bpy.props.IntProperty(
+        name = "Source Floor ID",
+        description = "ID of the source floor",
+        default = -1,
+        min = -1
     )
 
     instance_object : bpy.props.PointerProperty(

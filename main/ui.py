@@ -85,11 +85,6 @@ class UTMBUILDER_UL_floor_list(bpy.types.UIList):
 
 class UTMBUILDER_UL_curve_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        floor = data
-        building = getattr(floor.id_data, "utmb_building", None)
-        active_floor_index = building.active_floor_index if building else 0
-        active_curve_index = floor.active_curve_index
-
         row = layout.row(align = True)
         icon = 'CHECKBOX_HLT' if item.is_selected else 'CHECKBOX_DEHLT'
         row.prop(item, "is_selected" ,text = "", icon = icon, emboss = False)
@@ -100,7 +95,7 @@ class UTMBUILDER_UL_curve_list(bpy.types.UIList):
         curve_settings.curve_ID = index
 
         select_curve = row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-        select_curve.floor_index = active_floor_index
+        select_curve.floor_index = data.ID
         select_curve.curve_index = index
 
         replace_curve = row.operator("utmbuilder.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
@@ -328,7 +323,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         floors_copy = floors_ops_column.column(align = True)
         copy_floor = floors_copy.operator("utmbuilder.copy_floor", text = "", icon = 'DUPLICATE',)
         copy_floor.floor_index = floor_index
-        copy_floor.mode = "COPY"
+        copy_floor.mode = "REALIZE" if active_floor.is_linked else "COPY"
         floors_copy.operator("utmbuilder.link_floor", text = "", icon = 'LINKED')
 
         if active_floor.is_linked == True:
@@ -336,7 +331,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
             linked_column = linked_box.column()
             linked_column.alignment = 'CENTER'
             linked_column.label(text = "Floor is linked!", icon = "INFO")
-            linked_column.label(text = "Refer to the source floor for further settings")
+            linked_column.label(text = "Refer to the floor" + str(active_floor.linked_ID) + "for settings")
             return
 
         stack_floors_column = floors_box.column(align = True)

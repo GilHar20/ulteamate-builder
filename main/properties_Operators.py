@@ -38,9 +38,14 @@ class UTMBUILDER_OT_add_floor(bpy.types.Operator):
             floors.add()
             floors.move(len(floors) - 1, active_floor_index + 1)
             building.active_floor_index = active_floor_index + 1
-            new_floor = floors[building.active_floor_index]
+            active_floor_index = building.active_floor_index
+            new_floor = floors[active_floor_index]
 
-        new_floor.ID = building.active_floor_index
+        new_floor.ID = active_floor_index
+        if new_floor.ID > 0:
+            previuos_floor = floors[active_floor_index - 1]
+            new_floor.start_height = previuos_floor.maximum_height
+        
         new_floor.curves_collection = bpy.data.collections.new(building.name + "_Floor_" + str(new_floor.ID) + "_Curves")
         new_floor.curves_collection.color_tag = building.floors_collection.color_tag
         building.floors_collection.children.link(new_floor.curves_collection)
@@ -99,19 +104,16 @@ class UTMBUILDER_OT_remove_floor(bpy.types.Operator):
         base_object, building = resolved
 
         floors = building.floors
-        active_floor = floors[building.active_floor_index]
-        active_floor_index = building.active_floor_index
-
-        linked_floors = [floor for floor in floors if floor.is_linked == True]
-        link_modifier = gn_sockets.link_floor_modifier(floor.instance_object)
-        curves_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
-        matching_floors = [floor for floor in linked_floors if curves_collection == active_floor.curves_collection]
-        matching_floors.sort(key = lambda f: next(i for i, floor in enumerate(floors) if floor == f))
-
         if len(floors) == 0:
             self.report({"WARNING"}, "No floors to remove")
             building.active_floor_index = 0
             return {"CANCELLED"}
+        
+        active_floor = floors[building.active_floor_index]
+        active_floor_index = building.active_floor_index
+
+        linked_floors = [floor for floor in floors if floor.is_linked == True]
+        matching_floors = [floor for floor in linked_floors if floor.linked_ID == active_floor.ID]
         
         if active_floor.is_linked == True:
             bpy.data.objects.remove(active_floor.instance_object, do_unlink=True)
@@ -149,11 +151,11 @@ class UTMBUILDER_OT_remove_floor(bpy.types.Operator):
         floors = building.floors
         active_floor = floors[building.active_floor_index]
 
+        if active_floor.is_linked:
+            return self.execute(context)
+
         linked_floors = [floor for floor in floors if floor.is_linked == True]
-        link_modifier = gn_sockets.link_floor_modifier(floor.instance_object)
-        curves_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
-        matching_floors = [floor for floor in linked_floors if curves_collection == active_floor.curves_collection]
-        
+        matching_floors = [floor for floor in linked_floors if floor.linked_ID == active_floor.ID]
         if len(matching_floors) > 0:
             title = "Floor is a source for linked floors!"
             return context.window_manager.invoke_props_dialog(self, title = title, width = 400)
@@ -348,11 +350,8 @@ class UTMBUILDER_OT_link_floor(bpy.types.Operator):
         source_floor = floors[active_floor_index]
 
         if source_floor.is_linked == True:
-            all_curves_collections = [floor.curves_collection for floor in floors]
-            link_modifier = gn_sockets.link_floor_modifier(floor.instance_object)
-            curves_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
-            matching_index = all_curves_collections.index(curves_collection)
-            source_floor = floors[matching_index]
+            linked_ID = source_floor.linked_ID
+            source_floor = floors[linked_ID]
 
         floors.add()
         floors.move(len(floors) - 1, active_floor_index + 1)
@@ -361,6 +360,8 @@ class UTMBUILDER_OT_link_floor(bpy.types.Operator):
         new_floor.source_floor = source_floor.ID
         new_floor.ID = active_floor_index + 1
         new_floor.is_linked = True
+        new_floor.linked_ID = source_floor.linked_ID
+        new_floor.linked_ID = source_floor.ID
         new_floor.start_height = source_floor.start_height
         new_floor.total_height = source_floor.total_height
         new_floor.array = source_floor.array
@@ -426,9 +427,13 @@ class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
             new_segment = new_curve.segments.add()
             new_segment.spline_ID = segment.spline_ID
             new_segment.spline_factor = segment.spline_factor
-            new_segment.element_ID = segment.element_ID
             new_segment.fit_method = segment.fit_method
             new_segment.fixed_number = segment.fixed_number
+            new_segment.select_method = segment.select_method
+            new_segment.select_per_segment = segment.select_per_segment
+            new_segment.sequence_offset = segment.sequence_offset
+            new_segment.random_index = segment.random_index
+            new_segment.element_index = segment.element_index
         return
 
     def _copy_elements(self, current_curve, new_curve, element_type):
@@ -475,10 +480,6 @@ class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
             new_curve.top_material = curve.top_material
             new_curve.sides_material = curve.sides_material
             new_curve.bottom_material = curve.bottom_material
-            new_curve.select_method = curve.select_method
-            new_curve.select_per_segment = curve.select_per_segment
-            new_curve.sequence_offset = curve.sequence_offset
-            new_curve.random_index = curve.random_index
 
             new_floor.curves_collection.objects.link(new_obj)
             
@@ -513,6 +514,7 @@ class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
                 return {"CANCELLED"}
 
             current_floor.is_linked = False
+            current_floor.linked_ID = -1
             current_floor.curves.clear()
             bpy.data.objects.remove(instance_object, do_unlink=True)
             self._copy_curves(context, source_floor, current_floor)
@@ -535,6 +537,7 @@ class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
         if self.mode == 'COPY':
             new_floor.array = current_floor.array
             self._copy_curves(context, current_floor, new_floor)
+
         elif self.mode == 'SPLIT':
             new_floor.array = current_floor.array - self.level_index - 1
             current_floor.array = self.level_index + 1
@@ -616,7 +619,6 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
         curve_obj = context.view_layer.objects.active
         curve_obj.name = self.name
-        curve_obj.location.z = floor.start_height
         return curve_obj
     
     def _select_curve(self, context, base_object):
@@ -659,6 +661,8 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
 
         new_curve = curves.add()
         new_curve.curve_object = curve_obj
+        heighest = max([curve.height for curve in curves])
+        new_curve.height = heighest
         floor.active_curve_index = len(floor.curves) - 1 if len(floor.curves) > 0 else 0
         curves.move(len(curves) - 1, floor.active_curve_index + 1)
         for collection in curve_obj.users_collection:
@@ -671,7 +675,8 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         mw = curve_obj.matrix_world.copy()
         curve_obj.parent = base_object
         curve_obj.matrix_world = mw
-        
+        curve_obj.location = (0.0, 0.0, floor.start_height)
+
         bpy.ops.utmbuilder.evaluate_building()
         wm.utmbuilder_select_object = None
         context.view_layer.objects.active = curve_obj
@@ -966,7 +971,7 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
             return {"FINISHED"}
         
         active_curve = curves[self.curve_ID]
-        selected_curves = [curve for curve in curves if curve.is_selected]
+        selected_curves = [curve for curve in curves if curve.is_selected and curve is not active_curve]
         for curve in selected_curves:
             curve.height = active_curve.height
             curve.inset = active_curve.inset
@@ -991,6 +996,7 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[self.curve_ID]
 
+        curve.is_selected = True
         title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID)
         return context.window_manager.invoke_props_dialog(self, title = title)
 
@@ -1175,7 +1181,7 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
             return {"FINISHED"}
         
         segment = segments[self.segment_ID]
-        selected_segments = [seg for seg in segments if seg.is_selected]
+        selected_segments = [seg for seg in segments if seg.is_selected and seg is not segment]
         for seg in selected_segments:
             seg.fit_method = segment.fit_method
             seg.fixed_number = segment.fixed_number
@@ -1197,7 +1203,9 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
+        segment = curve.segments[self.segment_ID]
 
+        segment.is_selected = True
         title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_ID) 
         return context.window_manager.invoke_props_dialog(self, title = title)
     
@@ -1261,7 +1269,7 @@ class UTMBUILDER_OT_add_elements(bpy.types.Operator):
     up_stretched : bpy.props.BoolProperty(
         name = "Is Stretched",
         description = "When true, the element will scale itself upwards to the height of the curve it is instancing on",
-        default = False,
+        default = True,
     )
 
     def _add_curve_element(self, curve, collection, curve_elements_gn):
@@ -1551,7 +1559,9 @@ class UTMBUILDER_OT_replace_element_object(bpy.types.Operator):
             return {"CANCELLED"}
 
         host_curve = selected_element.host_curve
-        assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" and "UTM.Builder_CurveElements_GN" in modifier.name and gn_sockets._get_socket_value(modifier, "Socket_5") == self.element_type]
+        assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES"
+                              and "UTM.Builder_CurveElements_GN" in modifier.name
+                              and gn_sockets._get_socket_value(modifier, "element_type") == self.element_type]
 
         current_modifier = assigned_modifiers[self.index]
         gn_sockets._set_socket_value(current_modifier, "object", element if not selected_element.is_empty else None)
@@ -1653,7 +1663,7 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
             return {"FINISHED"}
         
         active_element = elements_group.objects[self.element_ID]
-        selected_elements = [element for element in elements_group.objects if element.is_selected]
+        selected_elements = [element for element in elements_group.objects if element.is_selected and element is not active_element]
         for element in selected_elements:
             element.is_empty = active_element.is_empty
             element.empty_bounds = active_element.empty_bounds
@@ -1672,7 +1682,10 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
+        elements_group = getattr(curve, self.element_type)
+        element = elements_group.objects[self.element_ID]
 
+        element.is_selected = True
         title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type
         return context.window_manager.invoke_props_dialog(self, title = title)
     
