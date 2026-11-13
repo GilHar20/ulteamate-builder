@@ -1,10 +1,12 @@
 import bpy
 import gpu
 import blf
+import math
+from ..utilities import resolve_building_object as resolve
 from gpu_extras.batch import batch_for_shader
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from mathutils import Vector
-import math
+
 
 
 TITLE_HEIGHT = 30
@@ -29,12 +31,17 @@ panel_state = {
 # --------------------------
 
 def get_active_curve():
-    scene = bpy.context.scene
-    building = scene.buildings[scene.active_building_index]
+    context = bpy.context
+    resolved = resolve._resolve_building_object(context)
+    if resolved is None:
+        return {"CANCELLED"}
+    _, building = resolved
+
     floor = building.floors[building.active_floor_index]
-    curve = floor.curves[floor.active_curve_index]
-    
-    return curve
+    if len(floor.curves) == 0:
+        return None
+
+    return floor.curves[floor.active_curve_index]
 
 
 def get_element_names():
@@ -44,19 +51,14 @@ def get_element_names():
 
     names = []
 
-    if curve.main_elements.collect_method == "OBJECTS":
-        if len(curve.main_elements.objects) == 0:
-            return[]
-        for element in curve.main_elements.objects:
-            if element.object != None:
-                names.append(element.object.name)
-            else:
-                names.append( "- empty -")
+    if len(curve.main_elements.objects) == 0:
+        return[]
+    for element in curve.main_elements.objects:
+        if element.object != None:
+            names.append(element.object.name)
+        else:
+            names.append( "- empty -")
 
-    if curve.main_elements.collect_method == "EXISTING":
-        for obj in curve.main_elements.existing_collection.objects:
-            names.append(obj.name if obj else "- empty -")
-    
     return names
 
 

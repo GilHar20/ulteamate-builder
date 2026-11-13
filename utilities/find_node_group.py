@@ -1,6 +1,7 @@
 import os
-
 import bpy
+
+from .asset_library_setup import resolve_asset_library_directory
 
 
 def _addon_preferences():
@@ -8,44 +9,30 @@ def _addon_preferences():
     return bpy.context.preferences.addons[root].preferences
 
 
-def folder_path_for_asset_library(library_name):
-    name = (library_name or "").strip()
-    if not name:
-        raise RuntimeError(
-            "Set the asset library name in BlenderRail addon preferences"
-        )
-    for lib in bpy.context.preferences.filepaths.asset_libraries:
-        if lib.name == name:
-            return bpy.path.abspath(lib.path)
-    raise RuntimeError(
-        "Asset library %r was not found. "
-        "Add or rename it under Edit → Preferences → File Paths → Asset Libraries."
-        % (name,)
-    )
-
-
-def _iter_blend_paths_in_folder(folder):
+def _iter_blend_paths_in_folder(folder, blend_filename=""):
     folder = bpy.path.abspath(folder)
     if not os.path.isdir(folder):
         raise RuntimeError("Cannot read asset library folder: %s" % folder)
 
-    blend_paths = []
+    blend_filename = (blend_filename or "").strip()
     try:
+        if blend_filename:
+            path = bpy.path.abspath(os.path.join(folder, blend_filename))
+            if os.path.isfile(path) and path.lower().endswith(".blend"):
+                yield path
+            return
+
         for root, dirnames, filenames in os.walk(folder):
-            # Skip hidden directories (e.g. .git) and do not descend into them.
             dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
             for name in sorted(filenames):
                 if name.startswith(".") or not name.lower().endswith(".blend"):
                     continue
-                blend_paths.append(bpy.path.abspath(os.path.join(root, name)))
+                yield bpy.path.abspath(os.path.join(root, name))
     except OSError as exc:
         raise RuntimeError("Cannot read asset library folder: %s" % exc) from exc
 
-    for path in blend_paths:
-        yield path
 
-
-def link_gn_from_library(node_group_name):
+def link_gn_from_library(node_group_name, blend_filename=""):
     if not node_group_name:
         return None, "Node group name is empty"
 
@@ -54,15 +41,17 @@ def link_gn_from_library(node_group_name):
         return existing, None
 
     prefs = _addon_preferences()
-    lib_name = prefs.asset_library_name
+    folder = resolve_asset_library_directory(prefs)
+
     try:
-        folder = folder_path_for_asset_library(lib_name)
+        blend_paths = list(_iter_blend_paths_in_folder(folder, blend_filename))
     except RuntimeError as exc:
         return None, str(exc)
 
-    blend_paths = list(_iter_blend_paths_in_folder(folder))
     if not blend_paths:
-        return None, "No .blend files in asset library folder %r (%s)" % (lib_name, folder)
+        if blend_filename:
+            return None, "Blend file %r not found under %s" % (blend_filename, folder)
+        return None, "No .blend files in asset library folder %s" % folder
 
     for blend_path in blend_paths:
         with bpy.data.libraries.load(blend_path, link = True) as (data_from, data_to):
@@ -82,8 +71,8 @@ def link_gn_from_library(node_group_name):
     )
 
 
-class BLENDERRAIL_OT_find_node_group(bpy.types.Operator):
-    bl_idname = "blenderrail.find_node_group"
+class UTMBUILDER_OT_find_node_group(bpy.types.Operator):
+    bl_idname = "utmbuilder.find_node_group"
     bl_label = "Link Node Group from Asset Library"
     bl_options = {"REGISTER", "INTERNAL"}
 

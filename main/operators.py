@@ -2,7 +2,7 @@ import bpy
 import mathutils
 from mathutils.geometry import interpolate_bezier
 from bpy.app.handlers import persistent
-from ..utilities import find_node_group, gn_sockets
+from ..utilities import find_node_group, gn_sockets, resolve_building_object as resolve
 
 
 
@@ -85,7 +85,7 @@ def _sync_segments_to_curves(curve):
         return
 
     curve_data = curve.curve_object.data
-    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID, segment.fit_method, segment.fixed_number) for segment in curve.segments]
+    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_index, segment.fit_method, segment.fixed_number) for segment in curve.segments]
     factors = []
     total_points = 0
 
@@ -140,57 +140,57 @@ def _sync_segments_to_curves(curve):
 
 
 _rematch_in_progress = False
-
 @persistent
 def on_depsgraph_update(scene, depsgraph):
     global _rematch_in_progress
     if _rematch_in_progress:
         return
 
-    if not hasattr(scene, "buildings"):
+    context = bpy.context
+    if context.mode != 'EDIT_CURVE':
         return
 
-    if not scene.buildings:
+    active_obj = context.active_object
+    if active_obj is None or active_obj.type != 'CURVE':
         return
 
-    if bpy.context.mode != 'EDIT_CURVE':
+    resolved = resolve._resolve_building_object(context)
+    if resolved is None:
         return
+    _, building = resolved
 
-    if bpy.context.active_object.type != 'CURVE':
+    curve = None
+    for floor in building.floors:
+        for curve_item in floor.curves:
+            if curve_item.curve_object == active_obj:
+                curve = curve_item
+                break
+        if curve is not None:
+            break
+
+    if curve is None:
         return
 
     _rematch_in_progress = True
-
-    building = scene.buildings[scene.active_building_index]
-    floors = building.floors
-    floor = building.floors[building.active_floor_index]
-
-    if floor.is_linked == True:
-        curves_collections = [floor.curves_collection for floor in floors]
-        matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
-        source_floor = floors[matching_index]
-        curve = source_floor.curves[matching_index]
-    else:
-        curve = floor.curves[floor.active_curve_index]
-
     _sync_segments_to_curves(curve)
-        
     _rematch_in_progress = False
 
 
 def _calculate_floors_start_height(context, floors, stacked):
-    scene = context.scene
     all_curves = []
     accumulated_height: float = 0
 
     for floor_index, floor in enumerate(floors):
 
         if floor.is_linked == True:
-            curves_collections = [floor.curves_collection for floor in floors]
-            matching_index = curves_collections.index(gn_sockets._get_socket_value(floor.instance_object.modifiers[0] , "Socket_2"))
+            all_curves_collections = [floor.curves_collection for floor in floors]
+            link_modifier = gn_sockets.link_floor_modifier(floor.instance_object)
+            curves_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
+
+            matching_index = all_curves_collections.index(curves_collection)
             source_floor = floors[matching_index]
             z_diff = accumulated_height - floor.start_height
-            gn_sockets._set_socket_value(floor.instance_object.modifiers[0], "Socket_3", (0.0 ,0.0, z_diff))
+            gn_sockets._set_socket_value(link_modifier, "height_offset", (0.0 ,0.0, z_diff))
             floor.start_height = source_floor.start_height
             floor.total_height = source_floor.total_height
             floor.instance_object.update_tag()
@@ -238,9 +238,41 @@ def _calculate_floors_start_height(context, floors, stacked):
     return all_curves
 
 
-def _set_attribute_driver(self, context, item, attribute, path, var_name):
-    scene = context.scene
+def _assign_curve_elements(self, context, building, curve, element_type):
+    collection = building.elements_collection
+    elements_collection = getattr(curve, element_type)
 
+    if len(elements_collection.objects) == 0:
+        self.report({'WARNING'}, "No elements assigned. Please provide elements")
+        return
+
+    for element_index, element in enumerate(elements_collection.objects):
+        element.ID = element_index
+        curve_element = curve.curve_object.modifiers.new(name = "UTM.Builder_CurveElements_GN", type = "NODES")
+        curve_element_gn = find_node_group.link_gn_from_library("UTM.Builder_CurveElements_GN")[0]
+        curve_element.node_group = curve_element_gn
+        curve_element.show_expanded = False
+
+        element_name = bpy.data.objects.get(element.object.name) if element.object is not None else None
+
+        gn_sockets._set_socket_value(curve_element, "element_type", element_type)
+        gn_sockets._set_socket_value(curve_element, "object", element_name)
+        gn_sockets._set_socket_value(curve_element, "is_empty", element.is_empty)
+        gn_sockets._set_socket_value(curve_element, "empty_bounds", element.empty_bounds)
+        gn_sockets._set_socket_value(curve_element, "correct_uv", element.correct_uv)
+        gn_sockets._set_socket_value(curve_element, "up_stretched", element.up_stretched)
+
+        element_object = element.object if element.object else None
+        if element_object is None:
+            continue
+        elif collection not in element.object.users_collection:
+            collection.objects.link(element.object)
+
+    return
+
+
+def _set_attribute_driver(self, context, item, attribute, data_path, var_name, driver_object):
+    '''Deprecated: used by drivers; kept for possible future use.'''
     fcurve = item.driver_add(attribute)
     driver = fcurve.driver
     driver.type = 'AVERAGE'
@@ -252,89 +284,35 @@ def _set_attribute_driver(self, context, item, attribute, path, var_name):
         
     var.name = var_name
     var.type = 'SINGLE_PROP'
-    var.targets[0].id_type = 'SCENE'
-    var.targets[0].id = scene
-    var.targets[0].data_path = path
+    var.targets[0].id_type = 'OBJECT'
+    var.targets[0].id = driver_object
+    var.targets[0].data_path = data_path
     return
-
-
-def _assign_curve_elements(self, context, curve, element_type):
-    scene = context.scene
-    building = scene.buildings[scene.active_building_index]
-    collection = building.elements_collection
-    elements_collection = getattr(curve, element_type)
-
-    if elements_collection.collect_method == 'OBJECTS':
-        if len(elements_collection.objects) == 0:
-            self.report({'WARNING'}, "No elements assigned. Please provide elements")
-            return
-
-        for element in elements_collection.objects:
-            if not element.object:
-                continue
-
-            curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
-            curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
-            curve_elements.node_group = curve_elements_gn
-            
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
-            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
-            gn_sockets._set_socket_value(curve_elements, "Socket_6", element.up_stretched)
-
-            if collection not in element.object.users_collection:
-                collection.objects.link(element.object)
-
-            curve_elements.show_expanded = False
-
-
-    elif elements_collection.collect_method == 'COLLECTION':
-        if len(elements_collection.existing_collection.objects) == 0:
-            self.report({'WARNING'}, "No elements are linked into the assigned collection")
-            return
-        
-        for element in elements_collection.exiiting_collection:
-            if not element.object:
-                continue
-
-            curve_elements = curve.curve_object.modifiers.new(name = "BLENDERRAIL_CurveElements_GN", type = "NODES")
-            curve_elements_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveElements_GN")[0]
-            curve_elements.node_group = curve_elements_gn
-            
-            gn_sockets._set_socket_value(curve_elements, "Socket_5", element_type)
-            gn_sockets._set_socket_value(curve_elements, "Socket_4", bpy.data.objects.get(element.object.name))
-            gn_sockets._set_socket_value(curve_elements, "Socket_6", elements_collection.up_stretched)
-
-            if collection not in element.object.users_collection:            
-                collection.objects.link(element.object)
-
-            curve_elements.show_expanded = False
-    
-    return
-
 
 
 # --------------------
 # Operators: Buildings
 # --------------------
 
-class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
-    bl_idname = "blenderrail.evaluate_building"
+class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
+    bl_idname = "utmbuilder.evaluate_building"
     bl_label = "Evaluate building"
     bl_description = "For each floor: set segments, assign its curve with the required modifiers and link elements"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
 
     def execute(self, context):
-        scene = context.scene
-        buildings = scene.buildings
-        building_index = scene.active_building_index
-        building = buildings[building_index]
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            self.report({"ERROR"}, "No building found")
+            return {"CANCELLED"}
+        base_object, building = resolved
+
         old_active_floor = building.active_floor_index
         floors = building.floors
 
-        if len(buildings) == 0:
-            self.report({"WARNING"}, "No buildings in collection")
-            return {"CANCELLED"}
+        construct_modifier = gn_sockets.construct_modifier(base_object)
+        gn_sockets._set_socket_value(construct_modifier, "floors_collection", building.floors_collection)
 
         if len(floors) == 0:
             self.report({"WARNING"}, "Active building has no floors")
@@ -346,10 +324,8 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
             instance_empty = floor.instance_object
             if instance_empty is None:
                 continue
-            link_modifier = instance_empty.modifiers[0]
-            attribute = gn_sockets._input_driver_path(link_modifier.name, "Socket_4")
-            path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, floor_index)
-            _set_attribute_driver(self, context, instance_empty, attribute, path, "floor_visibility")
+            link_modifier = gn_sockets.link_floor_modifier(instance_empty)
+            gn_sockets._set_socket_value(link_modifier, "floor_visibility", floor.floor_visibility)
 
         for curve in all_curves:
             curve_obj = curve.curve_object
@@ -360,104 +336,54 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
             _sync_segments_to_curves(curve)
 
-            if curve_obj.parent != building.base_object:
-                bpy.ops.object.select_all(action='DESELECT')
-                context.view_layer.objects.active = building.base_object
-                building.base_object.select_set(True)
-                curve_obj.select_set(True)
-                bpy.ops.object.parent_no_inverse_set(keep_transform = True)
-
+            mw = curve_obj.matrix_world.copy()
+            curve_obj.parent = base_object
+            curve_obj.matrix_world = mw
             curve_obj.modifiers.clear()
 
-            curve_attributes = curve_obj.modifiers.new(name = "BLENDERRAIL_CurveAttributes_GN", type = "NODES")
-            curve_attributes_gn = find_node_group.link_gn_from_library("BLENDERRAIL_CurveAttributes_GN")[0]
+            curve_attributes = curve_obj.modifiers.new(name = "UTM.Builder_CurveAttributes_GN", type = "NODES")
+            curve_attributes_gn = find_node_group.link_gn_from_library("UTM.Builder_CurveAttributes_GN")[0]
             curve_attributes.node_group = curve_attributes_gn
             curve_attributes.show_expanded = False
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_18")
-            path = 'buildings[%d].floors[%d].floor_visibility' % (building_index, curve.floor_ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_visibility")
+            floor = floors[curve.floor_ID]
+            gn_sockets._set_socket_value(curve_attributes, "floor_visibility", floor.floor_visibility)
+            gn_sockets._set_socket_value(curve_attributes, "array", floor.array)
+            gn_sockets._set_socket_value(curve_attributes, "maximum_height", floor.maximum_height)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_3")
-            path = 'buildings[%d].floors[%d].array' % (building_index, curve.floor_ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "array")
+            gn_sockets._set_socket_value(curve_attributes, "ID", curve.ID)
+            gn_sockets._set_socket_value(curve_attributes, "inset", curve.inset)
+            gn_sockets._set_socket_value(curve_attributes, "height", curve.height)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_23")
-            path = 'buildings[%d].floors[%d].maximum_height' % (building_index, curve.floor_ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "maximum_height")
+            gn_sockets._set_socket_value(curve_attributes, "floor_ceiling", curve.floor_ceiling)
+            gn_sockets._set_socket_value(curve_attributes, "thickness", curve.thickness)
+            gn_sockets._set_socket_value(curve_attributes, "direction_bottom", curve.direction_bottom)
+            gn_sockets._set_socket_value(curve_attributes, "direction_top", curve.direction_top)
 
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_22")
-            path = 'buildings[%d].floors[%d].curves[%d].ID' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "ID")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_10")
-            path = 'buildings[%d].floors[%d].curves[%d].inset' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "inset")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_4")
-            path = 'buildings[%d].floors[%d].curves[%d].height' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "height")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_5")
-            path = 'buildings[%d].floors[%d].curves[%d].floor_ceiling' % (building_index, curve.floor_ID, curve.ID)      
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "floor_ceiling")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_15")
-            path = 'buildings[%d].floors[%d].curves[%d].thickness' % (building_index, curve.floor_ID, curve.ID)          
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "thickness")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_16")
-            path = 'buildings[%d].floors[%d].curves[%d].direction_bottom' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_bottom")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_17")
-            path = 'buildings[%d].floors[%d].curves[%d].direction_top' % (building_index, curve.floor_ID, curve.ID) 
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "direction_top")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_11")
-            path = 'buildings[%d].floors[%d].curves[%d].select_method' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "select_method")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_14")
-            path = 'buildings[%d].floors[%d].curves[%d].select_per_segment' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "select_per_segment")
-            
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_12")
-            path = 'buildings[%d].floors[%d].curves[%d].sequence_offset' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "sequence_offset")
-
-            attribute = gn_sockets._input_driver_path(curve_attributes.name, "Socket_13")
-            path = 'buildings[%d].floors[%d].curves[%d].random_index' % (building_index, curve.floor_ID, curve.ID)
-            _set_attribute_driver(self, context, curve_obj, attribute, path, "random_index")
-
-            gn_sockets._set_socket_value(curve_attributes, "Socket_19", curve.top_material)
-            gn_sockets._set_socket_value(curve_attributes, "Socket_20", curve.sides_material)
-            gn_sockets._set_socket_value(curve_attributes, "Socket_21", curve.bottom_material)
+            gn_sockets._set_socket_value(curve_attributes, "top_material", curve.top_material)
+            gn_sockets._set_socket_value(curve_attributes, "sides_material", curve.sides_material)
+            gn_sockets._set_socket_value(curve_attributes, "bottom_material", curve.bottom_material)
 
 
-            _assign_curve_elements(self, context, curve, "main_elements")
-            _assign_curve_elements(self, context, curve, "corner_elements")
+            _assign_curve_elements(self, context, building, curve, "main_elements")
+            _assign_curve_elements(self, context, building, curve, "corner_elements")
 
 
             for segment_index, segment in enumerate(curve.segments):
-                element_id = curve_obj.modifiers.new(name = "BLENDERRAIL_ElementID_GN", type = "NODES")
-                element_id_gn = find_node_group.link_gn_from_library("BLENDERRAIL_ElementID_GN")[0]
+                element_id = curve_obj.modifiers.new(name = "UTM.Builder_ElementID_GN", type = "NODES")
+                element_id_gn = find_node_group.link_gn_from_library("UTM.Builder_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
                 segment.ID = segment_index
-                gn_sockets._set_socket_value(element_id, "Socket_2", segment.ID)
+                gn_sockets._set_socket_value(element_id, "segment_index", segment.ID)
                 element_id.show_expanded = False
 
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_4")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fit_method' % (building_index, curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, path, "fit_method")
-
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_5")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].fixed_number' % (building_index, curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, path, "fixed_number")
-
-                attribute = gn_sockets._input_driver_path(element_id.name, "Socket_3")
-                path = 'buildings[%d].floors[%d].curves[%d].segments[%d].element_ID' % (building_index, curve.floor_ID, curve.ID, segment.ID)
-                _set_attribute_driver(self, context, curve_obj, attribute, path, "element_ID")
+                gn_sockets._set_socket_value(element_id, "fit_method", segment.fit_method)
+                gn_sockets._set_socket_value(element_id, "fixed_number", segment.fixed_number)
+                gn_sockets._set_socket_value(element_id, "select_method", segment.select_method)
+                gn_sockets._set_socket_value(element_id, "select_per_segment", segment.select_per_segment)
+                gn_sockets._set_socket_value(element_id, "sequence_offset", segment.sequence_offset)
+                gn_sockets._set_socket_value(element_id, "random_index", segment.random_index)
+                gn_sockets._set_socket_value(element_id, "element_index", segment.element_index)
 
         building.active_floor_index = old_active_floor
 
@@ -466,42 +392,50 @@ class BLENDERRAIL_OT_evaluate_building(bpy.types.Operator):
 
 
 
-class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
-    bl_idname = "blenderrail.generate_building"
+class UTMBUILDER_OT_generate_building(bpy.types.Operator):
+    bl_idname = "utmbuilder.generate_building"
     bl_label = "Generate Building"
     bl_description = "Add base object with construct modifier"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+
+    @classmethod
+    def poll(cls, context):
+        if context.mode != 'OBJECT':
+            return False
+        else:
+            return True
+        
+    def _next_building_name(self):
+        count = sum(1 for obj in bpy.data.objects if resolve._is_utm_building(obj))
+        return "build_" + str(count + 1)
 
     def execute(self, context):
-        scene = context.scene
-        buildings = scene.buildings
-
-        construct = find_node_group.link_gn_from_library("BLENDERRAIL_Construct_GN")
+        construct = find_node_group.link_gn_from_library("UTM.Builder_Construct_GN")
 
         if construct[0] is None:
             self.report({"ERROR"}, construct[1])
             return {"CANCELLED"}
         
         bpy.ops.mesh.primitive_cube_add(size = 2, enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
-        cube_obj = context.view_layer.objects.active
+        base_object = context.view_layer.objects.active
 
-        modifier = cube_obj.modifiers.new(name = "BLENDERRAIL_Construct_GN", type = "NODES")
+        modifier = base_object.modifiers.new(name = "UTM.Builder_Construct_GN", type = "NODES")
         modifier.node_group = construct[0]
         modifier.show_expanded = False
 
-        building = buildings.add()
-        building.name += "_" + str(len(context.scene.buildings))
-        building.base_object = cube_obj
-        cube_obj.name = building.name + "_Constructor"
-        scene.active_building_index = len(buildings) - 1
+        building = base_object.utm_building
+        building.is_utm_building = True
+        building.name = self._next_building_name()
+        base_object.name = building.name + "_Constructor"
 
         building_collection = bpy.data.collections.new(building.name)
         building.building_collection = building_collection
         context.scene.collection.children.link(building_collection)
-        building_collection.objects.link(cube_obj)
-        for parent in cube_obj.users_collection:
+        building_collection.objects.link(base_object)
+        for parent in base_object.users_collection:
             if parent != building_collection:
-                parent.objects.unlink(cube_obj)
+                parent.objects.unlink(base_object)
 
 
         floors_collection = bpy.data.collections.new(building.name + "_Floors")
@@ -516,51 +450,56 @@ class BLENDERRAIL_OT_generate_building(bpy.types.Operator):
         building_collection.children.link(elements_collection)
         context.scene.collection.children.unlink(elements_collection)
 
-        gn_sockets._set_socket_value(modifier, "Socket_2", floors_collection)
+        gn_sockets._set_socket_value(modifier, "floors_collection", floors_collection)
 
-        bpy.ops.blenderrail.add_floor()
+        bpy.ops.utmbuilder.add_floor()
 
         floor = building.floors[0]
-        curves_collection = bpy.data.collections.new("Floor_" + str(floor.ID) + "_Curves")
+        curves_collection = bpy.data.collections.new(building.name + "_Floor_" + str(floor.ID) + "_Curves")
         context.scene.collection.children.link(curves_collection)
         floor.curves_collection = curves_collection
         floors_collection.children.link(curves_collection)
         context.scene.collection.children.unlink(curves_collection)
 
-        bpy.ops.curve.primitive_bezier_circle_add(enter_editmode = False, align = 'WORLD', location = context.scene.cursor.location, scale = (1, 1, 1))
-        bpy.ops.transform.resize(value = (10.0, 10.0, 10.0), orient_type = 'GLOBAL')
-        bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
-        curve_obj = context.view_layer.objects.active
-        floor.curves_collection.objects.link(curve_obj)
-        for parent in curve_obj.users_collection:
-            if parent != floor.curves_collection:
-                parent.objects.unlink(curve_obj)
+        context.view_layer.objects.active = base_object
+        bpy.ops.utmbuilder.add_curve_object()
+        bpy.ops.object.mode_set(mode = 'OBJECT')
 
-        new_curve = floor.curves.add()
-        new_curve.curve_object = curve_obj
-        floor.active_curve_index = 0
-        floor.curves[0].curve_object = curve_obj
-
-        bpy.ops.blenderrail.evaluate_building()
+        context.view_layer.objects.active = base_object
+        base_object.select_set(True)
+        bpy.ops.utmbuilder.evaluate_building()
         
         return {"FINISHED"}
 
 
 
-class BLENDERRAIL_OT_remove_building(bpy.types.Operator):
-    bl_idname = "blenderrail.remove_building"
+class UTMBUILDER_OT_remove_building(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_building"
     bl_label = "Remove Building"
-    bl_description = "Delete active building from list"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Unregister the active ULTEAMMATE building (geometry and collections are kept in the file)"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+
+    @classmethod
+    def poll(cls, context):
+        if context.mode != 'OBJECT':
+            return False
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return False
+        else:
+            return True
 
     def execute(self, context):
-        scene = context.scene
-        buildings = scene.buildings
-        active_building_index = scene.active_building_index
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return
+        _, building = resolved
+        building.floors.clear()
+        building.active_floor_index = 0
+        building.is_utm_building = False
 
-        buildings.remove(active_building_index)
-
-        return{"FINISHED"}
+        return {"FINISHED"}
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width = 500)
@@ -571,58 +510,73 @@ class BLENDERRAIL_OT_remove_building(bpy.types.Operator):
 
 
 
-class BLENDERRAIL_OT_select_base_object(bpy.types.Operator):
-    bl_idname = "blenderrail.select_base_object"
-    bl_label = "Select Base Object"
-    bl_description = "Selects the building base object"
-    bl_options = {"REGISTER", "UNDO"}
+class UTMBUILDER_OT_select_base_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_base_object"
+    bl_label = "Select Constructor"
+    bl_description = "Select the building constructor object"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
-    building_index : bpy.props.IntProperty(options = {"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        if context.mode != 'OBJECT':
+            return False
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return False
+        else:
+            return True
 
     def execute(self, context):
-        scene = context.scene
-        buildings = scene.buildings
-
-        object = buildings[self.building_index].base_object
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return
+        base_object, _ = resolved
 
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.view_layer.objects.active = object
-        object.select_set(True)
+        context.view_layer.objects.active = base_object
+        base_object.select_set(True)
 
         return {"FINISHED"}
 
 
 
-class BLENDERRAIL_OT_building_settings(bpy.types.Operator):
-    bl_idname = "blenderrail.building_settings"
+class UTMBUILDER_OT_building_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.building_settings"
     bl_label = "Building Settings"
     bl_description = "Edit building properties"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
 
-    index : bpy.props.IntProperty(options = {"HIDDEN"})
+    @classmethod
+    def poll(cls, context):
+        if context.mode != 'OBJECT':
+            return False
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return False
+        else:
+            return True
 
     def execute(self, context):
         '''This executes NOTHING. Sole purpose of this operator is to expose the active building's properties in a pop-up dialog :)'''
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        scene = context.scene
-        building = scene.buildings[self.index]
-
-        title = building.name
-        return context.window_manager.invoke_props_dialog(self, title = title, width = 400)
+        resolved = resolve._resolve_building_object(context)
+        _, building = resolved
+        return context.window_manager.invoke_props_dialog(self, title = building.name, width = 400)
 
     def draw(self, context):
-        scene = context.scene
-        building = scene.buildings[self.index]
+        building = self._building(context)
+        if building is None:
+            return
 
         layout = self.layout
         properties_column = layout.column(align = True)
         properties_column.alignment = 'RIGHT'
 
         properties_column.prop(building, "name", text = "Building Name", icon = 'FILE_FONT')
-        properties_column.prop(building, "base_object", text = "Base Object", icon = 'OBJECT_DATA')
         properties_column.prop(building, "building_collection", text = "Building Collection", icon = 'OUTLINER_COLLECTION')
         properties_column.prop(building, "floors_collection", text = "Floors Collection", icon = 'OUTLINER_COLLECTION')
         properties_column.prop(building, "elements_collection", text = "Elements Collection", icon = 'OUTLINER_COLLECTION')
