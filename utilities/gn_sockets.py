@@ -27,10 +27,6 @@ CURVE_ATTRIBUTES_SOCKETS = {
     "thickness": "Socket_15",
     "direction_bottom": "Socket_16",
     "direction_top": "Socket_17",
-    "select_method": "Socket_11",
-    "select_per_segment": "Socket_14",
-    "sequence_offset": "Socket_12",
-    "random_index": "Socket_13",
     "top_material": "Socket_19",
     "sides_material": "Socket_20",
     "bottom_material": "Socket_21",
@@ -49,7 +45,11 @@ SEGMENT_SOCKETS = {
     "segment_index": "Socket_2",
     "fit_method": "Socket_4",
     "fixed_number": "Socket_5",
-    "element_ID": "Socket_3",
+    "select_method": "Socket_6",
+    "select_per_segment": "Socket_7",
+    "sequence_offset": "Socket_8",
+    "random_index": "Socket_9",
+    "element_index": "Socket_3",
 }
 
 LINK_FLOOR_SOCKETS = {

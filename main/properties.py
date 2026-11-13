@@ -67,6 +67,12 @@ class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
         update = _update_ID
     )
 
+    is_selected : bpy.props.BoolProperty(
+        name = "Is Selected",
+        description = "Element is selected",
+        default = False
+    )
+
     object : bpy.props.PointerProperty(
         name = "Element Object",
         description = "Pointer to object used for this element",
@@ -186,10 +192,38 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         curve = self._get_active_curve(context)
         curve.curve_object.update_tag()
         return
+
+    def _update_select_method(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "select_method", self.select_method)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
+
+    def _update_select_per_segment(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "select_per_segment", self.select_per_segment)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
+
+    def _update_sequence_offset(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "sequence_offset", self.sequence_offset)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
+
+    def _update_random_index(self, context):
+        modifier = self._get_segment_modifier(context)
+        gn_sockets._set_socket_value(modifier, "random_index", self.random_index)
+        curve = self._get_active_curve(context)
+        curve.curve_object.update_tag()
+        return
     
     def _update_element_ID(self, context):
         modifier = self._get_segment_modifier(context)
-        gn_sockets._set_socket_value(modifier, "element_ID", self.element_ID)
+        gn_sockets._set_socket_value(modifier, "element_index", self.element_index)
         curve = self._get_active_curve(context)
         curve.curve_object.update_tag()
         return
@@ -200,6 +234,12 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         min = 0,
         max = 10000,
         update = _update_segment_ID
+    )
+
+    is_selected : bpy.props.BoolProperty(
+        name = "Is Selected",
+        description = "Segment is selected",
+        default = False
     )
 
     spline_ID : bpy.props.IntProperty(
@@ -241,7 +281,42 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         update = _update_fixed_number
     )
 
-    element_ID : bpy.props.IntProperty(
+    select_method : bpy.props.EnumProperty(
+        name = "Select Method",
+        description = "Methos for selecting elements to instance on splines",
+        items = [
+        ('SEQUENCE', "Sequence", "Assign element for segment by order of the elements selection", 0),
+        ('RANDOM', "Random", "Randomly assign elements for each segment", 1),
+        ('INPUT', "Input", "Select specific element index for the segment", 2),
+        ],
+        default = 'INPUT',
+        update = _update_select_method
+    )
+
+    select_per_segment : bpy.props.BoolProperty(
+        name = "Select Per Segment",
+        description = "When True, a specific element will be set for each segment. Otherwise, a segment can instance multiple different elements",
+        default = False,
+        update = _update_select_per_segment
+    )
+
+    sequence_offset : bpy.props.IntProperty(
+        name = "Sequece Offset",
+        default = 0,
+        min = -10000,
+        max = 10000,
+        update = _update_sequence_offset
+    )
+
+    random_index : bpy.props.IntProperty(
+        name = "Random Index",
+        default = 0,
+        min = -10000,
+        max = 10000,
+        update = _update_random_index
+    )
+
+    element_index : bpy.props.IntProperty(
         name = "Element ID",
         default = 0,
         min = 0,
@@ -317,30 +392,6 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         self.curve_object.update_tag()
         return
 
-    def _update_select_method(self, context):
-        modifier = gn_sockets.curve_attributes_modifier(self)
-        gn_sockets._set_socket_value(modifier, "select_method", self.select_method)
-        self.curve_object.update_tag()
-        return
-
-    def _update_select_per_segment(self, context):
-        modifier = gn_sockets.curve_attributes_modifier(self)
-        gn_sockets._set_socket_value(modifier, "select_per_segment", self.select_per_segment)
-        self.curve_object.update_tag()
-        return
-
-    def _update_sequence_offset(self, context):
-        modifier = gn_sockets.curve_attributes_modifier(self)
-        gn_sockets._set_socket_value(modifier, "sequence_offset", self.sequence_offset)
-        self.curve_object.update_tag()
-        return
-
-    def _update_random_index(self, context):
-        modifier = gn_sockets.curve_attributes_modifier(self)
-        gn_sockets._set_socket_value(modifier, "random_index", self.random_index)
-        self.curve_object.update_tag()
-        return
-
     ID : bpy.props.IntProperty(
         name = "Curve ID",
         default = 0,
@@ -353,6 +404,12 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000
+    )
+
+    is_selected : bpy.props.BoolProperty(
+        name = "Is Selected",
+        description = "Curve is selected",
+        default = False
     )
 
     curve_object : bpy.props.PointerProperty(
@@ -451,41 +508,6 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         description = "Material for the bottom surface of the floor",
         type = bpy.types.Material,
         update = _update_bottom_material
-    )
-
-    select_method : bpy.props.EnumProperty(
-        name = "Select Method",
-        description = "Methos for selecting elements to instance on splines",
-        items = [
-        ('SEQUENCE', "Sequence", "Assign element for segment by order of the elements selection", 0),
-        ('RANDOM', "Random", "Randomly assign elements for each segment", 1),
-        ('CUSTOM', "Custom", "Manually select elements for each segment", 2),
-        ],
-        default = 'CUSTOM',
-        update = _update_select_method
-    )
-
-    select_per_segment : bpy.props.BoolProperty(
-        name = "Select Per Segment",
-        description = "When True, a specific element will be set for each segment. Otherwise, a segment can instance multiple different elements",
-        default = False,
-        update = _update_select_per_segment
-    )
-
-    sequence_offset : bpy.props.IntProperty(
-        name = "Sequece Offset",
-        default = 0,
-        min = -10000,
-        max = 10000,
-        update = _update_sequence_offset
-    )
-
-    random_index : bpy.props.IntProperty(
-        name = "Random Index",
-        default = 0,
-        min = -10000,
-        max = 10000,
-        update = _update_random_index
     )
 
     main_elements : bpy.props.PointerProperty(
@@ -654,7 +676,7 @@ class UTMBUILDER_PG_utm_building(bpy.types.PropertyGroup):
 
     show_segments_grid : bpy.props.BoolProperty(
         name = "Show Segments Grid",
-        default = False,
+        default = True,
     )
 
     segments_grid_columns : bpy.props.IntProperty(

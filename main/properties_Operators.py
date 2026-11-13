@@ -906,6 +906,41 @@ class UTMBUILDER_OT_stack_curve_object(bpy.types.Operator):
         return description
 
 
+class UTMBUILDER_OT_select_curves(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_curves"
+    bl_label = "Select curves"
+    bl_description = "Set selected curves"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    mode : bpy.props.EnumProperty(
+        name = "Mode",
+        description = "Switch between select and deselect",
+        items = [
+        ('SELECT', "Select", "Select all active curve segment", 0),
+        ('DESELECT', "Deselect", "Deselect all active curve segment", 1),
+        ],
+        default = 'SELECT',
+    )
+
+    def execute(self, context):
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curves = floor.curves
+
+        action = True if self.mode == 'SELECT' else False
+        for curve in curves:
+            curve.is_selected = action
+
+        select = "Selected" if self.mode == 'SELECT' else "Deselected"
+        self.report({"INFO"}, select + " all curves")
+        return {"FINISHED"}
+
+
 class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
     bl_idname = "utmbuilder.curve_settings"
     bl_label = "Curve Settings"
@@ -913,10 +948,38 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
-    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    curve_ID : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def execute(self, context):
-        '''This executes NOTHING. Sole purpose of this operator is to expose the active curve's properties in a pop-up dialog :)'''
+        '''This batch executes the settings, copying from floor's active_curve_index to all other is_selected curves'''
+        
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curves = floor.curves
+
+        if self.curve_ID < 0:
+            self.report({"ERROR"}, "Invalid segment ID")
+            return {"FINISHED"}
+        
+        active_curve = curves[self.curve_ID]
+        selected_curves = [curve for curve in curves if curve.is_selected]
+        for curve in selected_curves:
+            curve.height = active_curve.height
+            curve.inset = active_curve.inset
+            curve.floor_ceiling = active_curve.floor_ceiling
+            curve.thickness = active_curve.thickness
+            curve.direction_bottom = active_curve.direction_bottom
+            curve.direction_top = active_curve.direction_top
+            curve.top_material = active_curve.top_material
+            curve.sides_material = active_curve.sides_material
+            curve.bottom_material = active_curve.bottom_material
+        self.curve_ID = -1
+
+        self.report({"INFO"}, "Updated settings to segments")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -926,7 +989,7 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         _, building = resolved
 
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[self.index]
+        curve = floor.curves[self.curve_ID]
 
         title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID)
         return context.window_manager.invoke_props_dialog(self, title = title)
@@ -938,7 +1001,7 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         _, building = resolved
 
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[self.index]
+        curve = floor.curves[self.curve_ID]
 
         layout = self.layout
 
@@ -964,23 +1027,15 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         if curve.floor_ceiling == 'TOP' or curve.floor_ceiling == 'BOTH':
             floor_ceiling_column.prop(curve, "direction_top", text = "Top Extrude Offset")
 
-        floor_ceiling_column.prop(curve, "top_material", text = "Top Material", icon = 'MATERIAL')
-        floor_ceiling_column.prop(curve, "sides_material", text = "Sides Material", icon = 'MATERIAL')
-        floor_ceiling_column.prop(curve, "bottom_material", text = "Bottom Material", icon = 'MATERIAL')
-
         layout.separator(factor = 4.0, type = 'LINE')
 
-        select_column = layout.column(align = True)
-        select_column.alignment = 'RIGHT'
-        select_column.prop(curve, "select_method", text = "Select Method")
-        if curve.select_method != 'CUSTOM':
-            select_column.prop(curve, "select_per_segment", text = "Element per Segment", toggle = True)
-        if curve.select_method == 'SEQUENCE':
-            select_column.prop(curve, "sequence_offset", text = "Sequence Offset")
-        elif curve.select_method == 'RANDOM':
-            select_column.prop(curve, "random_index", text = "Random Index")
+        material_column = layout.column(align = True)
+        material_column.alignment = 'RIGHT'
+        material_column.prop(curve, "top_material", text = "Top Material", icon = 'MATERIAL')
+        material_column.prop(curve, "sides_material", text = "Sides Material", icon = 'MATERIAL')
+        material_column.prop(curve, "bottom_material", text = "Bottom Material", icon = 'MATERIAL')
 
-    
+
 
 # --------------------------------
 # Operators: segments Operators
@@ -1059,7 +1114,40 @@ class UTMBUILDER_OT_remove_segment(bpy.types.Operator):
 # URMBUILDER_OT_merge_segment(bpy.types.Operator)
 
 
-# UTMBUILDER_OT_select_segment(bpy.types.Operator)
+class UTMBUILDER_OT_select_segments(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_segments"
+    bl_label = "Selected segments"
+    bl_description = "Set selected segments"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    mode : bpy.props.EnumProperty(
+        name = "Mode",
+        description = "Switch between select and deselect",
+        items = [
+        ('SELECT', "Select", "Select all active curve segment", 0),
+        ('DESELECT', "Deselect", "Deselect all active curve segment", 1),
+        ],
+        default = 'SELECT',
+    )
+
+    def execute(self, context):
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        segments = curve.segments
+
+        action = True if self.mode == 'SELECT' else False
+        for segment in segments:
+            segment.is_selected = action
+
+        select = "Selected" if self.mode == 'SELECT' else "Deselected"
+        self.report({"INFO"}, select + " all segments")
+        return {"FINISHED"}
 
 
 class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
@@ -1068,20 +1156,37 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
-    active_index : bpy.props.IntProperty(options = {"HIDDEN"}, default = 0)
-    element_ID : bpy.props.IntProperty(default = 0, min = 0, max = 10000)
-    fit_method : bpy.props.EnumProperty(
-        items = [
-        ('ORIGINAL', "Original", "Keep original length, no scaling, bisect element on spline ends", 0),
-        ('FIT', "Fit", "Fit length of elements to the spline length, a=scale if necessary", 1),
-        ('FIXED', "Fixed", "Fit fixed number of elements, scale elements accordingly", 2),
-        ],
-        default = 'FIT'
-    )
-    fixed_number : bpy.props.IntProperty(default = 5, min = 0, max = 10000)
+    segment_ID : bpy.props.IntProperty(default = -1)
 
     def execute(self, context):
-        '''This executes NOTHING. Sole purpose of this operator is to expose the active segment's properties in a pop-up dialog :)'''
+        '''This batch executes the settings, copying from curve's active_segment_index to all other is_selected segments'''
+
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        segments = curve.segments
+
+        if self.segment_ID < 0:
+            self.report({"ERROR"}, "Invalid segment ID")
+            return {"FINISHED"}
+        
+        segment = segments[self.segment_ID]
+        selected_segments = [seg for seg in segments if seg.is_selected]
+        for seg in selected_segments:
+            seg.fit_method = segment.fit_method
+            seg.fixed_number = segment.fixed_number
+            seg.select_method = segment.select_method
+            seg.select_per_segment = segment.select_per_segment
+            seg.sequence_offset = segment.sequence_offset
+            seg.random_index = segment.random_index
+            seg.element_index = segment.element_index
+        self.segment_ID = -1
+
+        self.report({"INFO"}, "Updated settings to segments")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1093,7 +1198,7 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
 
-        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.active_index) 
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_ID) 
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
@@ -1104,13 +1209,28 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        segment = curve.segments[self.active_index]
+        segment = curve.segments[self.segment_ID]
 
         layout = self.layout
-        layout.prop(segment, "element_ID", text = "Element ID")
+        layout.label(text = "Fit Method: ")
         layout.prop(segment, "fit_method", expand = True)
         if segment.fit_method == 'FIXED':
             layout.prop(segment, "fixed_number", text = "Fixed Number")
+
+        layout.separator(factor = 4.0, type = 'LINE')
+
+        layout.label(text = "Select Method: ")
+        select_column = layout.column(align = True)
+        select_column.alignment = 'RIGHT'
+        select_column.prop(segment, "select_method", text = "")
+        if segment.select_method != 'INPUT':
+            select_column.prop(segment, "select_per_segment", text = "Element per Segment", toggle = True)
+        if segment.select_method == 'SEQUENCE':
+            select_column.prop(segment, "sequence_offset", text = "Sequence Offset")
+        elif segment.select_method == 'RANDOM':
+            select_column.prop(segment, "random_index", text = "Random Index")
+        elif segment.select_method == 'INPUT':
+            select_column.prop(segment, "element_index", text = "Input Index")
 
 
 
@@ -1118,9 +1238,9 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
 # Operators: Collect Object Operators
 # --------------------------------------
 
-class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
-    bl_idname = "utmbuilder.add_collect_object"
-    bl_label = "Add Collect Object"
+class UTMBUILDER_OT_add_elements(bpy.types.Operator):
+    bl_idname = "utmbuilder.add_elements"
+    bl_label = "Add Elements"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
@@ -1253,9 +1373,9 @@ class UTMBUILDER_OT_add_collect_object(bpy.types.Operator):
             layout.prop(self, "up_stretched", text = "Up Stretch", toggle = True)
 
 
-class UTMBUILDER_OT_remove_collect_object(bpy.types.Operator):
-    bl_idname = "utmbuilder.remove_collect_object"
-    bl_label = "Remove Collect Object"
+class UTMBUILDER_OT_remove_element(bpy.types.Operator):
+    bl_idname = "utmbuilder.remove_element"
+    bl_label = "Remove Element"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
@@ -1291,9 +1411,9 @@ class UTMBUILDER_OT_remove_collect_object(bpy.types.Operator):
         return {"FINISHED"}
     
 
-class UTMBUILDER_OT_reorder_collect_object(bpy.types.Operator):
-    bl_idname = "utmbuilder.reorder_collect_object"
-    bl_label = "Reorder Collect Object"
+class UTMBUILDER_OT_reorder_element(bpy.types.Operator):
+    bl_idname = "utmbuilder.reorder_element"
+    bl_label = "Reorder Element"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
  
@@ -1346,9 +1466,9 @@ class UTMBUILDER_OT_reorder_collect_object(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class UTMBUILDER_OT_select_collect_object(bpy.types.Operator):
-    bl_idname = "utmbuilder.select_collect_object"
-    bl_label = "Select Collect Object"
+class UTMBUILDER_OT_select_element_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_element_object"
+    bl_label = "Select Element Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
  
@@ -1394,9 +1514,9 @@ class UTMBUILDER_OT_select_collect_object(bpy.types.Operator):
         return{"FINISHED"}
 
 
-class UTMBUILDER_OT_replace_collect_object(bpy.types.Operator):
-    bl_idname = "utmbuilder.replace_collect_object"
-    bl_label = "Replace Collect Object"
+class UTMBUILDER_OT_replace_element_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.replace_element_object"
+    bl_label = "Replace Element Object"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
@@ -1469,18 +1589,80 @@ class UTMBUILDER_OT_replace_collect_object(bpy.types.Operator):
             layout.prop(context.window_manager, "utmbuilder_select_object", text = "Element Object")
 
 
-class UTMBUILDER_OT_collect_object_settings(bpy.types.Operator):
-    bl_idname = "utmbuilder.collect_object_settings"
-    bl_label = "Collect Object Settings"
+class UTMBUILDER_OT_select_elements(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_elements"
+    bl_label = "Select Elements"
+    bl_description = "Set Selected Elements"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    element_type : bpy.props.StringProperty(options = {"HIDDEN"})
+    mode : bpy.props.EnumProperty(
+        name = "Mode",
+        description = "Switch between select and deselect",
+        items = [
+        ('SELECT', "Select", "Select all active curve segment", 0),
+        ('DESELECT', "Deselect", "Deselect all active curve segment", 1),
+        ],
+        default = 'SELECT',
+    )
+
+    def execute(self, context):
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        elements_group = getattr(curve, self.element_type)
+
+        action = True if self.mode == 'SELECT' else False
+        for element in elements_group.objects:
+            element.is_selected = action
+
+        select = "Selected" if self.mode == 'SELECT' else "Deselected"
+        self.report({"INFO"}, select + " all elements")
+        return {"FINISHED"}
+    
+
+class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
+    bl_idname = "utmbuilder.elements_settings"
+    bl_label = "Elements Settings"
+    bl_description = "Set selected elements settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
  
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
-    index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    element_ID : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def execute(self, context):
-        '''This executes NOTHING. Sole purpose of this operator is to expose the active element's properties in a pop-up dialog :)'''
-        return{"FINISHED"}
+        '''This batch executes the settings, copying from curve's active_segment_index to all other is_selected segments'''
+
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[floor.active_curve_index]
+        elements_group = getattr(curve, self.element_type)
+
+        if self.element_ID < 0:
+            self.report({"ERROR"}, "Invalid segment ID")
+            return {"FINISHED"}
+        
+        active_element = elements_group.objects[self.element_ID]
+        selected_elements = [element for element in elements_group.objects if element.is_selected]
+        for element in selected_elements:
+            element.is_empty = active_element.is_empty
+            element.empty_bounds = active_element.empty_bounds
+            element.correct_uv = active_element.correct_uv
+            element.up_stretched = active_element.up_stretched
+        self.element_ID = -1
+
+        self.report({"INFO"}, "Updated settings to segments")
+        return {"FINISHED"}
 
     def invoke(self, context, event):
         resolved = resolve._resolve_building_object(context)
@@ -1505,10 +1687,8 @@ class UTMBUILDER_OT_collect_object_settings(bpy.types.Operator):
 
         layout = self.layout
 
-        elements_collection = getattr(curve, self.element_type)
-        element = None
-        
-        element = elements_collection.objects[self.index]
+        elements_group = getattr(curve, self.element_type)
+        element = elements_group.objects[self.element_ID]
 
         empty_column = layout.column(align = True)
         if element.is_empty == True:

@@ -85,7 +85,7 @@ def _sync_segments_to_curves(curve):
         return
 
     curve_data = curve.curve_object.data
-    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_ID, segment.fit_method, segment.fixed_number) for segment in curve.segments]
+    old_assignments = [(segment.spline_ID, segment.spline_factor, segment.element_index, segment.fit_method, segment.fixed_number) for segment in curve.segments]
     factors = []
     total_points = 0
 
@@ -360,11 +360,6 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             gn_sockets._set_socket_value(curve_attributes, "direction_bottom", curve.direction_bottom)
             gn_sockets._set_socket_value(curve_attributes, "direction_top", curve.direction_top)
 
-            gn_sockets._set_socket_value(curve_attributes, "select_method", curve.select_method)
-            gn_sockets._set_socket_value(curve_attributes, "select_per_segment", curve.select_per_segment)
-            gn_sockets._set_socket_value(curve_attributes, "sequence_offset", curve.sequence_offset)
-            gn_sockets._set_socket_value(curve_attributes, "random_index", curve.random_index)
-
             gn_sockets._set_socket_value(curve_attributes, "top_material", curve.top_material)
             gn_sockets._set_socket_value(curve_attributes, "sides_material", curve.sides_material)
             gn_sockets._set_socket_value(curve_attributes, "bottom_material", curve.bottom_material)
@@ -384,7 +379,11 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
 
                 gn_sockets._set_socket_value(element_id, "fit_method", segment.fit_method)
                 gn_sockets._set_socket_value(element_id, "fixed_number", segment.fixed_number)
-                gn_sockets._set_socket_value(element_id, "element_ID", segment.element_ID)
+                gn_sockets._set_socket_value(element_id, "select_method", segment.select_method)
+                gn_sockets._set_socket_value(element_id, "select_per_segment", segment.select_per_segment)
+                gn_sockets._set_socket_value(element_id, "sequence_offset", segment.sequence_offset)
+                gn_sockets._set_socket_value(element_id, "random_index", segment.random_index)
+                gn_sockets._set_socket_value(element_id, "element_index", segment.element_index)
 
         building.active_floor_index = old_active_floor
 
@@ -543,7 +542,6 @@ class UTMBUILDER_OT_select_base_object(bpy.types.Operator):
 
 
 class UTMBUILDER_OT_building_settings(bpy.types.Operator):
-    ''' Class is no longer registered. Kept for possible future use '''
     bl_idname = "utmbuilder.building_settings"
     bl_label = "Building Settings"
     bl_description = "Edit building properties"

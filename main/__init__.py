@@ -20,28 +20,32 @@ classes = [
     properties_Operators.UTMBUILDER_OT_link_floor,
     properties_Operators.UTMBUILDER_OT_copy_floor,
     properties_Operators.UTMBUILDER_OT_floor_settings,
-    
-    properties_Operators.UTMBUILDER_OT_add_segment,
-    properties_Operators.UTMBUILDER_OT_remove_segment,
-    properties_Operators.UTMBUILDER_OT_segment_settings,
 
     properties_Operators.UTMBUILDER_OT_add_curve_object,
     properties_Operators.UTMBUILDER_OT_remove_curve_object,
     properties_Operators.UTMBUILDER_OT_replace_curve_object,
     properties_Operators.UTMBUILDER_OT_stack_curve_object,
+    properties_Operators.UTMBUILDER_OT_select_curves,
     properties_Operators.UTMBUILDER_OT_curve_settings,
 
-    properties_Operators.UTMBUILDER_OT_add_collect_object,
-    properties_Operators.UTMBUILDER_OT_remove_collect_object,
-    properties_Operators.UTMBUILDER_OT_reorder_collect_object,
-    properties_Operators.UTMBUILDER_OT_select_collect_object,
-    properties_Operators.UTMBUILDER_OT_replace_collect_object,
-    properties_Operators.UTMBUILDER_OT_collect_object_settings,
+    properties_Operators.UTMBUILDER_OT_add_segment,
+    properties_Operators.UTMBUILDER_OT_remove_segment,
+    properties_Operators.UTMBUILDER_OT_segment_settings,
+    properties_Operators.UTMBUILDER_OT_select_segments,
+
+    properties_Operators.UTMBUILDER_OT_add_elements,
+    properties_Operators.UTMBUILDER_OT_remove_element,
+    properties_Operators.UTMBUILDER_OT_reorder_element,
+    properties_Operators.UTMBUILDER_OT_select_element_object,
+    properties_Operators.UTMBUILDER_OT_replace_element_object,
+    properties_Operators.UTMBUILDER_OT_select_elements,
+    properties_Operators.UTMBUILDER_OT_elements_settings,
 
     operators.UTMBUILDER_OT_evaluate_building,
     operators.UTMBUILDER_OT_generate_building,
     operators.UTMBUILDER_OT_remove_building,
     operators.UTMBUILDER_OT_select_base_object,
+    operators.UTMBUILDER_OT_building_settings,
 
     sync_from_modifier_stack.UTMBUILDER_OT_sync_from_modifier_stack,
     
