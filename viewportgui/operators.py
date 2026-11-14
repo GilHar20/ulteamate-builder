@@ -15,6 +15,17 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
         return cls._handle is not None
 
     @classmethod
+    def _redraw_view3d_areas(cls, context):
+        screen = getattr(context, "screen", None)
+        if screen is None:
+            if context.area and context.area.type == "VIEW_3D":
+                context.area.tag_redraw()
+            return
+        for area in screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+
+    @classmethod
     def poll(cls, context):
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
@@ -51,10 +62,10 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
         curve_obj.select_set(True)
         bpy.ops.object.mode_set(mode='EDIT')
 
-        cls._handle = bpy.types.SpaceView3D.draw_handler_add(
-            draw.draw_callback, (), 'WINDOW', 'POST_PIXEL')
+        draw.place_panel_default(context)
+        cls._handle = bpy.types.SpaceView3D.draw_handler_add(draw.draw_callback, (), 'WINDOW', 'POST_PIXEL')
         context.window_manager.modal_handler_add(self)
-        context.area.tag_redraw()
+        cls._redraw_view3d_areas(context)
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
@@ -63,12 +74,17 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
             return {'FINISHED'}
 
         state = draw.panel_state
-        mouse_x, mouse_y = event.mouse_region_x, event.mouse_region_y
         names = draw.get_element_names()
         count = len(names)
 
+        if event.type in {"MOUSEMOVE", "LEFTMOUSE"} and context.area is None:
+            cls._redraw_view3d_areas(context)
+            return {"PASS_THROUGH"}
+
+        mouse_x, mouse_y = event.mouse_region_x, event.mouse_region_y
+
         if event.type == 'MOUSEMOVE':
-            context.area.tag_redraw()
+            cls._redraw_view3d_areas(context)
 
             if state['dragging']:
                 offset_x, offset_y = state['drag_offset']
@@ -126,8 +142,7 @@ class UTMBUILDER_OT_viewport_panel(bpy.types.Operator):
             cls._handle = None
         draw.panel_state['hover_index'] = -1
         draw.panel_state['dragging'] = False
-        if context.area:
-            context.area.tag_redraw()
+        cls._redraw_view3d_areas(context)
 
     @classmethod
     def shutdown(cls):
