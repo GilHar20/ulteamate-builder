@@ -79,14 +79,14 @@ def resolve_asset_library_directory(prefs):
     return os.path.join(parent, CUSTOM_LIBRARY_FOLDER_NAME)
 
 
-def _iter_bundled_blend_sources():
+def _iter_bundled_asset_sources():
     shipped = _normalize_directory(addon_shipped_assets_directory())
     if not os.path.isdir(shipped):
         return
     for root, dirnames, filenames in os.walk(shipped):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         for name in filenames:
-            if name.startswith(".") or not name.lower().endswith(".blend"):
+            if name.startswith("."):
                 continue
             src = os.path.join(root, name)
             rel = os.path.relpath(src, shipped)
@@ -94,14 +94,16 @@ def _iter_bundled_blend_sources():
 
 
 def sync_bundled_blends_to_library(target_dir):
-    """Copy shipped addon .blend files into target_dir (always overwrite)."""
+    """Copy shipped addon asset files (.blend, category .txt, etc.) into target_dir (always overwrite)."""
     target_dir = _normalize_directory(target_dir)
     shipped = _normalize_directory(addon_shipped_assets_directory())
     if _paths_equal(target_dir, shipped):
         return None
 
-    sources = list(_iter_bundled_blend_sources())
+    sources = list(_iter_bundled_asset_sources())
     if not sources:
+        return "No files in addon assets folder: %s" % shipped
+    if not any(os.path.splitext(rel)[1].lower() == ".blend" for _src, rel in sources):
         return "No .blend files in addon assets folder: %s" % shipped
 
     try:
