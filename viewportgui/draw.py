@@ -113,7 +113,7 @@ def set_element_id_for_selected(element_id):
         return
     for idx in get_selected_segment_indices():
         if 0 <= idx < len(curve.segments):
-            curve.segments[idx].element_ID = element_id
+            curve.segments[idx].element_index = element_id
     obj = curve.curve_object
     if obj is not None:
         obj.update_tag()
@@ -224,6 +224,49 @@ def _content_height(count):
 
 def _total_height(count):
     return TITLE_HEIGHT + _content_height(count)
+
+
+def _window_region(context):
+    area = getattr(context, "area", None)
+    if area is None or area.type != "VIEW_3D":
+        return None
+    region = getattr(context, "region", None)
+    if region is not None and region.type == "WINDOW":
+        return region
+    for reg in area.regions:
+        if reg.type == "WINDOW":
+            return reg
+    return None
+
+
+def place_panel_default(context):
+    """Position the elements panel beside the toolbar, vertically centered in the 3D View."""
+    region = _window_region(context)
+    if region is None:
+        return
+
+    space = context.space_data
+    if isinstance(space, bpy.types.SpaceView3D):
+        space.show_region_toolbar = True
+
+    count = len(get_element_names())
+    panel_height = _total_height(count)
+    region_h = region.height
+
+    margin_x = PADDING * 10
+    y_center = region_h * 0.5
+    panel_top = y_center + panel_height * 0.5
+    panel_bottom = panel_top - panel_height
+
+    if panel_bottom < 0:
+        panel_top = panel_height
+    elif panel_top > region_h:
+        panel_top = region_h
+
+    panel_state["x"] = margin_x
+    panel_state["y"] = panel_top
+    panel_state["hover_index"] = -1
+    panel_state["dragging"] = False
 
 
 def button_rect(i):
