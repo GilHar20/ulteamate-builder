@@ -34,7 +34,7 @@ def get_active_curve():
     context = bpy.context
     resolved = resolve._resolve_building_object(context)
     if resolved is None:
-        return {"CANCELLED"}
+        return None
     _, building = resolved
 
     floor = building.floors[building.active_floor_index]

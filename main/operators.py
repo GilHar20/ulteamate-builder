@@ -271,24 +271,6 @@ def _assign_curve_elements(self, context, building, curve, element_type):
     return
 
 
-def _set_attribute_driver(self, context, item, attribute, data_path, var_name, driver_object):
-    '''Deprecated: used by drivers; kept for possible future use.'''
-    fcurve = item.driver_add(attribute)
-    driver = fcurve.driver
-    driver.type = 'AVERAGE'
-
-    if driver.variables:
-        var = driver.variables[0]
-    else:
-        var = driver.variables.new()
-        
-    var.name = var_name
-    var.type = 'SINGLE_PROP'
-    var.targets[0].id_type = 'OBJECT'
-    var.targets[0].id = driver_object
-    var.targets[0].data_path = data_path
-    return
-
 
 # --------------------
 # Operators: Buildings
@@ -318,7 +300,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
 
-        all_curves = _calculate_floors_start_height(context, floors, False)
+        all_curves = _calculate_floors_start_height(context, floors, True)
 
         for floor_index, floor in enumerate(floors):
             instance_empty = floor.instance_object

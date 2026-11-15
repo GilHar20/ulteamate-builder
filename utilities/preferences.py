@@ -30,11 +30,11 @@ class UTMBUILDER_Preferences(bpy.types.AddonPreferences):
         box = layout.box()
 
         if self.asset_library_exists:
-            box.label(text = "Asset library is set up correctly!", icon = 'INFO')
+            box.label(text = "Asset library is set up correctly", icon = 'INFO')
             box.prop(self, "asset_library_path", text = "Asset library Path")
             box.operator("utmbuilder.setup_asset_library", text = "Update Asset Library", icon = "FILE_REFRESH")
             return
             
-        box.label(text = "Asset library is set up properly!", icon = 'ERROR')
+        box.label(text = "Asset library is not recognized", icon = 'ERROR')
         box.prop(self, "asset_library_path", text = "Asset library Path")
         box.operator("utmbuilder.setup_asset_library", text = "Register Asset Library", icon = "FILE_REFRESH")

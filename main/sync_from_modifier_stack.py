@@ -24,10 +24,6 @@ _CURVE_ATTRIBUTE_FIELDS = (
     ("Socket_15", "thickness"),
     ("Socket_16", "direction_bottom"),
     ("Socket_17", "direction_top"),
-    ("Socket_11", "select_method"),
-    ("Socket_14", "select_per_segment"),
-    ("Socket_12", "sequence_offset"),
-    ("Socket_13", "random_index"),
     ("Socket_19", "top_material"),
     ("Socket_20", "sides_material"),
     ("Socket_21", "bottom_material"),
@@ -70,9 +66,13 @@ def _sync_curve_from_modifiers(curve, curve_obj):
         elif "ElementID_GN" in modifier.name:
             segment_settings.append({
                 "ID": gn_sockets._get_socket_value(modifier, "segment_index"),
-                "element_ID": gn_sockets._get_socket_value(modifier, "element_ID"),
                 "fit_method": gn_sockets._get_socket_value(modifier, "fit_method"),
                 "fixed_number": gn_sockets._get_socket_value(modifier, "fixed_number"),
+                "select_method": gn_sockets._get_socket_value(modifier, "select_method"),
+                "select_per_segment": gn_sockets._get_socket_value(modifier, "select_per_segment"),
+                "sequence_offset": gn_sockets._get_socket_value(modifier, "sequence_offset"),
+                "random_index": gn_sockets._get_socket_value(modifier, "random_index"),
+                "element_index": gn_sockets._get_socket_value(modifier, "element_index"),
             })
 
     operators._sync_segments_to_curves(curve)
@@ -84,9 +84,13 @@ def _sync_curve_from_modifiers(curve, curve_obj):
         segment.ID = index
         if isinstance(settings.get("ID"), int):
             segment.ID = settings["ID"]
-        gn_sockets.set_pg_property(segment, "element_ID", settings.get("element_ID", 0))
         gn_sockets.set_pg_property(segment, "fit_method", settings.get("fit_method", "FIT"))
         gn_sockets.set_pg_property(segment, "fixed_number", settings.get("fixed_number", 1))
+        gn_sockets.set_pg_property(segment, "select_method", settings.get("select_method", "SEQUENCE0"))
+        gn_sockets.set_pg_property(segment, "select_per_segment", settings.get("select_per_segment", 1))
+        gn_sockets.set_pg_property(segment, "sequence_offset", settings.get("sequence_offset", 0))
+        gn_sockets.set_pg_property(segment, "random_index", settings.get("random_index", 0))
+        gn_sockets.set_pg_property(segment, "element_index", settings.get("element_index", 0))
 
 
 def _floor_array_from_collection(curves_collection):
@@ -216,6 +220,11 @@ class UTMBUILDER_OT_sync_from_modifier_stack(bpy.types.Operator):
             
         floors_ordered = _floors_ordered(floors_collection)
 
+        source_index_by_collection = {}
+        for idx, spec in enumerate(floors_ordered):
+            if spec[0] == "source":
+                source_index_by_collection[spec[1]] = idx
+
         building.floors.clear()
         for floor_index, floor_spec in enumerate(floors_ordered):
             kind = floor_spec[0]
@@ -232,6 +241,7 @@ class UTMBUILDER_OT_sync_from_modifier_stack(bpy.types.Operator):
                 floor.is_linked = True
                 floor.instance_object = instance_obj
                 source_collection = gn_sockets._get_socket_value(link_modifier, "curves_collection")
+                floor.linked_ID = source_index_by_collection.get(source_collection, -1)
                 floor.array = 1
                 continue
 

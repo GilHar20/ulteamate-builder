@@ -1,11 +1,13 @@
 bl_info = {
     "name": "ULTEAMMATE Builder",
-    "version": (0, 8, 5),
+    "version": (0, 9, 0),
     "blender": (5, 2, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > ULTEAMMATE > ULTEAMMATE Builder",
     "description": "Spline based procedural building toolkit",
     "category": "3D View",
+    "tracker_url": "https://github.com/GilHar20/ulteamate-builder/issues",
+    "doc_url": "https://github.com/GilHar20/ulteamate-builder",
 }
 
 from . import icons
