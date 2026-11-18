@@ -640,6 +640,7 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
 
         floors = building.floors
         floor = floors[building.active_floor_index]
+        active_curve_index = floor.active_curve_index
         curves = floor.curves
 
         wm = context.window_manager    
@@ -659,17 +660,6 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
             self.report({"WARNING"}, "No floors — add a floor first")
             return {"CANCELLED"}
 
-        new_curve = curves.add()
-        new_curve.curve_object = curve_obj
-        heighest = max([curve.height for curve in curves])
-        new_curve.height = heighest
-        floor.active_curve_index = len(floor.curves) - 1 if len(floor.curves) > 0 else 0
-        curves.move(len(curves) - 1, floor.active_curve_index + 1)
-        for collection in curve_obj.users_collection:
-            collection.objects.unlink(curve_obj)
-        if curve_obj.name not in floor.curves_collection.objects:
-            floor.curves_collection.objects.link(curve_obj)
-
         # Set parent. A check for another parent already happeans after getting curve_obj
         # from _create_curve() or _select_curve()
         mw = curve_obj.matrix_world.copy()
@@ -677,7 +667,21 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         curve_obj.matrix_world = mw
         curve_obj.location = (0.0, 0.0, floor.start_height)
 
+        for collection in curve_obj.users_collection:
+            collection.objects.unlink(curve_obj)
+        if curve_obj.name not in floor.curves_collection.objects:
+            floor.curves_collection.objects.link(curve_obj)
+
+        new_curve = curves.add()
+        new_curve.curve_object = curve_obj
+        heighest = max([curve.height for curve in curves])
+        new_curve.height = heighest
+        if len(curves) > 1:
+            curves.move(len(curves) - 1, floor.active_curve_index + 1)
+        floor.active_curve_index = active_curve_index + 1
+        
         bpy.ops.utmbuilder.evaluate_building()
+        self.name == ""
         wm.utmbuilder_select_object = None
         context.view_layer.objects.active = curve_obj
         if self.mode == 'CREATE':
@@ -1707,7 +1711,7 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
         if element.is_empty == True:
             empty_column.prop(element, "empty_bounds", text = "Element Bounds", icon = 'FIXED_SIZE')
 
-        layout.prop(element, "correct_uv", text = "Correct UVs", toggle = True)
-        layout.prop(element, "up_stretched", text = "Up Stretch", toggle = True)
+        layout.prop(element, "correct_uv", text = "Correct UVs", icon = "UV", toggle = True)
+        layout.prop(element, "up_stretched", text = "Up Stretch", icon = "TRIA_UP_BAR", toggle = True)
         
         return

@@ -300,7 +300,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             self.report({"WARNING"}, "Active building has no floors")
             return {"CANCELLED"}
 
-        all_curves = _calculate_floors_start_height(context, floors, True)
+        all_curves = _calculate_floors_start_height(context, floors, False)
 
         for floor_index, floor in enumerate(floors):
             instance_empty = floor.instance_object

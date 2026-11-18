@@ -376,19 +376,19 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
 
     def _update_top_material(self, context):
         modifier = self.curve_object.modifiers[0]
-        gn_sockets._set_socket_value(modifier, "Socket_19", self.top_material)
+        gn_sockets._set_socket_value(modifier, "top_material", self.top_material)
         self.curve_object.update_tag()
         return
 
     def _update_sides_material(self, context):
         modifier = self.curve_object.modifiers[0]
-        gn_sockets._set_socket_value(modifier, "Socket_20", self.sides_material)
+        gn_sockets._set_socket_value(modifier, "sides_material", self.sides_material)
         self.curve_object.update_tag()
         return
 
     def _update_bottom_material(self, context):
         modifier = self.curve_object.modifiers[0]
-        gn_sockets._set_socket_value(modifier, "Socket_21", self.bottom_material)
+        gn_sockets._set_socket_value(modifier, "bottom_material", self.bottom_material)
         self.curve_object.update_tag()
         return
 

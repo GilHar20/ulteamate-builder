@@ -408,7 +408,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
 
         segments_label_row = segments_box.row()
         segments_label_row.scale_y = 1.5
-        segments_box.label(text = "Segments :", icon = 'DISCLOSURE_TRI_RIGHT')
+        segments_box.label(text = "Segments: ", icon = 'DISCLOSURE_TRI_RIGHT')
 
         segments_list = segments_box.box()
         segments_row = segments_list.row(align = True)

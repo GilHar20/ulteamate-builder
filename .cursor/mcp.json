@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "blender": {
+      "command": "C:\\Users\\gigsi\\.local\\bin\\uv.exe",
+      "args": [
+        "--directory",
+        "C:\\blender_mcp\\mcp",
+        "run",
+        "blender-mcp"
+      ],
+      "env": {
+        "BLENDER_MCP_HOST": "localhost",
+        "BLENDER_MCP_PORT": "9876"
+      }
+    }
+  }
+}
