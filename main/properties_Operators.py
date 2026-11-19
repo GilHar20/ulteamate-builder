@@ -471,7 +471,9 @@ class UTMBUILDER_OT_copy_floor(bpy.types.Operator):
             new_curve = new_floor.curves.add()
             new_curve.curve_object = new_obj
 
-            new_curve.inset = curve.inset
+            new_curve.main_inset = curve.main_inset
+            new_curve.floor_inset = curve.floor_inset
+            new_curve.ceiling_inset = curve.ceiling_inset
             new_curve.height = curve.height
             new_curve.floor_ceiling = curve.floor_ceiling
             new_curve.thickness = curve.thickness
@@ -978,7 +980,9 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         selected_curves = [curve for curve in curves if curve.is_selected and curve is not active_curve]
         for curve in selected_curves:
             curve.height = active_curve.height
-            curve.inset = active_curve.inset
+            curve.main_inset = active_curve.main_inset
+            curve.floor_inset = active_curve.floor_inset
+            curve.ceiling_inset = active_curve.ceiling_inset
             curve.floor_ceiling = active_curve.floor_ceiling
             curve.thickness = active_curve.thickness
             curve.direction_bottom = active_curve.direction_bottom
@@ -1023,7 +1027,7 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         
         curve_fill_column = layout.column(align = True)
         curve_fill_column.prop(curve, "height", text = "Height")
-        curve_fill_column.prop(curve, "inset", text = "Shrink/Expand", )
+        #curve_fill_column.prop(curve, "main_inset", text = "Curve Shrink/Expand", )
 
         layout.separator(factor = 4.0, type = 'LINE')
 
@@ -1033,8 +1037,10 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         if curve.floor_ceiling != 'NONE':
             floor_ceiling_column.prop(curve, "thickness", text = "Extrude Thickness")
         if curve.floor_ceiling == 'BOTTOM' or curve.floor_ceiling == 'BOTH':
+            floor_ceiling_column.prop(curve, "floor_inset", text = "Floor Shrink/Expand")
             floor_ceiling_column.prop(curve, "direction_bottom", text = "Bottom Extrude Offset")
         if curve.floor_ceiling == 'TOP' or curve.floor_ceiling == 'BOTH':
+            floor_ceiling_column.prop(curve, "ceiling_inset", text = "Ceiling Shrink/Expand")
             floor_ceiling_column.prop(curve, "direction_top", text = "Top Extrude Offset")
 
         layout.separator(factor = 4.0, type = 'LINE')

@@ -330,9 +330,9 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         if self.active_segment_index > len(self.segments) - 1:
             self.active_segment_index = len(self.segments) - 1
 
-    def _update_inset(self, context):
+    def _update_main_inset(self, context):
         modifier = gn_sockets.curve_attributes_modifier(self)
-        gn_sockets._set_socket_value(modifier, "inset", self.inset)
+        gn_sockets._set_socket_value(modifier, "main_inset", self.main_inset)
         self.curve_object.update_tag()
         return
 
@@ -356,6 +356,18 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         self.curve_object.update_tag()
         return
 
+    def _update_floor_inset(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "floor_inset", self.floor_inset)
+        self.curve_object.update_tag()
+        return
+
+    def _update_ceiling_inset(self, context):
+        modifier = gn_sockets.curve_attributes_modifier(self)
+        gn_sockets._set_socket_value(modifier, "ceiling_inset", self.ceiling_inset)
+        self.curve_object.update_tag()
+        return
+    
     def _update_thickness(self, context):
         modifier = gn_sockets.curve_attributes_modifier(self)
         gn_sockets._set_socket_value(modifier, "thickness", self.thickness)
@@ -432,13 +444,13 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         update = _clamp_active_segment_index
     )
 
-    inset : bpy.props.FloatProperty(
-        name = "Inset",
-        description = "Inset the curve inside or outside its normal",
-        default = 0.2,
+    main_inset : bpy.props.FloatProperty(
+        name = "Main Inset",
+        description = "Inset of the curve on its normal vector. Effects instancing of elements",
+        default = 0.0,
         min = -10.0,
         max = 10.0,
-        update = _update_inset
+        update = _update_main_inset
     )
 
     height : bpy.props.FloatProperty(
@@ -460,6 +472,24 @@ class UTMBUILDER_PG_utm_curve(bpy.types.PropertyGroup):
         ],
         default = 'BOTTOM',
         update = _update_floor_ceiling
+    )
+
+    floor_inset : bpy.props.FloatProperty(
+        name = "Main Inset",
+        description = "Inset of the curve on its normal vector. Effects only the floor mesh",
+        default = 0.2,
+        min = -10.0,
+        max = 10.0,
+        update = _update_floor_inset
+    )
+
+    ceiling_inset : bpy.props.FloatProperty(
+        name = "Ceiling Inset",
+        description = "Inset of the curve on its normal vector. Effects only the ceiling mesh",
+        default = 0.2,
+        min = -10.0,
+        max = 10.0,
+        update = _update_ceiling_inset
     )
 
     thickness : bpy.props.FloatProperty(

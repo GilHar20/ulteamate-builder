@@ -18,7 +18,9 @@ from . import operators
 
 _FLOOR_ID_FROM_NAME = re.compile(r"_Floor(\d+)(?:_|$)")
 _CURVE_ATTRIBUTE_FIELDS = (
-    ("Socket_10", "inset"),
+    ("Socket_10", "main_inset"),
+    ("Socket_24", "floor_inset"),
+    ("Socket_25", "ceiling_inset"),
     ("Socket_4", "height"),
     ("Socket_5", "floor_ceiling"),
     ("Socket_15", "thickness"),

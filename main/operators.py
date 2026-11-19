@@ -334,7 +334,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             gn_sockets._set_socket_value(curve_attributes, "maximum_height", floor.maximum_height)
 
             gn_sockets._set_socket_value(curve_attributes, "ID", curve.ID)
-            gn_sockets._set_socket_value(curve_attributes, "inset", curve.inset)
+            gn_sockets._set_socket_value(curve_attributes, "main_inset", curve.main_inset)
             gn_sockets._set_socket_value(curve_attributes, "height", curve.height)
 
             gn_sockets._set_socket_value(curve_attributes, "floor_ceiling", curve.floor_ceiling)

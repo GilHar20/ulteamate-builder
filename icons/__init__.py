@@ -11,7 +11,7 @@ def register():
     icons_dir = os.path.dirname(__file__)
     pcoll.load(
         "panel_logo",
-        os.path.join(icons_dir, "ULTeaMate_Logo_03.png"),
+        os.path.join(icons_dir, "ULTEAMMATE-Builder_IconSmall_01.png"),
         "IMAGE",
     )
     preview_collections["main"] = pcoll
