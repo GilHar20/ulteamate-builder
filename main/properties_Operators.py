@@ -1408,23 +1408,25 @@ class UTMBUILDER_OT_remove_element(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        collection = getattr(curve, self.element_type)
-        active_element_index = collection.active_element_index
+        elements_group = getattr(curve, self.element_type)
+        active_element_index = elements_group.active_element_index
         
-        if len(collection.objects) == 0:
+        if len(elements_group.objects) == 0:
             self.report({"INFO"}, "No objects to remove")
             return {"CANCELLED"}
 
-        host_curve = collection.objects[active_element_index].host_curve
+        host_curve = elements_group.objects[active_element_index].host_curve
         assigned_modifiers = [modifier for modifier in host_curve.modifiers if modifier.type == "NODES" 
                               and "UTM.Builder_CurveElements_GN" in modifier.name 
                               and gn_sockets._get_socket_value(modifier, "element_type") == self.element_type]
 
+        self.report({"INFO"}, str(len(assigned_modifiers)))
+
+        elements_group.active_element_index = min(elements_group.active_element_index, max(0, len(elements_group.objects) - 1))
         host_curve.modifiers.remove(assigned_modifiers[active_element_index])
-        collection.objects.remove(collection.active_element_index)
-        for obj_index,obj in enumerate(collection.objects):
+        elements_group.objects.remove(elements_group.active_element_index)
+        for obj_index,obj in enumerate(elements_group.objects):
             obj.ID = obj_index
-        collection.active_element_index = min(collection.active_element_index, max(0, len(collection.objects) - 1))
 
         return {"FINISHED"}
     

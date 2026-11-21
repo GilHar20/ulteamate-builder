@@ -1,6 +1,6 @@
 bl_info = {
     "name": "ULTEAMMATE Builder",
-    "version": (0, 9, 1),
+    "version": (0, 9, 3),
     "blender": (5, 2, 0),
     "author": "Gilad Harnik",
     "location": "View3D > Sidebar > ULTEAMMATE > ULTEAMMATE Builder",

@@ -5,8 +5,8 @@ Usage (from this directory):
     python build_release.py
 
 Output:
-    D:/_ULTEAMMATE/ULTEAMMATE-Builder/Version/ulteamate-builder-0.8.5.zip
-    (version from bl_info in __init__.py)
+    <ULTEAMMATE-Builder>/Version/ulteamate-builder-0.8.5.zip
+    (version from bl_info in __init__.py; repo layout: ULTEAMMATE-Builder/Plugin/ulteamate-builder/)
 """
 
 from __future__ import annotations
@@ -21,7 +21,8 @@ from pathlib import Path
 ADDON_DIR = Path(__file__).resolve().parent
 ADDON_MODULE_NAME = ADDON_DIR.name
 INIT_PY = ADDON_DIR / "__init__.py"
-OUT_DIR = Path(r"D:\_ULTEAMMATE\ULTEAMMATE-Builder\Version")
+ULTEAMMATE_BUILDER_ROOT = ADDON_DIR.parent.parent
+OUT_DIR = ULTEAMMATE_BUILDER_ROOT / "Version"
 
 # Dev / junk — never ship these
 IGNORE_DIR_NAMES = {
