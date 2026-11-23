@@ -3,6 +3,7 @@ from .. import icons
 from .. utilities import resolve_building_object as resolve
 from .. utilities.preferences import UTMBUILDER_Preferences
 from .. utilities import asset_library_setup as asset_library
+from ..viewportgui.operators import UTMBUILDER_OT_viewport_panel
 
 
 
@@ -281,7 +282,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         refresh_row = floors_label_row.row(align = True)
         refresh_row.alignment = 'RIGHT'
         refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME', depress = UTMBUILDER_OT_viewport_panel.is_running())
 
         floors_column = floors_box.column()
         floors_row = floors_column.row(align = True)
@@ -361,7 +362,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         refresh_row = curves_label_row.row(align = True)
         refresh_row.alignment = 'RIGHT'
         refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME', depress = UTMBUILDER_OT_viewport_panel.is_running())
 
         curves_column.separator(factor = 1.0)
         curves_row = curves_column.row(align = True)
@@ -409,6 +410,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         segments_label_row = segments_box.row()
         segments_label_row.scale_y = 1.5
         segments_box.label(text = "Segments: ", icon = 'DISCLOSURE_TRI_RIGHT')
+        segments_box.label(text = str(len(segments)))
 
         segments_list = segments_box.box()
         segments_row = segments_list.row(align = True)
@@ -442,7 +444,7 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         refresh_row = elements_label_row.row(align = True)
         refresh_row.alignment = 'RIGHT'
         refresh_row.operator("utmbuilder.evaluate_building", text = "Refresh", icon = 'FILE_REFRESH')
-        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME')
+        refresh_row.operator("utmbuilder.viewport_panel", text = "Live Edit", icon = 'MOD_TIME', depress = UTMBUILDER_OT_viewport_panel.is_running())
 
         main_elements_column = elements_box.column()
         self.draw_collect_objects(main_elements_column, "main_elements", main_elements)

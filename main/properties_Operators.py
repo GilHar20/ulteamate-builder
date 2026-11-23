@@ -621,6 +621,7 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         bpy.ops.object.transform_apply(location = False, rotation = False, scale = True)
         curve_obj = context.view_layer.objects.active
         curve_obj.name = self.name
+        self.name == ""
         return curve_obj
     
     def _select_curve(self, context, base_object):
@@ -668,6 +669,7 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         curve_obj.parent = base_object
         curve_obj.matrix_world = mw
         curve_obj.location = (0.0, 0.0, floor.start_height)
+        curve_obj.rotation_euler[2] = 0.0
 
         for collection in curve_obj.users_collection:
             collection.objects.unlink(curve_obj)
@@ -679,11 +681,10 @@ class UTMBUILDER_OT_add_curve_object(bpy.types.Operator):
         heighest = max([curve.height for curve in curves])
         new_curve.height = heighest
         if len(curves) > 1:
+            floor.active_curve_index = active_curve_index + 1
             curves.move(len(curves) - 1, floor.active_curve_index + 1)
-        floor.active_curve_index = active_curve_index + 1
         
         bpy.ops.utmbuilder.evaluate_building()
-        self.name == ""
         wm.utmbuilder_select_object = None
         context.view_layer.objects.active = curve_obj
         if self.mode == 'CREATE':
@@ -1230,6 +1231,8 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
         segment = curve.segments[self.segment_ID]
 
         layout = self.layout
+        layout.label(text = str(segment.ID))
+
         layout.label(text = "Fit Method: ")
         layout.prop(segment, "fit_method", expand = True)
         if segment.fit_method == 'FIXED':

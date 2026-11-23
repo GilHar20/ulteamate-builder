@@ -17,12 +17,6 @@ class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
         modifier = gn_sockets.curve_elements_modifier(curve, self.ID, self.element_type)
         return modifier
 
-    def _update_ID(self, context):
-        modifier = self._get_curve_modifier(context)
-        gn_sockets._set_socket_value(modifier, "ID", self.ID)
-        self.host_curve.update_tag()
-        return
-
     def _update_object(self, context):
         modifier = self._get_curve_modifier(context)
         gn_sockets._set_socket_value(modifier, "object", self.object)
@@ -64,7 +58,6 @@ class UTMBUILDER_PG_utm_element(bpy.types.PropertyGroup):
         default = 0,
         min = 0,
         max = 10000,
-        update = _update_ID
     )
 
     is_selected : bpy.props.BoolProperty(
@@ -655,11 +648,25 @@ class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
 
 class UTMBUILDER_PG_utm_building(bpy.types.PropertyGroup):
     def _update_base_object_name(self, context):
-        base_object = self.base_object if self.base_object else self.id_data
+        base_object = self.id_data
         if base_object and getattr(base_object, "type", None) == 'MESH':
             base_object.name = self.name + "_Constructor"
         return
-    
+
+    def _update_active_floor_index(self, context):
+        floor = self.floors[self.active_floor_index]
+
+        if context.mode != 'EDIT_CURVE':
+            return
+        if len(self.floors) == 0:
+            return
+
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.select_all(action = 'DESELECT')
+        curve_obj = floor.curves[floor.active_curve_index].curve_object
+        context.view_layer.objects.active = curve_obj
+        bpy.ops.object.editmode_toggle()
+
     ID : bpy.props.IntProperty(
         name = "Building ID",
         default = 0,
@@ -708,7 +715,8 @@ class UTMBUILDER_PG_utm_building(bpy.types.PropertyGroup):
         name = "Active Floor Index",
         default = 0,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _update_active_floor_index
     )
 
     show_segments_grid : bpy.props.BoolProperty(

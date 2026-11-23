@@ -113,7 +113,7 @@ def _sync_segments_to_curves(curve):
     if delta == 0:
         if curve.active_segment_index > len(curve.segments) - 1:
             curve.active_segment_index = len(curve.segments) - 1
-        return
+        #return
     
     if delta > 0:
         for _ in range(delta):
@@ -122,9 +122,9 @@ def _sync_segments_to_curves(curve):
         for _ in range(-delta):
             curve.segments.remove(len(curve.segments) - 1)
 
-    for seg_index, segment in enumerate(curve.segments):
-        segment.ID = seg_index
-        spline_index, factor, length = factors[seg_index]
+    for segment_index, segment in enumerate(curve.segments):
+        segment.ID = segment_index
+        spline_index, factor, length = factors[segment_index]
         element_ID, fit_method, fixed_number = _match_element_id_by_factor(spline_index, factor, old_assignments)
         segment.element_ID = element_ID if element_ID else 0
         segment.fit_method = fit_method if fit_method else 'FIT'
@@ -241,14 +241,15 @@ def _calculate_floors_start_height(context, floors, stacked):
 def _assign_curve_elements(self, context, building, curve, element_type):
     collection = building.elements_collection
     elements_collection = getattr(curve, element_type)
+    curve_obj = curve.curve_object
 
     if len(elements_collection.objects) == 0:
-        self.report({'WARNING'}, "No elements assigned. Please provide elements")
+        self.report({'WARNING'}, curve_obj.name + ": No " + element_type + " assigned")
         return
 
     for element_index, element in enumerate(elements_collection.objects):
         element.ID = element_index
-        curve_element = curve.curve_object.modifiers.new(name = "UTM.Builder_CurveElements_GN", type = "NODES")
+        curve_element = curve_obj.modifiers.new(name = "UTM.Builder_CurveElements_GN", type = "NODES")
         curve_element_gn = find_node_group.link_gn_from_library("UTM.Builder_CurveElements_GN")[0]
         curve_element.node_group = curve_element_gn
         curve_element.show_expanded = False
@@ -340,7 +341,9 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             gn_sockets._set_socket_value(curve_attributes, "floor_ceiling", curve.floor_ceiling)
             gn_sockets._set_socket_value(curve_attributes, "thickness", curve.thickness)
             gn_sockets._set_socket_value(curve_attributes, "direction_bottom", curve.direction_bottom)
+            gn_sockets._set_socket_value(curve_attributes, "floor_inset", curve.floor_inset)
             gn_sockets._set_socket_value(curve_attributes, "direction_top", curve.direction_top)
+            gn_sockets._set_socket_value(curve_attributes, "ceiling_inset", curve.ceiling_inset)
 
             gn_sockets._set_socket_value(curve_attributes, "top_material", curve.top_material)
             gn_sockets._set_socket_value(curve_attributes, "sides_material", curve.sides_material)
@@ -356,9 +359,8 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 element_id_gn = find_node_group.link_gn_from_library("UTM.Builder_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
                 segment.ID = segment_index
-                gn_sockets._set_socket_value(element_id, "segment_index", segment.ID)
-                element_id.show_expanded = False
 
+                gn_sockets._set_socket_value(element_id, "segment_index", segment.ID)
                 gn_sockets._set_socket_value(element_id, "fit_method", segment.fit_method)
                 gn_sockets._set_socket_value(element_id, "fixed_number", segment.fixed_number)
                 gn_sockets._set_socket_value(element_id, "select_method", segment.select_method)
@@ -366,6 +368,8 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 gn_sockets._set_socket_value(element_id, "sequence_offset", segment.sequence_offset)
                 gn_sockets._set_socket_value(element_id, "random_index", segment.random_index)
                 gn_sockets._set_socket_value(element_id, "element_index", segment.element_index)
+
+                element_id.show_expanded = False
 
         building.active_floor_index = old_active_floor
 
@@ -550,9 +554,8 @@ class UTMBUILDER_OT_building_settings(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, title = building.name, width = 400)
 
     def draw(self, context):
-        building = self._building(context)
-        if building is None:
-            return
+        resolved = resolve._resolve_building_object(context)
+        _, building = resolved
 
         layout = self.layout
         properties_column = layout.column(align = True)
