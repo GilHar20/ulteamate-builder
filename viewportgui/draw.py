@@ -74,16 +74,22 @@ def get_selected_segment_indices():
 
     selected = []
     flat_index = 0
-    for spline in curve_data.splines:
+    for si, spline in enumerate(curve_data.splines):
         if spline.type == 'BEZIER':
-            for point in spline.bezier_points:
+            points = spline.bezier_points
+            for i, point in enumerate(points):
+                if not spline.use_cyclic_u and (i == len(points) - 1):
+                    continue
                 if point.select_control_point:
-                    selected.append(flat_index)
+                    selected.append(i + si)
                 flat_index += 1
         else:
-            for point in spline.points:
+            points = spline.points
+            for i, point in enumerate(points):
+                if not spline.use_cyclic_u and (i == len(points) - 1):
+                    continue
                 if point.select:
-                    selected.append(flat_index)
+                    selected.append(i + si)
                 flat_index += 1
     return selected
 
@@ -98,10 +104,16 @@ def _get_curve_segments_positions():
 
     for spline in curve_data.splines:
         if spline.type == 'BEZIER':
-            for point in spline.bezier_points:
+            points = spline.bezier_points
+            for i, point in enumerate(points):
+                if not spline.use_cyclic_u and (i == len(points) - 1):
+                    continue
                 positions.append(matrix @ point.co)
         else:
-            for point in spline.points:
+            points = spline.points
+            for i, point in enumerate(points):
+                if not spline.use_cyclic_u and (i == len(points) - 1):
+                    continue
                 positions.append(matrix @ Vector(point.co[:3]))
 
     return positions
@@ -111,6 +123,7 @@ def set_element_id_for_selected(element_id):
     curve = get_active_curve()
     if curve is None:
         return
+
     for idx in get_selected_segment_indices():
         if 0 <= idx < len(curve.segments):
             curve.segments[idx].element_index = element_id

@@ -291,6 +291,11 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             return {"CANCELLED"}
         base_object, building = resolved
 
+        _toggle_editmode = False
+        if context.mode == 'EDIT_CURVE':
+            bpy.ops.object.editmode_toggle()
+            _toggle_editmode = True
+
         old_active_floor = building.active_floor_index
         floors = building.floors
 
@@ -316,6 +321,7 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 continue
             if floors[curve.floor_ID].is_linked == True:
                 continue
+            building.active_floor_index = curve.floor_ID
 
             _sync_segments_to_curves(curve)
 
@@ -353,12 +359,15 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
             _assign_curve_elements(self, context, building, curve, "main_elements")
             _assign_curve_elements(self, context, building, curve, "corner_elements")
 
-
+            
             for segment_index, segment in enumerate(curve.segments):
                 element_id = curve_obj.modifiers.new(name = "UTM.Builder_ElementID_GN", type = "NODES")
                 element_id_gn = find_node_group.link_gn_from_library("UTM.Builder_ElementID_GN")[0]
                 element_id.node_group = element_id_gn
+                element_id.show_expanded = False
+
                 segment.ID = segment_index
+                segment.curve_ID = curve.ID
 
                 gn_sockets._set_socket_value(element_id, "segment_index", segment.ID)
                 gn_sockets._set_socket_value(element_id, "fit_method", segment.fit_method)
@@ -369,9 +378,11 @@ class UTMBUILDER_OT_evaluate_building(bpy.types.Operator):
                 gn_sockets._set_socket_value(element_id, "random_index", segment.random_index)
                 gn_sockets._set_socket_value(element_id, "element_index", segment.element_index)
 
-                element_id.show_expanded = False
 
         building.active_floor_index = old_active_floor
+        if _toggle_editmode == True:
+            bpy.ops.object.editmode_toggle()
+            _toggle_editmode = False
 
         self.report({"INFO"}, "Generated %d floor(s)" % len(floors))
         return {"FINISHED"}

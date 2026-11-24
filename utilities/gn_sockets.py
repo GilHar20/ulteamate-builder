@@ -22,25 +22,16 @@ CURVE_ATTRIBUTES_SOCKETS = {
     "maximum_height": "Socket_23",
     "ID": "Socket_22",
     "main_inset": "Socket_10",
-    "floor_inset": "Socket_24",
-    "ceiling_inset": "Socket_25",
     "height": "Socket_4",
     "floor_ceiling": "Socket_5",
+    "floor_inset": "Socket_24",
+    "ceiling_inset": "Socket_25",
     "thickness": "Socket_15",
     "direction_bottom": "Socket_16",
     "direction_top": "Socket_17",
     "top_material": "Socket_19",
     "sides_material": "Socket_20",
     "bottom_material": "Socket_21",
-}
-
-CURVE_ELEMENTS_SOCKETS = {
-    "object": "Socket_4",
-    "element_type": "Socket_5",
-    "up_stretched": "Socket_6",
-    "is_empty": "Socket_9",
-    "empty_bounds": "Socket_10",
-    "correct_uv": "Socket_11",
 }
 
 SEGMENT_SOCKETS = {
@@ -52,6 +43,15 @@ SEGMENT_SOCKETS = {
     "sequence_offset": "Socket_8",
     "random_index": "Socket_9",
     "element_index": "Socket_3",
+}
+
+CURVE_ELEMENTS_SOCKETS = {
+    "object": "Socket_4",
+    "element_type": "Socket_5",
+    "up_stretched": "Socket_6",
+    "is_empty": "Socket_9",
+    "empty_bounds": "Socket_10",
+    "correct_uv": "Socket_11",
 }
 
 LINK_FLOOR_SOCKETS = {

@@ -235,6 +235,12 @@ class UTMBUILDER_PG_utm_curve_segment(bpy.types.PropertyGroup):
         default = False
     )
 
+    curve_ID : bpy.props.IntProperty(
+        name = "Curve Owner ID",
+        description = "ID of the curve owner this segment is owned by (part of curve.segments)",
+        default = -1
+    )
+
     spline_ID : bpy.props.IntProperty(
         name = "Spline ID",
         default = 0,

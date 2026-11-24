@@ -960,11 +960,16 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
-    curve_ID : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    mode : bpy.props.EnumProperty(
+        items = [
+        ('SINGLE', "Single", "Change single segment settings based on self.segment_ID", 0),
+        ('BATCH', "Batch", "Change all selected segments settings from self.segment_ID", 1),
+        ],
+        default = 'SINGLE',
+    )
 
     def execute(self, context):
-        '''This batch executes the settings, copying from floor's active_curve_index to all other is_selected curves'''
-        
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
             return {"CANCELLED"}
@@ -973,27 +978,32 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curves = floor.curves
 
-        if self.curve_ID < 0:
+        if self.curve_index < 0:
             self.report({"ERROR"}, "Invalid segment ID")
             return {"FINISHED"}
         
-        active_curve = curves[self.curve_ID]
-        selected_curves = [curve for curve in curves if curve.is_selected and curve is not active_curve]
+        if self.mode == 'SINGLE':
+            self.segment_ID = -1
+            self.report({"INFO"}, "Updated single curve settings")
+            return {"FINISHED"}
+        
+        selected_curves = [curve for curve in curves if curve.is_selected]
+        original_curve = selected_curves.pop(0)
         for curve in selected_curves:
-            curve.height = active_curve.height
-            curve.main_inset = active_curve.main_inset
-            curve.floor_inset = active_curve.floor_inset
-            curve.ceiling_inset = active_curve.ceiling_inset
-            curve.floor_ceiling = active_curve.floor_ceiling
-            curve.thickness = active_curve.thickness
-            curve.direction_bottom = active_curve.direction_bottom
-            curve.direction_top = active_curve.direction_top
-            curve.top_material = active_curve.top_material
-            curve.sides_material = active_curve.sides_material
-            curve.bottom_material = active_curve.bottom_material
-        self.curve_ID = -1
+            curve.main_inset = original_curve.main_inset if self._before['main_inset'] != original_curve.main_inset else curve.main_inset
+            curve.height = original_curve.height if self._before['height'] != original_curve.height else curve.height
+            curve.floor_ceiling = original_curve.floor_ceiling if self._before['floor_ceiling'] != original_curve.floor_ceiling else curve.floor_ceiling
+            curve.floor_inset = original_curve.floor_inset if self._before['floor_inset'] != original_curve.floor_inset else curve.floor_inset
+            curve.ceiling_inset = original_curve.ceiling_inset if self._before['ceiling_inset'] != original_curve.ceiling_inset else curve.ceiling_inset
+            curve.thickness = original_curve.thickness if self._before['thickness'] != original_curve.thickness else curve.thickness
+            curve.direction_bottom = original_curve.direction_bottom if self._before['direction_bottom'] != original_curve.direction_bottom else curve.direction_bottom
+            curve.direction_top = original_curve.direction_top if self._before['direction_top'] != original_curve.direction_top else curve.direction_top
+            curve.top_material = original_curve.top_material if self._before['top_material'] != original_curve.top_material else curve.top_material
+            curve.sides_material = original_curve.sides_material if self._before['sides_material'] != original_curve.sides_material else curve.sides_material
+            curve.bottom_material = original_curve.bottom_material if self._before['bottom_material'] != original_curve.bottom_material else curve.bottom_material
+        self.curve_index = -1
 
-        self.report({"INFO"}, "Updated settings to segments")
+        self.report({"INFO"}, "Updated settings to selected curves")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1003,10 +1013,20 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         _, building = resolved
 
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[self.curve_ID]
+        curves = floor.curves
+        curve = curves[self.curve_index]
 
-        curve.is_selected = True
-        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID)
+        if self.mode == 'SINGLE':
+            curve.is_selected = True
+            title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID)
+            return context.window_manager.invoke_props_dialog(self, title = title)
+
+        selected_curves = [curve for curve in curves if curve.is_selected]
+        curve = selected_curves.pop(0)
+        CURVE_ATTRIBUTES_SOCKETS = tuple(k for k in gn_sockets.CURVE_ATTRIBUTES_SOCKETS
+                                   if k not in ("floor_visibility", "array", "maximum_height", "ID"))
+        self._before = {name: getattr(curve, name) for name in CURVE_ATTRIBUTES_SOCKETS}
+        title = building.name + ", Floor " + str(floor.ID) + " all selected curves"
         return context.window_manager.invoke_props_dialog(self, title = title)
 
     def draw(self, context):
@@ -1016,7 +1036,11 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         _, building = resolved
 
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[self.curve_ID]
+        curves = floor.curves
+        curve = curves[self.curve_index]
+        if self.mode == 'BATCH':
+            selected_curves = [curve for curve in curves if curve.is_selected]
+            curve = selected_curves.pop(0)
 
         layout = self.layout
 
@@ -1027,8 +1051,8 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
         layout.separator(factor = 4.0, type = 'LINE')
         
         curve_fill_column = layout.column(align = True)
-        curve_fill_column.prop(curve, "height", text = "Height")
         #curve_fill_column.prop(curve, "main_inset", text = "Curve Shrink/Expand", )
+        curve_fill_column.prop(curve, "height", text = "Height")
 
         layout.separator(factor = 4.0, type = 'LINE')
 
@@ -1072,8 +1096,8 @@ class UTMBUILDER_OT_add_segment(bpy.types.Operator):
         _, building = resolved
 
         floor = building.floors[building.active_floor_index]
-        curve = floor.curves[floor.active_curve_index]
         curves = floor.curves
+        curve = curves[floor.active_curve_index]
         segment_index = curve.active_segment_index
 
         if len(curves) == 0:
@@ -1081,12 +1105,16 @@ class UTMBUILDER_OT_add_segment(bpy.types.Operator):
             return {"CANCELLED"}
 
         if len(curve.segments) == 0:
-            floor.segments.add()
+            new_segment = curve.segments.add()
+            new_segment.curve_ID = floor.active_curve_index
+            new_segment.ID = segment_index + 1
 
         else:
-            curve.segments.add()
+            new_segment = curve.segments.add()
             curve.segments.move(len(floor.segments) - 1, segment_index + 1)
             curve.active_segment_index = segment_index + 1
+            new_segment.curve_ID = floor.active_curve_inde
+            new_segment.ID = segment_index + 1
 
         return {"FINISHED"}
 
@@ -1173,11 +1201,16 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
 
-    segment_ID : bpy.props.IntProperty(default = -1)
+    segment_index : bpy.props.IntProperty(default = -1)
+    mode : bpy.props.EnumProperty(
+        items = [
+        ('SINGLE', "Single", "Change single segment settings based on self.segment_ID", 0),
+        ('BATCH', "Batch", "Change all selected segments settings from self.segment_ID", 1),
+        ],
+        default = 'SINGLE',
+    )
 
     def execute(self, context):
-        '''This batch executes the settings, copying from curve's active_segment_index to all other is_selected segments'''
-
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
             return {"CANCELLED"}
@@ -1187,23 +1220,28 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
         curve = floor.curves[floor.active_curve_index]
         segments = curve.segments
 
-        if self.segment_ID < 0:
+        if self.segment_index < 0:
             self.report({"ERROR"}, "Invalid segment ID")
             return {"FINISHED"}
         
-        segment = segments[self.segment_ID]
-        selected_segments = [seg for seg in segments if seg.is_selected and seg is not segment]
-        for seg in selected_segments:
-            seg.fit_method = segment.fit_method
-            seg.fixed_number = segment.fixed_number
-            seg.select_method = segment.select_method
-            seg.select_per_segment = segment.select_per_segment
-            seg.sequence_offset = segment.sequence_offset
-            seg.random_index = segment.random_index
-            seg.element_index = segment.element_index
-        self.segment_ID = -1
+        if self.mode == 'SINGLE':
+            self.segment_index = -1
+            self.report({"INFO"}, "Updated single segment settings")
+            return {"FINISHED"}
 
-        self.report({"INFO"}, "Updated settings to segments")
+        selected_segments = [seg for seg in segments if seg.is_selected]
+        original_segment = selected_segments.pop(0)
+        for segment in selected_segments:
+            segment.fit_method = original_segment.fit_method if self._before['fit_method'] != original_segment.fit_method else segment.fit_method
+            segment.fixed_number = original_segment.fixed_number if self._before['fixed_number'] != original_segment.fixed_number else segment.fixed_number
+            segment.select_method = original_segment.select_method if self._before['select_method'] != original_segment.select_method else segment.select_method
+            segment.select_per_segment = original_segment.select_per_segment if self._before['select_per_segment'] != original_segment.select_per_segment else segment.select_per_segment
+            segment.sequence_offset = original_segment.sequence_offset if self._before['sequence_offset'] != original_segment.sequence_offset else segment.sequence_offset
+            segment.random_index = original_segment.random_index if self._before['random_index'] != original_segment.random_index else segment.random_index
+            segment.element_index = original_segment.element_index if self._before['element_index'] != original_segment.element_index else segment.element_index
+        self.segment_index = -1
+
+        self.report({"INFO"}, "Updated settings to selected segments")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1214,10 +1252,19 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        segment = curve.segments[self.segment_ID]
+        segments = curve.segments
+        segment = segments[self.segment_index]
+        
+        if self.mode == 'SINGLE':
+            segment.is_selected = True
+            title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_ID) 
+            return context.window_manager.invoke_props_dialog(self, title = title)
 
-        segment.is_selected = True
-        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_ID) 
+        selected_segments = [seg for seg in segments if seg.is_selected]
+        segment = selected_segments.pop(0)
+        SEGMENT_SOCKETS = tuple(k for k in gn_sockets.SEGMENT_SOCKETS if k != "segment_index")
+        self._before = {name: getattr(segment, name) for name in SEGMENT_SOCKETS}
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", all selected segments"
         return context.window_manager.invoke_props_dialog(self, title = title)
     
     def draw(self, context):
@@ -1228,10 +1275,13 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
-        segment = curve.segments[self.segment_ID]
+        segments = curve.segments
+        segment = segments[self.segment_index]
+        if self.mode == 'BATCH':
+            selected_segments = [seg for seg in segments if seg.is_selected]
+            segment = selected_segments.pop(0)
 
         layout = self.layout
-        layout.label(text = str(segment.ID))
 
         layout.label(text = "Fit Method: ")
         layout.prop(segment, "fit_method", expand = True)
@@ -1292,10 +1342,6 @@ class UTMBUILDER_OT_add_elements(bpy.types.Operator):
         if self.element_type == "corner_elements":
             position += len(getattr(curve, "main_elements").objects)
         obj = element.object
-
-        bpy.ops.object.select_all(action='DESELECT')
-        curve_object.select_set(True)
-        bpy.context.view_layer.objects.active = curve_object
 
         curve_element = curve_object.modifiers.new(name = "UTM.Builder_CurveElements_GN", type = "NODES")
         curve_element.node_group = curve_elements_gn
@@ -1652,18 +1698,23 @@ class UTMBUILDER_OT_select_elements(bpy.types.Operator):
     
 
 class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
-    bl_idname = "utmbuilder.elements_settings"
+    bl_idname = "utmbuilder.element_settings"
     bl_label = "Elements Settings"
     bl_description = "Set selected elements settings"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
  
     element_type : bpy.props.StringProperty(options = {"HIDDEN"})
-    element_ID : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    element_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+    mode : bpy.props.EnumProperty(
+        items = [
+        ('SINGLE', "Single", "Change single segment settings based on self.segment_ID", 0),
+        ('BATCH', "Batch", "Change all selected segments settings from self.segment_ID", 1),
+        ],
+        default = 'SINGLE',
+    )
 
     def execute(self, context):
-        '''This batch executes the settings, copying from curve's active_segment_index to all other is_selected segments'''
-
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
             return {"CANCELLED"}
@@ -1673,20 +1724,25 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
         curve = floor.curves[floor.active_curve_index]
         elements_group = getattr(curve, self.element_type)
 
-        if self.element_ID < 0:
-            self.report({"ERROR"}, "Invalid segment ID")
+        if self.element_index < 0:
+            self.report({"ERROR"}, "Invalid element ID")
+            return {"FINISHED"}
+
+        if self.mode == 'SINGLE':
+            self.element_index = -1
+            self.report({"INFO"}, "Updated single " + self.element_type + " settings")
             return {"FINISHED"}
         
-        active_element = elements_group.objects[self.element_ID]
-        selected_elements = [element for element in elements_group.objects if element.is_selected and element is not active_element]
+        selected_elements = [element for element in elements_group.objects if element.is_selected]
+        original_element = selected_elements.pop(0)
         for element in selected_elements:
-            element.is_empty = active_element.is_empty
-            element.empty_bounds = active_element.empty_bounds
-            element.correct_uv = active_element.correct_uv
-            element.up_stretched = active_element.up_stretched
-        self.element_ID = -1
+            element.is_empty = original_element.is_empty
+            element.empty_bounds = original_element.empty_bounds
+            element.correct_uv = original_element.correct_uv
+            element.up_stretched = original_element.up_stretched
+        self.element_index = -1
 
-        self.report({"INFO"}, "Updated settings to segments")
+        self.report({"INFO"}, "Updated settings to selected elements")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -1698,12 +1754,22 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
         elements_group = getattr(curve, self.element_type)
-        element = elements_group.objects[self.element_ID]
+        elements = elements_group.objects
+        element = elements[self.element_index]
 
-        element.is_selected = True
-        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type
+        if self.mode == 'SINGLE':
+            element.is_selected = True
+            title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type
+            return context.window_manager.invoke_props_dialog(self, title = title)
+
+        selected_segments = [element for element in elements if element.is_selected]
+        element = selected_segments.pop(0)
+        CURVE_ELEMENTS_SOCKETS = tuple(k for k in gn_sockets.CURVE_ELEMENTS_SOCKETS
+                                       if k not in ("object", "element_type"))
+        self._before = {name: getattr(element, name) for name in CURVE_ELEMENTS_SOCKETS}
+        title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", " + self.element_type + ", all selected elements"
         return context.window_manager.invoke_props_dialog(self, title = title)
-    
+
     def draw(self, context):
         resolved = resolve._resolve_building_object(context)
         if resolved is None:
@@ -1712,11 +1778,14 @@ class UTMBUILDER_OT_elements_settings(bpy.types.Operator):
 
         floor = building.floors[building.active_floor_index]
         curve = floor.curves[floor.active_curve_index]
+        elements_group = getattr(curve, self.element_type)
+        elements = elements_group.objects
+        element = elements[self.element_index]
+        if self.mode == 'BATCH':
+            selected_segments = [element for element in elements if element.is_selected]
+            element = selected_segments.pop(0)
 
         layout = self.layout
-
-        elements_group = getattr(curve, self.element_type)
-        element = elements_group.objects[self.element_ID]
 
         empty_column = layout.column(align = True)
         if element.is_empty == True:

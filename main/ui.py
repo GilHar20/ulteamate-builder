@@ -3,7 +3,7 @@ from .. import icons
 from .. utilities import resolve_building_object as resolve
 from .. utilities.preferences import UTMBUILDER_Preferences
 from .. utilities import asset_library_setup as asset_library
-from ..viewportgui.operators import UTMBUILDER_OT_viewport_panel
+from .. viewportgui.operators import UTMBUILDER_OT_viewport_panel
 
 
 
@@ -93,7 +93,8 @@ class UTMBUILDER_UL_curve_list(bpy.types.UIList):
         row.label(text = curve_name, icon = 'CURVE_DATA')
 
         curve_settings = row.operator("utmbuilder.curve_settings", text = "", icon = 'PREFERENCES', emboss = False)
-        curve_settings.curve_ID = index
+        curve_settings.curve_index = index
+        curve_settings.mode = 'SINGLE'
 
         select_curve = row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
         select_curve.floor_index = data.ID
@@ -128,9 +129,10 @@ class UTMBUILDER_UL_element_list(bpy.types.UIList):
             text = obj_name
         row.label(text = text, icon = 'OBJECT_DATA')
 
-        settings = row.operator("utmbuilder.elements_settings", text = "", icon = 'PREFERENCES', emboss = False)
-        settings.element_type = item.element_type
-        settings.element_ID = index
+        elements_settings = row.operator("utmbuilder.element_settings", text = "", icon = 'PREFERENCES', emboss = False)
+        elements_settings.element_type = item.element_type
+        elements_settings.element_index = index
+        elements_settings.mode = 'SINGLE'
 
         select_object = row.operator("utmbuilder.select_element_object", text = "", icon = "RESTRICT_SELECT_OFF", emboss = False)
         select_object.element_type = item.element_type
@@ -236,14 +238,14 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         else:
             return True
 
-    def draw_collect_objects(self, layout, element_type, elements_colletion):
+    def draw_collect_objects(self, layout, element_type, elements_group):
         objects_row = layout.row(align = True)
         objects_row.template_list(
             "UTMBUILDER_UL_element_list",
             "UTMBUILDER_elements_list",
-            elements_colletion,
+            elements_group,
             "objects",
-            elements_colletion,
+            elements_group,
             "active_element_index",
             rows = 4
         )
@@ -265,6 +267,20 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         move_up = objects_move.operator("utmbuilder.reorder_element", text = "", icon = 'EVENT_DOWN_ARROW')
         move_up.element_type = element_type
         move_up.up_down = True
+
+        select_column = layout.column(align = True)
+        select_row = select_column.row(align = True)
+        select_main = select_row.operator('utmbuilder.select_elements', text = "Select All", icon = 'CHECKBOX_HLT')
+        select_main.mode = 'SELECT'
+        select_main.element_type = "main_elements"
+        deselect_main = select_row.operator('utmbuilder.select_elements', text = "Deselect All", icon = 'CHECKBOX_DEHLT')
+        deselect_main.mode = 'DESELECT'
+        deselect_main.element_type = "main_elements"
+
+        elements_settings = select_column.operator("utmbuilder.element_settings", text = "Batch Segment Settings")
+        elements_settings.element_type = element_type
+        elements_settings.element_index = elements_group.active_element_index
+        elements_settings.mode = 'BATCH'
 
     def draw(self, context):
         layout = self.layout
@@ -387,11 +403,16 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         curve_addremove.operator("utmbuilder.add_curve_object", text = "", icon = "ADD")
         curve_addremove.operator("utmbuilder.remove_curve_object", text = "", icon = "REMOVE")
 
-        select_row = curves_box.row()
+        select_column = curves_box.column(align = True)
+        select_row = select_column.row(align = True)
         select_segments = select_row.operator('utmbuilder.select_curves', text = "Select All", icon = 'CHECKBOX_HLT')
         select_segments.mode = 'SELECT'
         deselect_segments = select_row.operator('utmbuilder.select_curves', text = "Deselect All", icon = 'CHECKBOX_DEHLT')
         deselect_segments.mode = 'DESELECT'
+
+        curve_settings = select_column.operator("utmbuilder.curve_settings", text = "Batch Segment Settings")
+        curve_settings.curve_index = active_floor.active_curve_index
+        curve_settings.mode = 'BATCH'
 
         if len(active_floor.curves) <= 0:
             curves_column.label(text = "No curves added", icon = 'INFO')
@@ -410,7 +431,6 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         segments_label_row = segments_box.row()
         segments_label_row.scale_y = 1.5
         segments_box.label(text = "Segments: ", icon = 'DISCLOSURE_TRI_RIGHT')
-        segments_box.label(text = str(len(segments)))
 
         segments_list = segments_box.box()
         segments_row = segments_list.row(align = True)
@@ -424,13 +444,20 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
                 seg_row = grid.row(align = True)
                 seg_row.prop(segment, "is_selected", text = "", icon = icon)
                 segment_settings = seg_row.operator("utmbuilder.segment_settings", text = str(segment.ID), depress = segment.is_selected)
-                segment_settings.segment_ID = segment.ID
+                segment_settings.segment_index = segment.ID
+                segment_settings.mode = 'SINGLE'
 
-        select_row = segments_list.row()
+        select_column = segments_list.column(align = True)
+        select_row = select_column.row(align = True)
         select_segments = select_row.operator('utmbuilder.select_segments', text = "Select All", icon = 'CHECKBOX_HLT')
         select_segments.mode = 'SELECT'
         deselect_segments = select_row.operator('utmbuilder.select_segments', text = "Deselect All", icon = 'CHECKBOX_DEHLT')
         deselect_segments.mode = 'DESELECT'
+
+        segment_settings = select_column.operator("utmbuilder.segment_settings", text = "Batch Segment Settings")
+        segment_settings.segment_index = active_curve.active_segment_index
+        segment_settings.mode = 'BATCH'
+
 
         # Elements
         main_elements = active_curve.main_elements
@@ -449,14 +476,6 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         main_elements_column = elements_box.column()
         self.draw_collect_objects(main_elements_column, "main_elements", main_elements)
 
-        select_row = elements_box.row()
-        select_main = select_row.operator('utmbuilder.select_elements', text = "Select All", icon = 'CHECKBOX_HLT')
-        select_main.mode = 'SELECT'
-        select_main.element_type = "main_elements"
-        deselect_main = select_row.operator('utmbuilder.select_elements', text = "Deselect All", icon = 'CHECKBOX_DEHLT')
-        deselect_main.mode = 'DESELECT'
-        deselect_main.element_type = "main_elements"
-
 
         # Corner Elements Settings:
         corner_elements = active_curve.corner_elements
@@ -467,15 +486,6 @@ class UTMBUILDER_PT_building_settings_panel(bpy.types.Panel):
         corner_elements_column = elements_box.column()
         self.draw_collect_objects(corner_elements_column, "corner_elements", corner_elements)
             
-        select_row = elements_box.row()
-        select_corners = select_row.operator('utmbuilder.select_elements', text = "Select All", icon = 'CHECKBOX_HLT')
-        select_corners.mode = 'SELECT'
-        select_corners.element_type = "corner_elements"
-        deselect_corners = select_row.operator('utmbuilder.select_elements', text = "Deselect All", icon = 'CHECKBOX_DEHLT')
-        deselect_corners.mode = 'DESELECT'
-        deselect_corners.element_type = "corner_elements"
-
-
         # Interval Elements Settings:
         #settings_box.separator()
         #settings_box.label(text = "Interval: ")
