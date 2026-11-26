@@ -26,6 +26,7 @@ classes = [
     properties_Operators.UTMBUILDER_OT_replace_curve_object,
     properties_Operators.UTMBUILDER_OT_stack_curve_object,
     properties_Operators.UTMBUILDER_OT_select_curves,
+    properties_Operators.UTMBUILDER_OT_select_curve_object,
     properties_Operators.UTMBUILDER_OT_curve_settings,
 
     properties_Operators.UTMBUILDER_OT_add_segment,

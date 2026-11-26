@@ -33,7 +33,6 @@ class UTMBUILDER_UL_floor_list(bpy.types.UIList):
 
             select_curve = op_row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
-            select_curve.curve_index = -1
             visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
             op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
             return
@@ -52,7 +51,6 @@ class UTMBUILDER_UL_floor_list(bpy.types.UIList):
             floor_settings.index = index
             select_curve = op_row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
-            select_curve.curve_index = -1
             visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
             op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
             return
@@ -64,7 +62,6 @@ class UTMBUILDER_UL_floor_list(bpy.types.UIList):
             floor_settings.index = index
             select_curve = op_row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
             select_curve.floor_index = index
-            select_curve.curve_index = -1
             visibility_icon = 'HIDE_OFF' if item.floor_visibility else 'HIDE_ON'
             op_row.prop(item, "floor_visibility", text = "", icon = visibility_icon, emboss = False)
 
@@ -85,6 +82,21 @@ class UTMBUILDER_UL_floor_list(bpy.types.UIList):
 
 
 class UTMBUILDER_UL_curve_list(bpy.types.UIList):
+    def filter_items(self, context, data, propname):
+        curves = getattr(data, propname)
+        flt_flags = [self.bitflag_filter_item] * len(curves)
+
+        def sort_key(index):
+            curve = curves[index]
+            if curve.curve_object is None:
+                return (True, 0.0)
+            top = round(curve.curve_object.location[2] + curve.height, 2)
+            return (False, top)
+
+        flt_neworder = sorted(range(len(curves)), key = sort_key)
+        flt_neworder.reverse()
+        return flt_flags, flt_neworder
+
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row(align = True)
         icon = 'CHECKBOX_HLT' if item.is_selected else 'CHECKBOX_DEHLT'
@@ -92,16 +104,20 @@ class UTMBUILDER_UL_curve_list(bpy.types.UIList):
         curve_name = item.curve_object.name if item.curve_object else "(none)"
         row.label(text = curve_name, icon = 'CURVE_DATA')
 
+        reaching_row = row.row()
+        reaching_row.alignment = 'RIGHT'
+        reaching_height = "  " + str(round(item.curve_object.location[2] + item.height, 2)) + "  "
+        reaching_row.label(text = reaching_height)
+
         curve_settings = row.operator("utmbuilder.curve_settings", text = "", icon = 'PREFERENCES', emboss = False)
         curve_settings.curve_index = index
         curve_settings.mode = 'SINGLE'
 
-        select_curve = row.operator("utmbuilder.select_floor_curves", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
-        select_curve.floor_index = data.ID
-        select_curve.curve_index = index
+        #select_curve = row.operator("utmbuilder.select_curve_object", text = "", icon = 'RESTRICT_SELECT_OFF', emboss = False)
+        #select_curve.curve_index = index
 
-        replace_curve = row.operator("utmbuilder.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
-        replace_curve.index = index
+        #replace_curve = row.operator("utmbuilder.replace_curve_object", text = "", icon = 'DECORATE_OVERRIDE', emboss = False)
+        #replace_curve.index = index
 
 
 class UTMBUILDER_UL_segment_list(bpy.types.UIList):

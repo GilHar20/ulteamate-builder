@@ -257,14 +257,8 @@ class UTMBUILDER_OT_select_floor_curves(bpy.types.Operator):
 
 
     floor_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
-    curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
 
     def _select_set(self, context, curve_objects):
-        if self.curve_index > -1:
-            context.view_layer.objects.active = curve_objects[self.curve_index].curve_object
-            curve_objects[self.curve_index].curve_object.select_set(True)
-            return
-
         context.view_layer.objects.active = curve_objects[0].curve_object
         for curve in curve_objects:
             curve.curve_object.select_set(True)
@@ -320,9 +314,6 @@ class UTMBUILDER_OT_select_floor_curves(bpy.types.Operator):
             self._select_set(context, curve_objects)
 
         building.active_floor_index = active_floor_index
-        if self.curve_index > -1:
-            building.floors[active_floor_index].active_curve_index = self.curve_index
-
         return{"FINISHED"}
 
 
@@ -953,6 +944,38 @@ class UTMBUILDER_OT_select_curves(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class UTMBUILDER_OT_select_curve_object(bpy.types.Operator):
+    bl_idname = "utmbuilder.select_curve_object"
+    bl_label = "Select Curve Object"
+    bl_description = "Select curve object"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+
+    curve_index : bpy.props.IntProperty(default = -1, options = {"HIDDEN"})
+
+    def execute(self, context):
+        resolved = resolve._resolve_building_object(context)
+        if resolved is None:
+            return {"CANCELLED"}
+        _, building = resolved
+
+        floor = building.floors[building.active_floor_index]
+        curve = floor.curves[self.curve_index]
+        curve_obj = curve.curve_object
+
+        if context.mode == 'EDIT_CURVE':
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            bpy.ops.object.select_all(action = 'DESELECT')
+            curve_obj.select_set(True)
+            bpy.ops.object.mode_set(mode = 'EDIT')
+
+        elif context.mode == 'OBJECT':
+            bpy.ops.object.select_all(action = 'DESELECT')
+            curve_obj.select_set(True)
+        
+        return {"FINISHED"}
+
+    
 class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
     bl_idname = "utmbuilder.curve_settings"
     bl_label = "Curve Settings"
@@ -1050,9 +1073,11 @@ class UTMBUILDER_OT_curve_settings(bpy.types.Operator):
 
         layout.separator(factor = 4.0, type = 'LINE')
         
-        curve_fill_column = layout.column(align = True)
-        #curve_fill_column.prop(curve, "main_inset", text = "Curve Shrink/Expand", )
-        curve_fill_column.prop(curve, "height", text = "Height")
+        curve_height_column = layout.column(align = True)
+        #curve_height_column.prop(curve, "main_inset", text = "Curve Shrink/Expand", )
+        reaching_height = str(round(curve.curve_object.location[2] + curve.height, 2))
+        curve_height_column.label(text = "Reaching height: " + reaching_height)
+        curve_height_column.prop(curve, "height", text = "Height")
 
         layout.separator(factor = 4.0, type = 'LINE')
 
@@ -1257,7 +1282,7 @@ class UTMBUILDER_OT_segment_settings(bpy.types.Operator):
         
         if self.mode == 'SINGLE':
             segment.is_selected = True
-            title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_ID) 
+            title = building.name + ", Floor " + str(floor.ID) + ", Curve " + str(curve.ID) + ", segment " + str(self.segment_index) 
             return context.window_manager.invoke_props_dialog(self, title = title)
 
         selected_segments = [seg for seg in segments if seg.is_selected]

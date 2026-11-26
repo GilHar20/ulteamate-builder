@@ -561,6 +561,9 @@ class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
         operators._calculate_floors_start_height(context, building.floors, False)
         return
 
+    def _update_active_curve_index(self, context):
+        bpy.ops.utmbuilder.select_curve_object(curve_index = self.ID - 1)
+
     ID : bpy.props.IntProperty(
         name = "Floor ID",
         default = 0,
@@ -648,7 +651,8 @@ class UTMBUILDER_PG_utm_floor(bpy.types.PropertyGroup):
         name = "Active Floor Index",
         default = 0,
         min = 0,
-        max = 10000
+        max = 10000,
+        update = _update_active_curve_index
     )
 
 
